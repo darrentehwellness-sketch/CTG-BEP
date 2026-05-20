@@ -1542,31 +1542,96 @@ function updateStorageNote(){
 }
 
 /* ============ EVENTS ============ */
+/* When the user is typing into an input, we must NOT rebuild the tbody — that
+   would destroy the focused input element and the next keystroke would be lost.
+   Instead, update state, patch dependent cells in place, and call renderSummary()
+   for downstream tables (Budget, BE) and KPIs which contain no editable inputs.
+   Full re-renders only happen for select-driven structural changes. */
+function patchProductRowMargin(i){
+  const p = state.products[i];
+  const m = p.selling > 0 ? (p.selling - p.purchase) / p.selling : 0;
+  const row = document.querySelector('#productTable tbody tr:nth-child(' + (i+1) + ')');
+  if(row){
+    const marginCell = row.querySelector('td.pct');
+    if(marginCell) marginCell.textContent = fmtPct(m);
+  }
+}
+function patchCostRowAmount(i){
+  const c = state.costs[i];
+  const amt = (Number(c.qty)||0) * (Number(c.unit)||0);
+  const row = document.querySelector('#costTable tbody tr:nth-child(' + (i+1) + ')');
+  if(row){
+    const amtCell = row.querySelector('td.num');
+    if(amtCell) amtCell.textContent = fmt(amt);
+  }
+}
+
 document.addEventListener('input', e=>{
   const tgt=e.target;
   if(tgt.id==='salesTarget'){state.salesTarget=Number(tgt.value)||0; renderSummary(); return;}
   if(tgt.id==='actualSales'){state.actualSales=Number(tgt.value)||0; renderSummary(); return;}
+
+  // ===== Product table =====
   if(tgt.dataset.pi!==undefined){
     const i=+tgt.dataset.pi, f=tgt.dataset.field;
     state.products[i][f] = (f==='name') ? tgt.value : (Number(tgt.value)||0);
-    if(f==='purchase'){state.costs.forEach(c=>{if(c.type==='Product' && c.productIndex===i){c.unit=Number(tgt.value)||0;c.item=state.products[i].name;}});}
-    if(f==='name'){state.costs.forEach(c=>{if(c.type==='Product' && c.productIndex===i) c.item=tgt.value;});}
-    renderCosts(); renderSummary(); renderProducts();
+
+    // Propagate name changes to linked cost items (and their visible inputs).
+    if(f==='name'){
+      state.costs.forEach((c, ci)=>{
+        if(c.type==='Product' && c.productIndex===i){
+          c.item = tgt.value;
+          const costInput = document.querySelector('#costTable input[data-ci="'+ci+'"][data-field="item"]');
+          if(costInput && document.activeElement !== costInput) costInput.value = tgt.value;
+        }
+      });
+    }
+    // Propagate purchase changes to linked cost.unit, also patch each cost row's amount.
+    if(f==='purchase'){
+      const newVal = Number(tgt.value)||0;
+      state.costs.forEach((c, ci)=>{
+        if(c.type==='Product' && c.productIndex===i){
+          c.unit = newVal;
+          c.item = state.products[i].name;
+          const costUnitInput = document.querySelector('#costTable input[data-ci="'+ci+'"][data-field="unit"]');
+          if(costUnitInput && document.activeElement !== costUnitInput) costUnitInput.value = newVal;
+          patchCostRowAmount(ci);
+        }
+      });
+    }
+    // Margin % cell on this product row depends on purchase + selling.
+    if(f==='purchase' || f==='selling') patchProductRowMargin(i);
+
+    renderSummary();
     return;
   }
+
+  // ===== Cost table =====
   if(tgt.dataset.ci!==undefined){
     const i=+tgt.dataset.ci, f=tgt.dataset.field;
-    if(f==='productIndex'){
-      const v=tgt.value;
-      state.costs[i].productIndex = v===''?null:Number(v);
-      if(state.costs[i].productIndex!==null && state.products[state.costs[i].productIndex]){
-        state.costs[i].unit=state.products[state.costs[i].productIndex].purchase;
-        state.costs[i].item=state.products[state.costs[i].productIndex].name;
+
+    // Select-driven changes: structural (pill colors, productIndex dropdown
+    // appearing/disappearing), so a full renderCosts() is correct here — and
+    // selects don't suffer the focus-loss problem text inputs do.
+    if(f==='productIndex' || f==='category' || f==='type'){
+      if(f==='productIndex'){
+        const v=tgt.value;
+        state.costs[i].productIndex = v===''?null:Number(v);
+        if(state.costs[i].productIndex!==null && state.products[state.costs[i].productIndex]){
+          state.costs[i].unit = state.products[state.costs[i].productIndex].purchase;
+          state.costs[i].item = state.products[state.costs[i].productIndex].name;
+        }
+      } else {
+        state.costs[i][f] = tgt.value;
       }
-    } else {
-      state.costs[i][f] = (['item','category','type'].includes(f)) ? tgt.value : (Number(tgt.value)||0);
+      renderCosts(); renderSummary();
+      return;
     }
-    renderCosts(); renderSummary();
+
+    // Text/number typing — patch in place, no re-render.
+    state.costs[i][f] = (f==='item') ? tgt.value : (Number(tgt.value)||0);
+    if(f==='qty' || f==='unit') patchCostRowAmount(i);
+    renderSummary();
   }
 });
 document.addEventListener('click', e=>{
