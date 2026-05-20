@@ -855,16 +855,17 @@
   <div class="auth-card">
     <button class="auth-close" type="button" data-auth-close aria-label="Close">×</button>
 
-    <!-- Tabs (visible only in signin/signup states) -->
-    <div class="auth-tabs" id="authTabs">
+    <!-- Tabs hidden — this is an invite-only deployment. Public signup is disabled.
+         Leave the markup in place so re-enabling later is a one-line change. -->
+    <div class="auth-tabs" id="authTabs" style="display:none;">
       <button type="button" class="auth-tab active" data-auth-goto="signin"><span data-i18n="auth_signin">Sign In</span></button>
       <button type="button" class="auth-tab" data-auth-goto="signup"><span data-i18n="auth_signup">Sign Up</span></button>
     </div>
 
     <!-- Sign In -->
     <form class="auth-state active" data-auth-state="signin" autocomplete="on">
-      <h3 data-i18n="auth_signin_title">Welcome back</h3>
-      <p class="sub" data-i18n="auth_signin_sub">Sign in to sync your scenarios across devices.</p>
+      <h3 data-i18n="auth_signin_title">Sign in to CTG BEP</h3>
+      <p class="sub" data-i18n="auth_signin_sub">Invite-only. If you haven't received an invitation, contact your CTG admin.</p>
       <div class="auth-field">
         <label data-i18n="auth_email">Email</label>
         <input type="email" name="email" required autocomplete="email"/>
@@ -1008,8 +1009,9 @@ const I18N = {
     sign_in:"Sign in", sign_out:"Sign out",
     auth_cloud:"Cloud sync", auth_local:"Local only", auth_offline:"Offline mode",
     auth_signin:"Sign In", auth_signup:"Sign Up", auth_create:"Create account",
-    auth_signin_title:"Welcome back", auth_signin_sub:"Sign in to sync your scenarios across devices.",
+    auth_signin_title:"Sign in to CTG BEP", auth_signin_sub:"Invite-only. If you haven't received an invitation, contact your CTG admin.",
     auth_signup_title:"Create your CTG account", auth_signup_sub:"Free. Your scenarios sync across devices.",
+    auth_welcome_title:"Welcome to CTG BEP", auth_welcome_sub:"You've been invited. Set a password to finish setting up your account.",
     auth_email:"Email", auth_password:"Password", auth_password2:"Confirm password",
     auth_forgot:"Forgot password?",
     auth_forgot_title:"Reset your password",
@@ -1090,8 +1092,9 @@ const I18N = {
     sign_in:"登录", sign_out:"退出登录",
     auth_cloud:"云端同步", auth_local:"仅本机", auth_offline:"离线模式",
     auth_signin:"登录", auth_signup:"注册", auth_create:"创建账户",
-    auth_signin_title:"欢迎回来", auth_signin_sub:"登录后可跨设备同步您的方案。",
+    auth_signin_title:"登录 CTG BEP", auth_signin_sub:"仅限受邀用户。如未收到邀请，请联系 CTG 管理员。",
     auth_signup_title:"创建 CTG 账户", auth_signup_sub:"免费。方案可跨设备同步。",
+    auth_welcome_title:"欢迎使用 CTG BEP", auth_welcome_sub:"您已被邀请。请设置密码完成账户设置。",
     auth_email:"邮箱", auth_password:"密码", auth_password2:"确认密码",
     auth_forgot:"忘记密码？",
     auth_forgot_title:"重设密码",
@@ -1382,14 +1385,19 @@ function setAuthModalState(name){
   modal.querySelectorAll('.auth-state').forEach(el=>{
     el.classList.toggle('active', el.dataset.authState === name);
   });
-  // tabs are only meaningful for signin/signup
-  const tabs = document.getElementById('authTabs');
-  const showTabs = (name === 'signin' || name === 'signup');
-  tabs.style.display = showTabs ? '' : 'none';
-  if(showTabs){
-    tabs.querySelectorAll('.auth-tab').forEach(b=>{
-      b.classList.toggle('active', b.dataset.authGoto === name);
-    });
+  // Tabs stay hidden — this is invite-only. Public signup is disabled.
+  document.getElementById('authTabs').style.display = 'none';
+  // Update the recovery-state title/sub if we're coming from an invite (set by openAuthModal).
+  if(name === 'recovery'){
+    const titleEl = document.querySelector('.auth-state[data-auth-state="recovery"] h3');
+    const subEl   = document.querySelector('.auth-state[data-auth-state="recovery"] .sub');
+    if(window.__authInviteMode){
+      titleEl.textContent = t('auth_welcome_title');
+      subEl.textContent   = t('auth_welcome_sub');
+    } else {
+      titleEl.textContent = t('auth_new_pwd_title');
+      subEl.textContent   = t('auth_new_pwd_sub');
+    }
   }
   // clear any visible errors when moving between states
   modal.querySelectorAll('[data-auth-error]').forEach(e=>{ e.classList.remove('show'); e.textContent=''; });
@@ -1495,6 +1503,11 @@ document.querySelector('.auth-state[data-auth-state="recovery"]').addEventListen
   submit.disabled = true;
   try {
     await CTG.updatePassword(password);
+    window.__authInviteMode = false;
+    // Clean the URL hash so the invite/recovery flow doesn't re-trigger on refresh
+    if(window.history && window.history.replaceState){
+      window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+    }
     closeAuthModal();
     showToast(t('auth_pwd_updated'), 'success');
   } catch (err) {
@@ -1894,13 +1907,26 @@ async function init(){
   const savedLang = CTG.loadLang();
   if(savedLang) setLang(savedLang); else renderAuthUI();
 
+  // Detect invitation links — Supabase appends ?type=invite or #type=invite to the URL.
+  // We set a flag so the recovery modal renders with "Welcome" messaging instead of
+  // "Reset your password".
+  const _hash   = (window.location.hash   || '').replace(/^#/, '');
+  const _query  = (window.location.search || '').replace(/^\?/, '');
+  const _params = new URLSearchParams(_hash + '&' + _query);
+  window.__authInviteMode = (_params.get('type') === 'invite');
+
   // Subscribe to auth changes BEFORE init() so we don't miss the first event.
   CTG.onAuth(async ({ event, user }) => {
     renderAuthUI();
     updateStorageNote();
-    // Password reset link returns the user with a recovery session — show the
-    // "set new password" form immediately.
+    // Password reset link → "set new password" form.
     if(event === 'PASSWORD_RECOVERY'){
+      window.__authInviteMode = false;
+      openAuthModal('recovery');
+    }
+    // Invitation link → same form, "Welcome" copy. The user is signed in but
+    // has no password yet. After they set one, they can use Sign In normally.
+    if(event === 'SIGNED_IN' && window.__authInviteMode){
       openAuthModal('recovery');
     }
     try {
