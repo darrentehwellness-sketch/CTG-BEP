@@ -1,0 +1,1930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CTG – Exhibition Event Break-Even Calculator</title>
+<meta name="description" content="Plan exhibition budget, track cost structure (Fixed / Variable / Product), calculate Break-Even Point in real-time. Sign in with Google to save scenarios across devices. By CTG (37 Celsius Group)." />
+<meta name="author" content="CTG - 37 Celsius Group" />
+<meta name="theme-color" content="#0E2438" />
+
+<!-- Favicon -->
+<link rel="icon" type="image/png" href="assets/img/ctg_logo.png" />
+<link rel="apple-touch-icon" href="assets/img/ctg_logo.png" />
+
+<!-- Open Graph -->
+<meta property="og:type" content="website" />
+<meta property="og:title" content="CTG Exhibition Break-Even Calculator" />
+<meta property="og:description" content="Plan exhibition budget · Track cost structure · Calculate BEP in real-time · Cloud-synced scenarios" />
+<meta property="og:image" content="assets/img/ctg_logo.png" />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="CTG Exhibition Break-Even Calculator" />
+<meta name="twitter:description" content="Plan exhibition budget · Track cost structure · Calculate BEP" />
+<meta name="twitter:image" content="assets/img/ctg_logo.png" />
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="assets/js/supabase-client.js"></script>
+<script>
+  // Dark theme defaults for Chart.js
+  window.addEventListener('DOMContentLoaded',()=>{
+    if(typeof Chart!=='undefined'){
+      Chart.defaults.color = '#A8B5CC';
+      Chart.defaults.borderColor = 'rgba(168,181,204,.12)';
+      Chart.defaults.font.family = "'Inter','Noto Sans SC',sans-serif";
+    }
+  });
+</script>
+<style>
+  :root{
+    /* === CTG Brand Palette (Dark Theme) === */
+    --navy:#1F3A5F;
+    --navy-deep:#0E2438;
+    --navy-soft:#2A4F7C;
+    --sky:#5B9BD5;
+    --sky-soft:#8FB8DC;
+    --coral:#E85D3C;
+    --coral-deep:#C04A2E;
+    --coral-soft:#F08570;
+
+    --primary:#E85D3C;
+    --primary-dark:#C04A2E;
+    --primary-light:#F08570;
+    --secondary:#5B9BD5;
+    --accent:#5B9BD5;
+    --accent-dark:#3D7AB0;
+    --success:#10b981;
+    --danger:#ef4444;
+    --warn:#E85D3C;
+    --info:#5B9BD5;
+
+    --bg-deep:#070D17;
+    --bg-base:#0C1421;
+    --surface:#131C2D;
+    --surface-soft:#1A2438;
+    --surface-hover:#1F2B42;
+    --border:#1F2B42;
+    --border-strong:#2A3A56;
+
+    --text:#E8EEF7;
+    --text-soft:#A8B5CC;
+    --muted:#6B7A93;
+    --row-alt:#161F32;
+
+    --shadow-sm:0 1px 3px rgba(0,0,0,.4);
+    --shadow:0 6px 24px rgba(0,0,0,.4);
+    --shadow-lg:0 20px 60px -15px rgba(232,93,60,.35);
+    --shadow-navy:0 20px 50px -10px rgba(0,0,0,.6);
+    --radius:14px;
+    --radius-sm:8px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Inter','Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;
+    background:var(--bg-base);
+    color:var(--text);
+    font-size:14px;
+    line-height:1.5;
+    min-height:100vh;
+    position:relative;
+  }
+  body::before{
+    content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:
+      radial-gradient(ellipse 800px 600px at 12% 8%, rgba(31,58,95,.55), transparent 55%),
+      radial-gradient(ellipse 700px 500px at 92% 10%, rgba(232,93,60,.32), transparent 60%),
+      radial-gradient(ellipse 600px 450px at 50% 95%, rgba(91,155,213,.22), transparent 60%),
+      linear-gradient(180deg, #070D17 0%, #0C1421 100%);
+  }
+  body::after{
+    content:'';position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.35;
+    background-image:url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .08 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    mix-blend-mode:overlay;
+  }
+  body > *{position:relative;z-index:1;}
+  ::-webkit-scrollbar{width:10px;height:10px;}
+  ::-webkit-scrollbar-track{background:var(--bg-deep);}
+  ::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:5px;}
+  ::-webkit-scrollbar-thumb:hover{background:var(--coral);}
+
+  /* ============ HEADER ============ */
+  header{
+    position:sticky;top:0;z-index:50;color:#fff;padding:0;
+    background:#050A12;
+    overflow:hidden;
+    box-shadow:0 6px 30px rgba(0,0,0,.6);
+    border-bottom:1px solid rgba(255,255,255,.05);
+  }
+  header::before, header::after{
+    content:'';position:absolute;border-radius:50%;filter:blur(70px);pointer-events:none;
+  }
+  header::before{
+    width:520px;height:520px;background:radial-gradient(circle,rgba(91,155,213,.55) 0%,rgba(91,155,213,0) 70%);
+    left:22%;top:-200px;
+  }
+  header::after{
+    width:480px;height:480px;background:radial-gradient(circle,rgba(232,93,60,.55) 0%,rgba(232,93,60,0) 70%);
+    right:-120px;top:-120px;
+  }
+  header .grain{
+    position:absolute;inset:0;opacity:.25;mix-blend-mode:overlay;pointer-events:none;
+    background-image:url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .35 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+  header .head-row{
+    position:relative;z-index:2;
+    display:flex;align-items:center;gap:18px;max-width:1600px;margin:0 auto;flex-wrap:wrap;
+    padding:22px 32px;
+  }
+  header .brand{display:flex;align-items:center;gap:16px;}
+  header .ctg-logo{
+    width:60px;height:60px;flex-shrink:0;
+    object-fit:contain;
+    filter:drop-shadow(0 4px 14px rgba(232,93,60,.45)) drop-shadow(0 0 22px rgba(91,155,213,.30));
+    transition:.3s;
+  }
+  header .ctg-logo:hover{
+    transform:scale(1.05);
+    filter:drop-shadow(0 6px 18px rgba(232,93,60,.55)) drop-shadow(0 0 28px rgba(91,155,213,.40));
+  }
+  header h1{margin:0;font-size:20px;font-weight:700;letter-spacing:-.3px;color:#fff;text-shadow:0 1px 12px rgba(0,0,0,.4);}
+  header .tagline{
+    margin:3px 0 0;opacity:.75;font-size:11.5px;font-weight:500;
+    text-transform:uppercase;letter-spacing:2.5px;color:#fff;
+  }
+  header .brand-mark{
+    font-size:11px;font-weight:800;letter-spacing:4px;color:var(--coral-soft);
+    text-transform:uppercase;margin-bottom:3px;
+  }
+  header .head-actions{margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+
+  .lang-toggle{
+    display:inline-flex;background:rgba(255,255,255,.12);border-radius:30px;padding:3px;
+    backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.18);
+  }
+  .lang-toggle button{
+    background:transparent;color:rgba(255,255,255,.75);border:none;padding:7px 16px;border-radius:30px;
+    cursor:pointer;font-size:12.5px;font-weight:700;transition:.25s;letter-spacing:.5px;
+    box-shadow:none;
+  }
+  .lang-toggle button:hover{color:#fff;transform:none;background:rgba(255,255,255,.08);}
+  .lang-toggle button.active{background:var(--coral);color:#fff;box-shadow:0 2px 8px rgba(232,93,60,.4);}
+
+  /* ============ AUTH PANEL ============ */
+  .auth-panel{display:flex;align-items:center;gap:10px;}
+  .btn-signin{
+    background:linear-gradient(135deg,var(--sky),var(--accent-dark));color:#fff;border:none;
+    padding:8px 18px;border-radius:8px;cursor:pointer;font-size:12.5px;font-weight:700;
+    display:inline-flex;align-items:center;gap:6px;font-family:inherit;letter-spacing:.3px;
+    box-shadow:0 2px 8px rgba(91,155,213,.35);transition:.18s;
+  }
+  .btn-signin:hover{filter:brightness(1.08);transform:translateY(-1px);box-shadow:0 6px 16px rgba(91,155,213,.45);}
+  .auth-status-pill{
+    font-size:10.5px;letter-spacing:1.2px;text-transform:uppercase;font-weight:700;
+    padding:4px 10px;border-radius:20px;color:var(--muted);
+    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);
+  }
+  .auth-status-pill.cloud{color:#6ee7b7;background:rgba(16,185,129,.10);border-color:rgba(16,185,129,.30);}
+  .auth-status-pill.offline{color:var(--coral-soft);background:rgba(232,93,60,.10);border-color:rgba(232,93,60,.30);}
+
+  .user-chip{
+    display:inline-flex;align-items:center;gap:10px;
+    background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
+    padding:5px 12px 5px 5px;border-radius:30px;cursor:pointer;transition:.18s;
+    color:#fff;font-size:12.5px;font-weight:600;
+    box-shadow:none;
+  }
+  .user-chip:hover{background:rgba(255,255,255,.14);transform:none;}
+  .user-avatar{
+    width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--coral),var(--coral-deep));
+    color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;
+    background-size:cover;background-position:center;
+    border:2px solid rgba(255,255,255,.2);
+  }
+  .user-menu{
+    position:absolute;right:0;top:calc(100% + 6px);min-width:220px;
+    background:#0C1421;border:1px solid var(--border-strong);border-radius:12px;
+    box-shadow:0 20px 50px rgba(0,0,0,.6);padding:10px;z-index:60;
+    display:none;
+  }
+  .user-menu.open{display:block;}
+  .user-menu .um-email{
+    font-size:12px;color:var(--text-soft);padding:8px 10px 10px;border-bottom:1px solid var(--border);
+    margin-bottom:6px;word-break:break-all;
+  }
+  .user-menu button{
+    width:100%;background:transparent;color:var(--text);border:none;text-align:left;
+    padding:9px 12px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;
+    box-shadow:none;display:flex;align-items:center;gap:8px;
+  }
+  .user-menu button:hover{background:rgba(255,255,255,.06);color:#fff;transform:none;}
+  .user-menu button.danger{color:#fca5a5;}
+  .user-menu button.danger:hover{background:rgba(239,68,68,.12);color:#fff;}
+  .user-wrap{position:relative;}
+
+  /* ============ NAV TABS ============ */
+  .tabs{
+    background:rgba(7,13,23,.85);backdrop-filter:blur(20px) saturate(180%);
+    border-bottom:1px solid var(--border);position:sticky;top:92px;z-index:40;
+    box-shadow:0 4px 16px rgba(0,0,0,.4);
+  }
+  .tabs-inner{max-width:1600px;margin:0 auto;padding:0 32px;display:flex;gap:4px;overflow-x:auto;}
+  .tab-btn{
+    background:transparent;color:var(--text-soft);border:none;padding:15px 20px;
+    cursor:pointer;font-size:13.5px;font-weight:600;border-bottom:3px solid transparent;
+    display:flex;align-items:center;gap:8px;white-space:nowrap;transition:.25s;
+    box-shadow:none;
+  }
+  .tab-btn:hover{color:var(--coral-soft);transform:none;background:rgba(232,93,60,.08);}
+  .tab-btn.active{color:var(--coral);border-bottom-color:var(--coral);background:rgba(232,93,60,.1);}
+  .tab-btn .ic{font-size:16px;}
+
+  .container{max-width:1600px;margin:0 auto;padding:24px 32px 80px;}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;animation:fadeIn .3s ease;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+
+  /* ============ TOOLBAR ============ */
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px;align-items:center;}
+  button{
+    background:var(--coral);color:#fff;border:none;padding:9px 16px;border-radius:var(--radius-sm);
+    cursor:pointer;font-size:13px;font-weight:600;transition:.2s;
+    display:inline-flex;align-items:center;gap:6px;font-family:inherit;
+    box-shadow:0 2px 6px rgba(232,93,60,.25);
+  }
+  button:hover{background:var(--coral-deep);transform:translateY(-1px);box-shadow:0 6px 14px rgba(232,93,60,.35);}
+  button:active{transform:translateY(0);}
+  button:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+  button.ghost{background:rgba(255,255,255,.06);color:var(--text);border:1px solid var(--border-strong);box-shadow:var(--shadow-sm);backdrop-filter:blur(8px);}
+  button.ghost:hover{background:rgba(255,255,255,.12);border-color:var(--sky);color:#fff;}
+  button.danger{background:var(--danger);box-shadow:0 2px 4px rgba(220,38,38,.2);}
+  button.danger:hover{background:#991b1b;}
+  button.accent{background:linear-gradient(135deg,var(--sky),var(--accent-dark));box-shadow:0 2px 6px rgba(91,155,213,.3);}
+  button.accent:hover{filter:brightness(1.05);box-shadow:0 6px 14px rgba(91,155,213,.4);}
+  button.success{background:var(--success);box-shadow:0 2px 4px rgba(16,185,129,.2);}
+  button.navy{background:var(--navy);box-shadow:0 2px 6px rgba(31,58,95,.3);}
+  button.navy:hover{background:var(--navy-deep);box-shadow:0 6px 14px rgba(31,58,95,.4);}
+
+  /* ============ CARD ============ */
+  .card{
+    background:linear-gradient(180deg, rgba(19,28,45,.85), rgba(19,28,45,.65));
+    backdrop-filter:blur(20px) saturate(140%);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:22px;
+    margin-bottom:20px;
+    box-shadow:var(--shadow);
+    transition:.25s;
+  }
+  .card:hover{box-shadow:var(--shadow-lg);transform:translateY(-2px);border-color:rgba(232,93,60,.25);}
+  .card h2{
+    margin:0 0 18px;font-size:16px;color:#fff;
+    font-weight:700;display:flex;align-items:center;gap:12px;
+    padding-bottom:14px;border-bottom:1px solid var(--border);
+  }
+  .card h2 .ic{
+    width:34px;height:34px;border-radius:10px;
+    background:linear-gradient(135deg,var(--coral) 0%,var(--coral-deep) 100%);
+    color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;
+    box-shadow:0 4px 14px rgba(232,93,60,.5);
+  }
+  .card h2 .badge{
+    margin-left:auto;background:rgba(91,155,213,.15);color:var(--sky-soft);font-size:11px;padding:5px 12px;
+    border-radius:20px;font-weight:700;letter-spacing:.3px;
+    border:1px solid rgba(91,155,213,.30);
+  }
+
+  /* ============ GRID ============ */
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+  .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+  @media (max-width:1100px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr;}}
+
+  /* ============ TABLES ============ */
+  .table-wrap{overflow-x:auto;border-radius:var(--radius-sm);border:1px solid var(--border);background:rgba(7,13,23,.4);}
+  table{width:100%;border-collapse:collapse;font-size:13px;background:transparent;}
+  th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);}
+  th{background:linear-gradient(180deg,rgba(31,58,95,.4),rgba(14,36,56,.4));font-weight:700;color:var(--sky-soft);font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border-strong);}
+  tr:last-child td{border-bottom:none;}
+  tbody tr{transition:.15s;color:var(--text);}
+  tbody tr:hover{background:rgba(91,155,213,.08);}
+  td input,td select{
+    width:100%;border:1px solid transparent;background:transparent;
+    padding:5px 7px;font:inherit;color:var(--text);border-radius:6px;transition:.15s;
+  }
+  td select option{background:var(--surface);color:var(--text);}
+  td input:focus,td select:focus{outline:none;background:rgba(7,13,23,.6);border-color:var(--coral);box-shadow:0 0 0 3px rgba(232,93,60,.2);}
+  td input[type="number"]{text-align:right;font-variant-numeric:tabular-nums;}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600;color:#fff;}
+  td.pct{text-align:right;color:var(--text-soft);font-variant-numeric:tabular-nums;}
+  td.action{text-align:center;width:42px;}
+  td.action button{padding:4px 10px;font-size:11px;background:rgba(239,68,68,.15);color:#fca5a5;box-shadow:none;}
+  td.action button:hover{background:var(--danger);color:#fff;}
+  tfoot td{
+    font-weight:700;background:linear-gradient(180deg,rgba(232,93,60,.18),rgba(232,93,60,.10)) !important;
+    color:var(--coral-soft);border-top:2px solid var(--coral);
+  }
+
+  /* ============ PILLS ============ */
+  .pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.3px;}
+  .pill.fixed{background:rgba(91,155,213,.18);color:var(--sky-soft);border:1px solid rgba(91,155,213,.30);}
+  .pill.variable{background:rgba(232,93,60,.18);color:var(--coral-soft);border:1px solid rgba(232,93,60,.30);}
+  .pill.product{background:rgba(16,185,129,.18);color:#6ee7b7;border:1px solid rgba(16,185,129,.30);}
+
+  /* ============ KPI ============ */
+  .kpi{
+    background:linear-gradient(180deg,rgba(19,28,45,.85),rgba(19,28,45,.65));
+    backdrop-filter:blur(20px);
+    border:1px solid var(--border);border-radius:var(--radius);padding:18px;
+    position:relative;overflow:hidden;transition:.25s;
+  }
+  .kpi::before{
+    content:'';position:absolute;top:0;left:0;right:0;height:4px;
+    background:linear-gradient(90deg,var(--sky),var(--accent-dark));
+  }
+  .kpi.warn::before{background:linear-gradient(90deg,var(--coral),var(--coral-soft));}
+  .kpi.success::before{background:linear-gradient(90deg,var(--success),#34d399);}
+  .kpi.danger::before{background:linear-gradient(90deg,var(--sky-soft),var(--sky));}
+  .kpi:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);border-color:rgba(232,93,60,.30);}
+  .kpi .label{
+    font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700;
+    display:flex;align-items:center;gap:6px;
+  }
+  .kpi .label .dot{width:8px;height:8px;border-radius:50%;background:var(--sky);box-shadow:0 0 8px var(--sky);}
+  .kpi.warn .label .dot{background:var(--coral);box-shadow:0 0 8px var(--coral);}
+  .kpi.success .label .dot{background:var(--success);box-shadow:0 0 8px var(--success);}
+  .kpi.danger .label .dot{background:var(--sky);box-shadow:0 0 8px var(--sky);}
+  .kpi .value{font-size:24px;font-weight:800;color:#fff;margin-top:6px;letter-spacing:-.5px;}
+  .kpi .sub{font-size:12px;color:var(--muted);margin-top:3px;}
+
+  /* ============ INPUTS ============ */
+  .input-group{margin-bottom:14px;}
+  .input-group label{display:block;font-size:11px;font-weight:700;color:var(--sky-soft);margin-bottom:7px;text-transform:uppercase;letter-spacing:.6px;}
+  .input-group input{
+    width:100%;padding:11px 14px;border:1px solid var(--border-strong);border-radius:8px;font:inherit;
+    background:rgba(7,13,23,.6);color:var(--text);transition:.18s;
+  }
+  .input-group input::placeholder{color:var(--muted);}
+  .input-group input:focus{outline:none;border-color:var(--coral);box-shadow:0 0 0 3px rgba(232,93,60,.20);background:rgba(7,13,23,.85);}
+  .input-prefix{position:relative;}
+  .input-prefix::before{
+    content:'MYR';position:absolute;left:14px;top:50%;transform:translateY(-50%);
+    color:var(--coral);font-weight:700;font-size:12px;letter-spacing:.5px;z-index:2;
+  }
+  .input-prefix input{padding-left:54px;font-variant-numeric:tabular-nums;font-weight:700;color:#fff;font-size:15px;}
+
+  /* ============ BREAK-EVEN BANNER ============ */
+  .breakeven-banner{
+    background:#050A12;
+    border:1px solid rgba(232,93,60,.25);border-radius:var(--radius);padding:34px 28px;text-align:center;
+    box-shadow:0 12px 40px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.02);
+    position:relative;overflow:hidden;color:#fff;
+  }
+  .breakeven-banner::before, .breakeven-banner::after{content:'';position:absolute;border-radius:50%;filter:blur(60px);}
+  .breakeven-banner::before{
+    width:380px;height:380px;background:radial-gradient(circle,rgba(232,93,60,.65),transparent 70%);
+    right:-120px;top:-130px;
+  }
+  .breakeven-banner::after{
+    width:300px;height:300px;background:radial-gradient(circle,rgba(91,155,213,.55),transparent 70%);
+    left:-90px;bottom:-110px;
+  }
+  .breakeven-banner > *{position:relative;z-index:2;}
+  .breakeven-banner .title{font-size:11px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:2.8px;font-weight:700;}
+  .breakeven-banner .value{
+    font-size:48px;font-weight:800;color:#fff;margin:12px 0;letter-spacing:-1.5px;
+    text-shadow:0 4px 30px rgba(232,93,60,.5);
+    background:linear-gradient(135deg,#fff 0%,#FFE6DC 100%);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  }
+  .breakeven-banner .sub{font-size:13px;color:rgba(255,255,255,.75);font-weight:500;line-height:1.9;}
+  .breakeven-banner .sub b{color:var(--coral-soft);font-weight:700;}
+
+  /* ============ MISC ============ */
+  .formula{
+    background:linear-gradient(135deg,rgba(91,155,213,.10),rgba(91,155,213,.04));
+    border-left:4px solid var(--sky);padding:14px 18px;font-size:12.5px;
+    color:var(--sky-soft);margin-top:14px;font-family:'Consolas','Menlo',monospace;border-radius:8px;line-height:1.9;
+  }
+  .formula b{color:var(--coral-soft);}
+  .legend{display:flex;gap:12px;font-size:12px;color:var(--text-soft);margin-bottom:14px;flex-wrap:wrap;align-items:center;}
+  .note{font-size:12px;color:var(--muted);margin-top:6px;}
+  .add-row{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;}
+  .add-row button{font-size:12.5px;padding:8px 14px;}
+  .neg{color:#fca5a5;font-weight:600;}
+  .pos{color:#6ee7b7;font-weight:600;}
+  details{margin-top:14px;}
+  summary{cursor:pointer;color:var(--coral-soft);font-weight:700;font-size:13px;padding:10px 14px;border-radius:8px;background:rgba(232,93,60,.10);border:1px solid rgba(232,93,60,.25);}
+  summary:hover{background:rgba(232,93,60,.18);}
+  .footer-note{font-size:12px;color:var(--muted);text-align:center;margin-top:28px;padding:16px;}
+
+  /* ============ SCENARIO COMPARISON ============ */
+  .scenario-bar{
+    display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;padding:14px;
+    background:linear-gradient(135deg,rgba(91,155,213,.10),rgba(232,93,60,.08));
+    border-radius:var(--radius);border:1px solid var(--border);
+  }
+  .scenario-chip{
+    display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(7,13,23,.5);
+    border:1px solid var(--border-strong);border-radius:30px;cursor:pointer;font-size:13px;font-weight:600;
+    transition:.2s;color:var(--text);backdrop-filter:blur(8px);
+  }
+  .scenario-chip:hover{border-color:var(--coral);transform:translateY(-1px);box-shadow:var(--shadow-sm);color:#fff;}
+  .scenario-chip.active{background:var(--coral);color:#fff;border-color:var(--coral);box-shadow:0 4px 12px rgba(232,93,60,.4);}
+  .scenario-chip .chip-x{
+    width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,.1);color:inherit;
+    display:flex;align-items:center;justify-content:center;font-size:11px;line-height:1;
+  }
+  .scenario-chip.active .chip-x{background:rgba(255,255,255,.25);}
+
+  .compare-grid{display:grid;gap:16px;}
+  .compare-card{
+    background:linear-gradient(180deg,rgba(19,28,45,.85),rgba(19,28,45,.65));
+    backdrop-filter:blur(20px);
+    border:1px solid var(--border);border-radius:var(--radius);padding:18px;
+    position:relative;box-shadow:var(--shadow);
+  }
+  .compare-card h4{margin:0 0 14px;font-size:15px;display:flex;align-items:center;gap:8px;color:#fff;}
+  .compare-card h4 .dot{width:12px;height:12px;border-radius:50%;box-shadow:0 0 10px currentColor;}
+  .compare-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed var(--border);font-size:13px;}
+  .compare-row:last-child{border-bottom:none;}
+  .compare-row .lab{color:var(--text-soft);}
+  .compare-row .val{font-weight:600;font-variant-numeric:tabular-nums;color:#fff;}
+  .compare-row.highlight{background:linear-gradient(135deg,rgba(232,93,60,.20),rgba(232,93,60,.06));padding:12px;border-radius:8px;border-bottom:none;margin-top:8px;border:1px solid rgba(232,93,60,.35);}
+  .compare-row.highlight .val{color:var(--coral-soft);font-size:16px;font-weight:800;}
+
+  /* ============ CHART ============ */
+  .chart-box{
+    background:linear-gradient(180deg,rgba(19,28,45,.85),rgba(19,28,45,.65));
+    backdrop-filter:blur(20px);
+    border:1px solid var(--border);border-radius:var(--radius);padding:18px;
+    margin-bottom:16px;
+  }
+  .chart-box h3{margin:0 0 14px;font-size:14px;color:var(--sky-soft);font-weight:700;}
+  canvas{max-width:100%;}
+
+  /* ============ TOAST ============ */
+  .toast-stack{position:fixed;right:24px;bottom:24px;z-index:200;display:flex;flex-direction:column;gap:10px;}
+  .toast{
+    min-width:280px;max-width:380px;background:#0C1421;border:1px solid var(--border-strong);
+    padding:14px 18px;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.6);
+    color:var(--text);font-size:13px;display:flex;align-items:flex-start;gap:10px;
+    animation:slideIn .25s ease;
+  }
+  .toast.success{border-left:4px solid var(--success);}
+  .toast.error{border-left:4px solid var(--danger);}
+  .toast.info{border-left:4px solid var(--sky);}
+  @keyframes slideIn{from{opacity:0;transform:translateX(20px);}to{opacity:1;transform:none;}}
+
+  /* ============ AUTH MODAL ============ */
+  .auth-modal{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;padding:20px;}
+  .auth-modal.open{display:flex;animation:fadeIn .2s ease;}
+  .auth-backdrop{position:absolute;inset:0;background:rgba(5,10,18,.78);backdrop-filter:blur(6px);}
+  .auth-card{
+    position:relative;width:100%;max-width:420px;
+    background:linear-gradient(180deg,#131C2D,#0C1421);
+    border:1px solid var(--border-strong);border-radius:16px;
+    padding:28px 26px 24px;box-shadow:0 30px 80px rgba(0,0,0,.7);
+    color:var(--text);
+  }
+  .auth-card h3{margin:0 0 6px;font-size:18px;color:#fff;font-weight:700;}
+  .auth-card .sub{font-size:12.5px;color:var(--muted);margin:0 0 18px;}
+  .auth-close{
+    position:absolute;top:12px;right:12px;width:30px;height:30px;border-radius:50%;
+    background:rgba(255,255,255,.06);color:var(--text-soft);border:none;cursor:pointer;
+    font-size:18px;line-height:1;padding:0;box-shadow:none;display:flex;align-items:center;justify-content:center;
+  }
+  .auth-close:hover{background:rgba(255,255,255,.12);color:#fff;transform:none;}
+  .auth-tabs{display:flex;background:rgba(7,13,23,.7);border-radius:10px;padding:4px;margin-bottom:18px;border:1px solid var(--border);}
+  .auth-tab{
+    flex:1;background:transparent;color:var(--text-soft);border:none;padding:9px 0;border-radius:7px;
+    cursor:pointer;font-size:13px;font-weight:600;transition:.18s;box-shadow:none;
+  }
+  .auth-tab:hover{color:#fff;transform:none;background:rgba(255,255,255,.04);}
+  .auth-tab.active{background:var(--coral);color:#fff;box-shadow:0 2px 8px rgba(232,93,60,.4);}
+  .auth-field{margin-bottom:12px;}
+  .auth-field label{display:block;font-size:11px;font-weight:700;color:var(--sky-soft);margin-bottom:6px;text-transform:uppercase;letter-spacing:.6px;}
+  .auth-field input{
+    width:100%;padding:11px 14px;border:1px solid var(--border-strong);border-radius:8px;font:inherit;
+    background:rgba(7,13,23,.7);color:var(--text);transition:.18s;
+  }
+  .auth-field input:focus{outline:none;border-color:var(--coral);box-shadow:0 0 0 3px rgba(232,93,60,.18);background:rgba(7,13,23,.9);}
+  .auth-error{
+    font-size:12px;color:#fca5a5;background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.25);
+    padding:8px 12px;border-radius:8px;margin:8px 0 12px;display:none;
+  }
+  .auth-error.show{display:block;}
+  .auth-success{
+    font-size:12.5px;color:#6ee7b7;background:rgba(16,185,129,.10);border:1px solid rgba(16,185,129,.25);
+    padding:10px 14px;border-radius:8px;margin-bottom:14px;
+  }
+  .auth-submit{
+    width:100%;background:linear-gradient(135deg,var(--coral),var(--coral-deep));color:#fff;border:none;
+    padding:12px;border-radius:8px;cursor:pointer;font-size:13.5px;font-weight:700;letter-spacing:.3px;
+    box-shadow:0 4px 14px rgba(232,93,60,.35);margin-top:4px;transition:.18s;
+  }
+  .auth-submit:hover{filter:brightness(1.08);transform:translateY(-1px);box-shadow:0 6px 18px rgba(232,93,60,.45);}
+  .auth-submit:disabled{opacity:.6;cursor:wait;transform:none;}
+  .auth-link{
+    background:transparent;color:var(--sky-soft);border:none;padding:8px 4px;cursor:pointer;
+    font-size:12.5px;font-weight:600;box-shadow:none;text-decoration:none;
+  }
+  .auth-link:hover{color:#fff;background:transparent;transform:none;text-decoration:underline;}
+  .auth-link-row{display:flex;justify-content:space-between;align-items:center;margin-top:10px;}
+  .auth-state{display:none;}
+  .auth-state.active{display:block;}
+
+  /* ============ MIGRATE BANNER ============ */
+  .migrate-banner{
+    background:linear-gradient(135deg,rgba(91,155,213,.18),rgba(91,155,213,.06));
+    border:1px solid rgba(91,155,213,.35);border-radius:12px;padding:14px 18px;
+    margin-bottom:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  }
+  .migrate-banner .msg{flex:1;font-size:13px;color:var(--text);}
+  .migrate-banner .msg b{color:var(--sky-soft);}
+
+  /* ============ PRINT ============ */
+  @media print{
+    header,.tabs,.toolbar,.add-row,.action,button,.toast-stack,.migrate-banner{display:none !important;}
+    .tab-panel{display:block !important;}
+    body, body::before, body::after{background:#fff !important;color:#000 !important;}
+    .card,.kpi,.compare-card,.chart-box{background:#fff !important;color:#000 !important;border:1px solid #ccc !important;box-shadow:none !important;page-break-inside:avoid;}
+    .card h2, .kpi .value, td.num, .compare-card h4, .compare-row .val{color:#000 !important;}
+    th{background:#eee !important;color:#000 !important;}
+    .breakeven-banner{background:#fff !important;color:#000 !important;border:2px solid #E85D3C !important;}
+    .breakeven-banner::before,.breakeven-banner::after{display:none !important;}
+    .breakeven-banner .value,.breakeven-banner .title,.breakeven-banner .sub{color:#000 !important;-webkit-text-fill-color:#000 !important;background:none !important;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ HEADER ============ -->
+<header>
+  <div class="grain"></div>
+  <div class="head-row">
+    <div class="brand">
+      <img class="ctg-logo" src="assets/img/ctg_logo.png" alt="CTG Logo"/>
+      <div>
+        <div class="brand-mark">CTG</div>
+        <h1 data-i18n="title">Exhibition Event – Break-Even Calculator</h1>
+        <p class="tagline" data-i18n="tagline">Build budget · Track cost · Calculate BEP</p>
+      </div>
+    </div>
+    <div class="head-actions">
+      <div class="lang-toggle">
+        <button id="lang-en" class="active" onclick="setLang('en')">EN</button>
+        <button id="lang-zh" onclick="setLang('zh')">中文</button>
+      </div>
+      <div class="auth-panel" id="authPanel">
+        <!-- Filled in by renderAuthUI() -->
+      </div>
+      <button class="ghost" id="btnExport">⬇ <span data-i18n="export">Export CSV</span></button>
+      <button class="accent" id="btnPrint">🖨 <span data-i18n="print">Print/PDF</span></button>
+    </div>
+  </div>
+</header>
+
+<!-- ============ TABS ============ -->
+<nav class="tabs">
+  <div class="tabs-inner">
+    <button class="tab-btn active" data-tab="calc"><span class="ic">📊</span><span data-i18n="tab_calc">Calculator</span></button>
+    <button class="tab-btn" data-tab="compare"><span class="ic">⚖️</span><span data-i18n="tab_compare">Compare Scenarios</span></button>
+    <button class="tab-btn" data-tab="sensitivity"><span class="ic">📈</span><span data-i18n="tab_sens">Sensitivity Analysis</span></button>
+  </div>
+</nav>
+
+<div class="container">
+
+  <!-- Migration banner: shown after sign-in if local scenarios exist -->
+  <div class="migrate-banner" id="migrateBanner" style="display:none;">
+    <span style="font-size:24px;">☁️</span>
+    <div class="msg">
+      <b data-i18n="migrate_title">Move local scenarios to your account?</b><br/>
+      <span data-i18n="migrate_msg">You have scenarios saved on this device. Upload them to your CTG account so they sync across devices.</span>
+    </div>
+    <button class="accent" id="btnMigrate"><span data-i18n="migrate_yes">Upload</span></button>
+    <button class="ghost" id="btnMigrateDismiss"><span data-i18n="migrate_no">Keep local only</span></button>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- TAB 1: CALCULATOR -->
+  <!-- ============================================================== -->
+  <div class="tab-panel active" id="tab-calc">
+
+    <div class="toolbar">
+      <button class="ghost" id="btnReset">↺ <span data-i18n="reset">Reset Sample</span></button>
+      <button class="ghost" id="btnClear">✕ <span data-i18n="clear">Clear All</span></button>
+      <button class="success" id="btnSaveScenario">⭐ <span data-i18n="save_scn">Save as Scenario</span></button>
+      <div style="flex:1"></div>
+      <span class="note" id="storageNote" data-i18n="note_save_local">Auto-saved locally · Sign in to sync across devices</span>
+    </div>
+
+    <!-- Sales & BE Banner -->
+    <div class="grid-2">
+      <div class="card">
+        <h2><span class="ic">①</span><span data-i18n="sales_input">Sales Target Input</span></h2>
+        <div class="input-group">
+          <label data-i18n="sales_target">Sales Target</label>
+          <div class="input-prefix"><input type="number" id="salesTarget" value="75000" min="0" step="100"/></div>
+        </div>
+        <div class="input-group">
+          <label data-i18n="actual_sales">Actual Sales</label>
+          <div class="input-prefix"><input type="number" id="actualSales" value="0" min="0" step="100"/></div>
+        </div>
+        <div class="input-group">
+          <label data-i18n="scn_name">Scenario Name (for saving)</label>
+          <input type="text" id="scenarioName" placeholder="e.g. KLCC Expo - June 2026"/>
+        </div>
+      </div>
+
+      <div class="breakeven-banner">
+        <div class="title" data-i18n="be_title">⚡ Break-Even Sales (MYR)</div>
+        <div class="value" id="beValue">—</div>
+        <div class="sub">
+          <span data-i18n="be_pct">Break-Even % of Target</span>: <b id="bePct">—</b><br/>
+          <span data-i18n="target_np">Target Net Profit</span>: <b id="targetProfit">—</b>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI Strip -->
+    <div class="grid-4" style="margin-bottom:20px;">
+      <div class="kpi"><div class="label"><span class="dot"></span><span data-i18n="kpi_fixed">Total Fixed Cost</span></div><div class="value" id="kFixed">—</div><div class="sub">SUMIF Type=Fixed</div></div>
+      <div class="kpi warn"><div class="label"><span class="dot"></span><span data-i18n="kpi_var">Total Variable Cost</span></div><div class="value" id="kVar">—</div><div class="sub">SUMIF Type=Variable</div></div>
+      <div class="kpi success"><div class="label"><span class="dot"></span><span data-i18n="kpi_prod">Total Product Cost</span></div><div class="value" id="kProd">—</div><div class="sub">Inventory rows</div></div>
+      <div class="kpi danger"><div class="label"><span class="dot"></span><span data-i18n="kpi_cm">Contribution Margin %</span></div><div class="value" id="kCM">—</div><div class="sub" data-i18n="kpi_cm_sub">After product+variable</div></div>
+    </div>
+
+    <!-- Budget & Actual -->
+    <div class="card">
+      <h2><span class="ic">②</span><span data-i18n="budget_title">Budgeting & Internal Control</span><span class="badge" data-i18n="budget_badge">Budget vs Actual</span></h2>
+      <div class="table-wrap">
+      <table id="budgetTable">
+        <thead><tr>
+          <th>No</th><th data-i18n="th_item">Item</th><th data-i18n="th_budget">Budget (MYR)</th>
+          <th data-i18n="th_actual">Actual (MYR)</th><th data-i18n="th_var">Variance (MYR)</th><th data-i18n="th_varpct">Variance (%)</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+      </div>
+      <div class="formula" data-i18n="budget_formula">
+        Contribution Margin = Sales − Variable Cost &nbsp;|&nbsp; Net Profit = Contribution Margin − Fixed Cost
+      </div>
+    </div>
+
+    <!-- Product Costing -->
+    <div class="card">
+      <h2><span class="ic">③</span><span data-i18n="prod_title">Product Costing Control</span><span class="badge" data-i18n="prod_badge">Product Cost Structure</span></h2>
+      <div class="legend">
+        <span data-i18n="prod_legend1">Qty × Purchase = Cost</span> ·
+        <span data-i18n="prod_legend2">Margin % = (Selling − Purchase) ÷ Selling</span>
+      </div>
+      <div class="table-wrap">
+      <table id="productTable">
+        <thead><tr>
+          <th style="width:40px;">No</th><th data-i18n="th_prod">Product Name</th>
+          <th style="width:80px;" data-i18n="th_qty">Qty</th>
+          <th style="width:130px;" data-i18n="th_purchase">Purchase Price</th>
+          <th style="width:130px;" data-i18n="th_selling">Selling Price</th>
+          <th style="width:120px;" data-i18n="th_margin">Margin %</th>
+          <th style="width:42px;"></th>
+        </tr></thead>
+        <tbody></tbody>
+        <tfoot>
+          <tr><td colspan="3" style="text-align:right;" data-i18n="th_total">Total:</td>
+              <td class="num" id="prodTotPurchase">—</td><td class="num" id="prodTotSelling">—</td>
+              <td class="pct" id="prodTotMargin">—</td><td></td></tr>
+          <tr><td colspan="5" style="text-align:right;" data-i18n="th_costpct">Cost % of Selling (1 − Margin):</td>
+              <td class="pct" id="prodCostPct">—</td><td></td></tr>
+        </tfoot>
+      </table>
+      </div>
+      <div class="add-row"><button id="btnAddProduct">+ <span data-i18n="add_prod">Add Product</span></button></div>
+    </div>
+
+    <!-- Cost Structure -->
+    <div class="card">
+      <h2><span class="ic">④</span><span data-i18n="cost_title">Cost Structure</span><span class="badge" data-i18n="cost_badge">Fixed / Variable / Product</span></h2>
+      <div class="legend">
+        <span class="pill fixed">Fixed</span> <span data-i18n="cost_l_f">incurred regardless of sales</span> ·
+        <span class="pill variable">Variable</span> <span data-i18n="cost_l_v">scales with sales</span> ·
+        <span class="pill product">Product</span> <span data-i18n="cost_l_p">inventory items</span>
+      </div>
+      <div class="table-wrap">
+      <table id="costTable">
+        <thead><tr>
+          <th style="width:40px;">No</th><th data-i18n="th_cost_item">Cost Item</th>
+          <th style="width:170px;" data-i18n="th_cat">Category</th>
+          <th style="width:110px;" data-i18n="th_type">Type</th>
+          <th style="width:70px;" data-i18n="th_qty">Qty</th>
+          <th style="width:120px;" data-i18n="th_unit">Unit Price</th>
+          <th style="width:120px;" data-i18n="th_amt">Amount (MYR)</th>
+          <th style="width:42px;"></th>
+        </tr></thead>
+        <tbody></tbody>
+        <tfoot>
+          <tr><td colspan="6" style="text-align:right;" data-i18n="tf_fix">Total Fixed Cost:</td><td class="num" id="totFixed">—</td><td></td></tr>
+          <tr><td colspan="6" style="text-align:right;" data-i18n="tf_var">Total Variable Cost:</td><td class="num" id="totVar">—</td><td></td></tr>
+          <tr><td colspan="6" style="text-align:right;" data-i18n="tf_prod">Total Product Cost (Inventory):</td><td class="num" id="totProd">—</td><td></td></tr>
+        </tfoot>
+      </table>
+      </div>
+      <div class="add-row">
+        <button id="btnAddCost">+ <span data-i18n="add_cost">Add Cost Item</span></button>
+        <button class="ghost" id="btnAddInventoryRow">+ <span data-i18n="add_inv">Add Inventory Row</span></button>
+      </div>
+    </div>
+
+    <!-- Break-Even -->
+    <div class="card">
+      <h2><span class="ic">⑤</span><span data-i18n="be_calc_title">Break-Even Point Calculation</span></h2>
+      <div class="table-wrap">
+      <table id="beTable">
+        <thead><tr>
+          <th style="width:40px;">No</th><th data-i18n="th_item">Item</th>
+          <th style="width:180px;" data-i18n="th_val">Value (MYR)</th>
+          <th style="width:120px;" data-i18n="th_pct_sales">% of Sales</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+      </div>
+      <details>
+        <summary>📖 <span data-i18n="show_logic">Show calculation logic</span></summary>
+        <div class="formula" data-i18n="be_logic">
+          1. Target Sales Estimate = Sales Target<br/>
+          2. Total Product Cost = − Sales × (1 − Margin%)<br/>
+          3. Total Variable Cost = − Σ Variable items<br/>
+          4. Total Fixed Cost = − Σ Fixed items<br/>
+          5. Target Net Profit = Sales + Total Cost<br/>
+          6. Contribution Margin = Sales + Product + Variable<br/>
+          7. CM % = CM ÷ Sales<br/>
+          8. <b>Break-Even Sales = − Total Fixed Cost ÷ CM %</b>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- TAB 2: SCENARIO COMPARISON -->
+  <!-- ============================================================== -->
+  <div class="tab-panel" id="tab-compare">
+    <div class="card">
+      <h2><span class="ic">⚖️</span><span data-i18n="cmp_title">Compare Saved Scenarios</span></h2>
+      <p class="note" data-i18n="cmp_help">Save scenarios from the Calculator tab. Select up to 4 below to compare side-by-side.</p>
+      <div class="scenario-bar" id="scenarioBar">
+        <span class="note" style="margin:auto;" data-i18n="cmp_empty">No scenarios saved yet. Go to Calculator → click "Save as Scenario".</span>
+      </div>
+      <div id="compareView"></div>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- TAB 3: SENSITIVITY ANALYSIS -->
+  <!-- ============================================================== -->
+  <div class="tab-panel" id="tab-sensitivity">
+    <div class="card">
+      <h2><span class="ic">📈</span><span data-i18n="sens_title">Sensitivity Analysis</span><span class="badge" data-i18n="sens_badge">What-If</span></h2>
+      <p class="note" data-i18n="sens_help">See how changes in Sales Target, Fixed Cost, or Product Margin affect Break-Even and Net Profit.</p>
+
+      <div class="grid-3" style="margin-top:14px;">
+        <div class="kpi">
+          <div class="label"><span class="dot"></span><span data-i18n="sens_curr_sales">Current Sales Target</span></div>
+          <div class="value" id="sCurSales">—</div>
+        </div>
+        <div class="kpi warn">
+          <div class="label"><span class="dot"></span><span data-i18n="sens_curr_be">Current Break-Even</span></div>
+          <div class="value" id="sCurBE">—</div>
+        </div>
+        <div class="kpi success">
+          <div class="label"><span class="dot"></span><span data-i18n="sens_curr_np">Current Net Profit</span></div>
+          <div class="value" id="sCurNP">—</div>
+        </div>
+      </div>
+
+      <div class="chart-box" style="margin-top:18px;">
+        <h3>📊 <span data-i18n="chart_1">Net Profit vs Sales Target (±50% range)</span></h3>
+        <canvas id="chartProfit" height="100"></canvas>
+      </div>
+
+      <div class="chart-box">
+        <h3>📊 <span data-i18n="chart_2">Break-Even Point vs Fixed Cost (±50% range)</span></h3>
+        <canvas id="chartBE" height="100"></canvas>
+      </div>
+
+      <div class="chart-box">
+        <h3>📊 <span data-i18n="chart_3">Cost Composition Breakdown</span></h3>
+        <canvas id="chartPie" height="100"></canvas>
+      </div>
+
+      <details>
+        <summary>📋 <span data-i18n="sens_table_show">Show sensitivity data table</span></summary>
+        <div class="table-wrap" style="margin-top:12px;">
+        <table id="sensTable">
+          <thead><tr>
+            <th data-i18n="sens_t_chg">Sales Change</th>
+            <th data-i18n="sens_t_sales">Sales (MYR)</th>
+            <th data-i18n="sens_t_be">Break-Even (MYR)</th>
+            <th data-i18n="sens_t_np">Net Profit (MYR)</th>
+            <th data-i18n="sens_t_safety">Safety Margin</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <div class="footer-note">
+    <div style="display:inline-flex;align-items:center;gap:12px;padding:10px 20px;background:rgba(19,28,45,.7);border-radius:30px;backdrop-filter:blur(12px);border:1px solid var(--border);">
+      <img src="assets/img/ctg_logo.png" alt="CTG" style="width:30px;height:30px;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(232,93,60,.35));"/>
+      <span style="color:var(--coral-soft);font-weight:800;letter-spacing:2.5px;">CTG</span>
+      <span style="color:var(--muted);">·</span>
+      <span style="color:var(--text-soft);">Changing the Game</span>
+      <span style="color:var(--muted);">·</span>
+      <span style="color:var(--muted);">BEP Calculator VER 4.0</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============ AUTH MODAL ============ -->
+<div class="auth-modal" id="authModal" role="dialog" aria-modal="true">
+  <div class="auth-backdrop" data-auth-close></div>
+  <div class="auth-card">
+    <button class="auth-close" type="button" data-auth-close aria-label="Close">×</button>
+
+    <!-- Tabs (visible only in signin/signup states) -->
+    <div class="auth-tabs" id="authTabs">
+      <button type="button" class="auth-tab active" data-auth-goto="signin"><span data-i18n="auth_signin">Sign In</span></button>
+      <button type="button" class="auth-tab" data-auth-goto="signup"><span data-i18n="auth_signup">Sign Up</span></button>
+    </div>
+
+    <!-- Sign In -->
+    <form class="auth-state active" data-auth-state="signin" autocomplete="on">
+      <h3 data-i18n="auth_signin_title">Welcome back</h3>
+      <p class="sub" data-i18n="auth_signin_sub">Sign in to sync your scenarios across devices.</p>
+      <div class="auth-field">
+        <label data-i18n="auth_email">Email</label>
+        <input type="email" name="email" required autocomplete="email"/>
+      </div>
+      <div class="auth-field">
+        <label data-i18n="auth_password">Password</label>
+        <input type="password" name="password" required minlength="6" autocomplete="current-password"/>
+      </div>
+      <div class="auth-error" data-auth-error></div>
+      <button type="submit" class="auth-submit"><span data-i18n="auth_signin">Sign In</span></button>
+      <div class="auth-link-row">
+        <span></span>
+        <button type="button" class="auth-link" data-auth-goto="forgot"><span data-i18n="auth_forgot">Forgot password?</span></button>
+      </div>
+    </form>
+
+    <!-- Sign Up -->
+    <form class="auth-state" data-auth-state="signup" autocomplete="on">
+      <h3 data-i18n="auth_signup_title">Create your CTG account</h3>
+      <p class="sub" data-i18n="auth_signup_sub">Free. Your scenarios sync across devices.</p>
+      <div class="auth-field">
+        <label data-i18n="auth_email">Email</label>
+        <input type="email" name="email" required autocomplete="email"/>
+      </div>
+      <div class="auth-field">
+        <label data-i18n="auth_password">Password</label>
+        <input type="password" name="password" required minlength="6" autocomplete="new-password"/>
+      </div>
+      <div class="auth-field">
+        <label data-i18n="auth_password2">Confirm password</label>
+        <input type="password" name="password2" required minlength="6" autocomplete="new-password"/>
+      </div>
+      <div class="auth-error" data-auth-error></div>
+      <button type="submit" class="auth-submit"><span data-i18n="auth_create">Create account</span></button>
+    </form>
+
+    <!-- Forgot Password (request reset) -->
+    <form class="auth-state" data-auth-state="forgot" autocomplete="on">
+      <h3 data-i18n="auth_forgot_title">Reset your password</h3>
+      <p class="sub" data-i18n="auth_forgot_sub">Enter your email and we'll send you a reset link.</p>
+      <div class="auth-field">
+        <label data-i18n="auth_email">Email</label>
+        <input type="email" name="email" required autocomplete="email"/>
+      </div>
+      <div class="auth-error" data-auth-error></div>
+      <button type="submit" class="auth-submit"><span data-i18n="auth_send_reset">Send reset link</span></button>
+      <div class="auth-link-row">
+        <button type="button" class="auth-link" data-auth-goto="signin">← <span data-i18n="auth_back_signin">Back to sign in</span></button>
+        <span></span>
+      </div>
+    </form>
+
+    <!-- Reset link sent confirmation -->
+    <div class="auth-state" data-auth-state="forgot_sent">
+      <h3 data-i18n="auth_check_email">Check your email</h3>
+      <p class="sub"><span data-i18n="auth_sent_to">We sent a reset link to</span> <b id="forgotSentEmail" style="color:#fff;"></b>. <span data-i18n="auth_click_link">Click the link to set a new password.</span></p>
+      <button type="button" class="auth-submit" data-auth-goto="signin"><span data-i18n="auth_back_signin">Back to sign in</span></button>
+    </div>
+
+    <!-- Signup confirmation sent -->
+    <div class="auth-state" data-auth-state="signup_sent">
+      <h3 data-i18n="auth_almost">Almost there!</h3>
+      <p class="sub"><span data-i18n="auth_sent_confirm">We sent a confirmation link to</span> <b id="signupSentEmail" style="color:#fff;"></b>. <span data-i18n="auth_click_activate">Click the link to activate your account, then come back here to sign in.</span></p>
+      <button type="button" class="auth-submit" data-auth-close><span data-i18n="auth_close">Close</span></button>
+    </div>
+
+    <!-- Set new password (from reset link) -->
+    <form class="auth-state" data-auth-state="recovery" autocomplete="off">
+      <h3 data-i18n="auth_new_pwd_title">Set a new password</h3>
+      <p class="sub" data-i18n="auth_new_pwd_sub">Choose a new password for your account.</p>
+      <div class="auth-field">
+        <label data-i18n="auth_new_password">New password</label>
+        <input type="password" name="password" required minlength="6" autocomplete="new-password"/>
+      </div>
+      <div class="auth-field">
+        <label data-i18n="auth_password2">Confirm password</label>
+        <input type="password" name="password2" required minlength="6" autocomplete="new-password"/>
+      </div>
+      <div class="auth-error" data-auth-error></div>
+      <button type="submit" class="auth-submit"><span data-i18n="auth_update_pwd">Update password</span></button>
+    </form>
+  </div>
+</div>
+
+<!-- Toast stack -->
+<div class="toast-stack" id="toastStack"></div>
+
+<script>
+/* ============ I18N ============ */
+const I18N = {
+  en: {
+    title:"Exhibition Event – Break-Even Calculator",
+    tagline:"Build budget · Track cost structure · Calculate BEP in real-time",
+    export:"Export CSV", print:"Print/PDF",
+    tab_calc:"Calculator", tab_compare:"Compare Scenarios", tab_sens:"Sensitivity Analysis",
+    reset:"Reset Sample", clear:"Clear All", save_scn:"Save as Scenario",
+    note_save_local:"Auto-saved on this device · Sign in to sync across devices",
+    note_save_cloud:"Auto-saved · Scenarios synced to your account",
+    note_save_offline:"Offline mode · Configure Supabase in config.js to enable cloud sync",
+    sales_input:"Sales Target Input", sales_target:"Sales Target", actual_sales:"Actual Sales", scn_name:"Scenario Name (for saving)",
+    be_title:"⚡ Break-Even Sales (MYR)", be_pct:"Break-Even % of Target", target_np:"Target Net Profit",
+    kpi_fixed:"Total Fixed Cost", kpi_var:"Total Variable Cost", kpi_prod:"Total Product Cost",
+    kpi_cm:"Contribution Margin %", kpi_cm_sub:"After product+variable",
+    budget_title:"Budgeting & Internal Control", budget_badge:"Budget vs Actual",
+    th_item:"Item", th_budget:"Budget (MYR)", th_actual:"Actual (MYR)", th_var:"Variance (MYR)", th_varpct:"Variance (%)",
+    budget_formula:"Contribution Margin = Sales − Variable Cost | Net Profit = Contribution Margin − Fixed Cost",
+    prod_title:"Product Costing Control", prod_badge:"Product Cost Structure",
+    prod_legend1:"Qty × Purchase = Cost", prod_legend2:"Margin % = (Selling − Purchase) ÷ Selling",
+    th_prod:"Product Name", th_qty:"Qty", th_purchase:"Purchase Price", th_selling:"Selling Price", th_margin:"Margin %",
+    th_total:"Total:", th_costpct:"Cost % of Selling (1 − Margin):",
+    add_prod:"Add Product",
+    cost_title:"Cost Structure", cost_badge:"Fixed / Variable / Product",
+    cost_l_f:"incurred regardless of sales", cost_l_v:"scales with sales", cost_l_p:"inventory items",
+    th_cost_item:"Cost Item", th_cat:"Category", th_type:"Type", th_unit:"Unit Price", th_amt:"Amount (MYR)",
+    tf_fix:"Total Fixed Cost:", tf_var:"Total Variable Cost:", tf_prod:"Total Product Cost (Inventory):",
+    add_cost:"Add Cost Item", add_inv:"Add Inventory Row",
+    be_calc_title:"Break-Even Point Calculation",
+    th_val:"Value (MYR)", th_pct_sales:"% of Sales",
+    show_logic:"Show calculation logic",
+    be_logic:"1. Target Sales Estimate = Sales Target<br/>2. Total Product Cost = − Sales × (1 − Margin%)<br/>3. Total Variable Cost = − Σ Variable items<br/>4. Total Fixed Cost = − Σ Fixed items<br/>5. Target Net Profit = Sales + Total Cost<br/>6. Contribution Margin = Sales + Product + Variable<br/>7. CM % = CM ÷ Sales<br/>8. <b>Break-Even Sales = − Total Fixed Cost ÷ CM %</b>",
+    cmp_title:"Compare Saved Scenarios",
+    cmp_help:'Save scenarios from the Calculator tab. Select up to 4 below to compare side-by-side.',
+    cmp_empty:'No scenarios saved yet. Go to Calculator → click "Save as Scenario".',
+    sens_title:"Sensitivity Analysis", sens_badge:"What-If",
+    sens_help:"See how changes in Sales Target, Fixed Cost, or Product Margin affect Break-Even and Net Profit.",
+    sens_curr_sales:"Current Sales Target", sens_curr_be:"Current Break-Even", sens_curr_np:"Current Net Profit",
+    chart_1:"Net Profit vs Sales Target (±50% range)",
+    chart_2:"Break-Even Point vs Fixed Cost (±50% range)",
+    chart_3:"Cost Composition Breakdown",
+    sens_table_show:"Show sensitivity data table",
+    sens_t_chg:"Sales Change", sens_t_sales:"Sales (MYR)", sens_t_be:"Break-Even (MYR)", sens_t_np:"Net Profit (MYR)", sens_t_safety:"Safety Margin",
+    r_sales:"Sales Target", r_var:"Variable Cost", r_cm:"Contribution Margin", r_fix:"Fixed Cost", r_np:"Net Profit",
+    be_1:"Target Sales Estimate", be_2:"Total Product Cost", be_3:"Total Variable Cost", be_4:"Total Fixed Cost",
+    be_5:"Total Cost", be_6:"Target Net Profit", be_7:"Contribution Margin", be_8:"Break-Even Sales MYR",
+    confirm_del_p:"Remove this product?", confirm_del_c:"Remove this cost item?",
+    confirm_reset:"Reset to original sample data?", confirm_clear:"Clear everything?",
+    confirm_del_scn:"Delete this scenario?", scn_saved:"Scenario saved!",
+    scn_need_name:"Please enter a Scenario Name first.",
+    link_product:"— link to product —",
+    // auth
+    sign_in:"Sign in", sign_out:"Sign out",
+    auth_cloud:"Cloud sync", auth_local:"Local only", auth_offline:"Offline mode",
+    auth_signin:"Sign In", auth_signup:"Sign Up", auth_create:"Create account",
+    auth_signin_title:"Welcome back", auth_signin_sub:"Sign in to sync your scenarios across devices.",
+    auth_signup_title:"Create your CTG account", auth_signup_sub:"Free. Your scenarios sync across devices.",
+    auth_email:"Email", auth_password:"Password", auth_password2:"Confirm password",
+    auth_forgot:"Forgot password?",
+    auth_forgot_title:"Reset your password",
+    auth_forgot_sub:"Enter your email and we'll send you a reset link.",
+    auth_send_reset:"Send reset link",
+    auth_back_signin:"Back to sign in",
+    auth_check_email:"Check your email",
+    auth_sent_to:"We sent a reset link to",
+    auth_click_link:"Click the link to set a new password.",
+    auth_almost:"Almost there!",
+    auth_sent_confirm:"We sent a confirmation link to",
+    auth_click_activate:"Click the link to activate your account, then come back here to sign in.",
+    auth_close:"Close",
+    auth_new_pwd_title:"Set a new password",
+    auth_new_pwd_sub:"Choose a new password for your account.",
+    auth_new_password:"New password",
+    auth_update_pwd:"Update password",
+    auth_pwd_short:"Password must be at least 6 characters.",
+    auth_pwd_mismatch:"Passwords don't match.",
+    auth_pwd_updated:"Password updated. You're now signed in.",
+    migrate_title:"Move local scenarios to your account?",
+    migrate_msg:"You have scenarios saved on this device. Upload them to your CTG account so they sync across devices.",
+    migrate_yes:"Upload", migrate_no:"Keep local only",
+    migrate_done:"Uploaded {n} scenario(s) to your account.",
+    signed_in_as:"Signed in as",
+    err_save:"Could not save scenario. Try again.",
+    err_load:"Could not load scenarios."
+  },
+  zh: {
+    title:"展会活动 – 损益平衡点计算器",
+    tagline:"制定预算 · 追踪成本结构 · 实时计算BEP",
+    export:"导出CSV", print:"打印/PDF",
+    tab_calc:"计算器", tab_compare:"方案对比", tab_sens:"敏感度分析",
+    reset:"重置范例", clear:"全部清空", save_scn:"保存为方案",
+    note_save_local:"已自动储存在本机 · 登录后可跨设备同步",
+    note_save_cloud:"已自动储存 · 方案已同步到您的账户",
+    note_save_offline:"离线模式 · 请在 config.js 配置 Supabase 以启用云同步",
+    sales_input:"销售目标设定", sales_target:"销售目标", actual_sales:"实际销售", scn_name:"方案名称（保存用）",
+    be_title:"⚡ 损益平衡销售额 (MYR)", be_pct:"占目标比例", target_np:"目标净利润",
+    kpi_fixed:"总固定成本", kpi_var:"总变动成本", kpi_prod:"总产品成本",
+    kpi_cm:"贡献毛利率 %", kpi_cm_sub:"扣除产品+变动后",
+    budget_title:"预算与内部控制", budget_badge:"预算 vs 实际",
+    th_item:"项目", th_budget:"预算 (MYR)", th_actual:"实际 (MYR)", th_var:"差异 (MYR)", th_varpct:"差异 (%)",
+    budget_formula:"贡献毛利 = 销售 − 变动成本 | 净利润 = 贡献毛利 − 固定成本",
+    prod_title:"产品成本控制", prod_badge:"产品成本结构",
+    prod_legend1:"数量 × 进货价 = 成本", prod_legend2:"利润率 = (售价 − 进货) ÷ 售价",
+    th_prod:"产品名称", th_qty:"数量", th_purchase:"进货价", th_selling:"售价", th_margin:"利润率 %",
+    th_total:"合计:", th_costpct:"成本占售价 % (1 − 利润率):",
+    add_prod:"新增产品",
+    cost_title:"成本结构", cost_badge:"固定/变动/产品",
+    cost_l_f:"无论销售多少都会产生", cost_l_v:"随销售而变动", cost_l_p:"库存项目",
+    th_cost_item:"成本项目", th_cat:"类别", th_type:"类型", th_unit:"单价", th_amt:"金额 (MYR)",
+    tf_fix:"总固定成本:", tf_var:"总变动成本:", tf_prod:"总产品成本（库存）:",
+    add_cost:"新增成本项目", add_inv:"新增库存行",
+    be_calc_title:"损益平衡点计算",
+    th_val:"金额 (MYR)", th_pct_sales:"占销售 %",
+    show_logic:"显示计算逻辑",
+    be_logic:"1. 目标销售估算 = 销售目标<br/>2. 总产品成本 = − 销售 × (1 − 利润率%)<br/>3. 总变动成本 = − Σ 变动项<br/>4. 总固定成本 = − Σ 固定项<br/>5. 目标净利润 = 销售 + 总成本<br/>6. 贡献毛利 = 销售 + 产品 + 变动<br/>7. CM % = CM ÷ 销售<br/>8. <b>损益平衡销售 = − 总固定成本 ÷ CM %</b>",
+    cmp_title:"对比已保存方案",
+    cmp_help:'在「计算器」分页保存方案。下方最多可选4个进行对比。',
+    cmp_empty:'尚未保存任何方案。请到「计算器」→ 点击「保存为方案」。',
+    sens_title:"敏感度分析", sens_badge:"What-If",
+    sens_help:"查看销售目标、固定成本、利润率变动对损益平衡点和净利润的影响。",
+    sens_curr_sales:"目前销售目标", sens_curr_be:"目前损益平衡点", sens_curr_np:"目前净利润",
+    chart_1:"净利润 vs 销售目标 (±50% 区间)",
+    chart_2:"损益平衡点 vs 固定成本 (±50% 区间)",
+    chart_3:"成本结构占比",
+    sens_table_show:"显示敏感度数据表",
+    sens_t_chg:"销售变动", sens_t_sales:"销售 (MYR)", sens_t_be:"损益平衡 (MYR)", sens_t_np:"净利润 (MYR)", sens_t_safety:"安全边际",
+    r_sales:"销售目标", r_var:"变动成本", r_cm:"贡献毛利", r_fix:"固定成本", r_np:"净利润",
+    be_1:"目标销售估算", be_2:"总产品成本", be_3:"总变动成本", be_4:"总固定成本",
+    be_5:"总成本", be_6:"目标净利润", be_7:"贡献毛利", be_8:"损益平衡销售额",
+    confirm_del_p:"确定移除此产品？", confirm_del_c:"确定移除此成本项？",
+    confirm_reset:"重置回原始范例数据？", confirm_clear:"清空所有数据？",
+    confirm_del_scn:"删除此方案？", scn_saved:"方案已保存！",
+    scn_need_name:"请先输入方案名称。",
+    link_product:"— 链接产品 —",
+    sign_in:"登录", sign_out:"退出登录",
+    auth_cloud:"云端同步", auth_local:"仅本机", auth_offline:"离线模式",
+    auth_signin:"登录", auth_signup:"注册", auth_create:"创建账户",
+    auth_signin_title:"欢迎回来", auth_signin_sub:"登录后可跨设备同步您的方案。",
+    auth_signup_title:"创建 CTG 账户", auth_signup_sub:"免费。方案可跨设备同步。",
+    auth_email:"邮箱", auth_password:"密码", auth_password2:"确认密码",
+    auth_forgot:"忘记密码？",
+    auth_forgot_title:"重设密码",
+    auth_forgot_sub:"输入您的邮箱，我们将发送重设链接。",
+    auth_send_reset:"发送重设链接",
+    auth_back_signin:"返回登录",
+    auth_check_email:"请查收邮件",
+    auth_sent_to:"我们已将重设链接发送至",
+    auth_click_link:"点击链接以设置新密码。",
+    auth_almost:"快完成了！",
+    auth_sent_confirm:"我们已将确认链接发送至",
+    auth_click_activate:"点击链接以激活您的账户，然后回到此处登录。",
+    auth_close:"关闭",
+    auth_new_pwd_title:"设置新密码",
+    auth_new_pwd_sub:"为您的账户选择一个新密码。",
+    auth_new_password:"新密码",
+    auth_update_pwd:"更新密码",
+    auth_pwd_short:"密码至少需 6 个字符。",
+    auth_pwd_mismatch:"两次密码不一致。",
+    auth_pwd_updated:"密码已更新，您现在已登录。",
+    migrate_title:"将本机方案移到您的账户？",
+    migrate_msg:"您在此设备保存了一些方案。上传到您的 CTG 账户即可跨设备同步。",
+    migrate_yes:"上传", migrate_no:"仅保留本机",
+    migrate_done:"已上传 {n} 个方案到您的账户。",
+    signed_in_as:"登录身份",
+    err_save:"无法保存方案，请重试。",
+    err_load:"无法加载方案。"
+  }
+};
+let LANG = 'en';
+function t(key){ return (I18N[LANG]||I18N.en)[key] || key; }
+function setLang(lang){
+  LANG = lang;
+  document.getElementById('lang-en').classList.toggle('active', lang==='en');
+  document.getElementById('lang-zh').classList.toggle('active', lang==='zh');
+  document.documentElement.lang = lang==='zh' ? 'zh-CN':'en';
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const key = el.getAttribute('data-i18n');
+    if(I18N[lang][key]) el.innerHTML = I18N[lang][key];
+  });
+  renderAuthUI();
+  updateStorageNote();
+  render();
+  if(currentTab==='compare') renderCompare();
+  if(currentTab==='sensitivity') renderSensitivity();
+  CTG.saveLang(lang);
+}
+
+/* ============ DATA ============ */
+const DEFAULT_PRODUCTS = [
+  {name:'Product_1', qty:1, purchase:12,   selling:100},
+  {name:'Product_2', qty:1, purchase:32.4, selling:198},
+  {name:'Product_3', qty:1, purchase:24,   selling:138},
+  {name:'Product_4', qty:1, purchase:42.5, selling:218},
+  {name:'Product_5', qty:1, purchase:22,   selling:118},
+];
+const CATEGORIES = ['Inventory','Transportation','Packaging Cost','Marketing Expenses','Exhibition Expenses','Man Power Cost','Other'];
+const TYPES = ['Fixed','Variable','Product'];
+const DEFAULT_COSTS = [
+  {item:'Product_1', category:'Inventory', type:'Product', qty:1, unit:12,   productIndex:0},
+  {item:'Product_2', category:'Inventory', type:'Product', qty:1, unit:32.4, productIndex:1},
+  {item:'Product_3', category:'Inventory', type:'Product', qty:1, unit:24,   productIndex:2},
+  {item:'Product_4', category:'Inventory', type:'Product', qty:1, unit:42.5, productIndex:3},
+  {item:'Product_5', category:'Inventory', type:'Product', qty:1, unit:22,   productIndex:4},
+  {item:'Inventory Transportation Cost', category:'Transportation', type:'Fixed', qty:1, unit:6500},
+  {item:'Inventory Packaging Cost', category:'Packaging Cost', type:'Fixed', qty:1, unit:2000},
+  {item:'Gift/Souvenirs', category:'Marketing Expenses', type:'Variable', qty:1, unit:2000},
+  {item:'Marketing Ads', category:'Marketing Expenses', type:'Variable', qty:1, unit:5000},
+  {item:'Marketing (Model/Show Talent/KOL)', category:'Marketing Expenses', type:'Fixed', qty:1, unit:4000},
+  {item:'Marketing (Photography/Videography)', category:'Marketing Expenses', type:'Fixed', qty:1, unit:5000},
+  {item:'Exibition Event - Booth Rental', category:'Exhibition Expenses', type:'Fixed', qty:1, unit:7500},
+  {item:'Exibition Event - Booth Design', category:'Exhibition Expenses', type:'Fixed', qty:1, unit:4000},
+  {item:'Exibition Event - ManPower (Event Crew)', category:'Exhibition Expenses', type:'Fixed', qty:1, unit:3000},
+  {item:'Exibition Event - Miscellaneous', category:'Exhibition Expenses', type:'Fixed', qty:1, unit:2000},
+  {item:'Man Power - Transportation Cost', category:'Man Power Cost', type:'Fixed', qty:1, unit:2000},
+  {item:'Man Power - Accommodation Cost', category:'Man Power Cost', type:'Fixed', qty:1, unit:3000},
+  {item:'Man Power - Meal Cost', category:'Man Power Cost', type:'Fixed', qty:1, unit:1000},
+];
+
+let state = {
+  salesTarget: 75000,
+  actualSales: 0,
+  products: deepCopy(DEFAULT_PRODUCTS),
+  costs: deepCopy(DEFAULT_COSTS),
+};
+let scenarios = []; // loaded from CTG.listScenarios() — shape: {id, name, color, data, created_at, updated_at}
+let selectedScenarios = new Set();
+const SCENARIO_COLORS = ['#E85D3C','#1F3A5F','#5B9BD5','#0E2438','#C04A2E','#3D7AB0','#10b981','#F08570'];
+
+function deepCopy(o){return JSON.parse(JSON.stringify(o));}
+
+/* ============ HELPERS ============ */
+const fmt = n => (n===null||n===undefined||isNaN(n)) ? '—' : new Intl.NumberFormat('en-MY',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n);
+const fmtPct = n => (n===null||n===undefined||isNaN(n)) ? '—' : (n*100).toFixed(2)+'%';
+const sign = n => `<span class="${n<0?'neg':(n>0?'pos':'')}">${fmt(n)}</span>`;
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));}
+
+function showToast(msg, kind){
+  const stack = document.getElementById('toastStack');
+  const div = document.createElement('div');
+  div.className = 'toast ' + (kind || 'info');
+  div.textContent = msg;
+  stack.appendChild(div);
+  setTimeout(()=>{ div.style.transition='.25s'; div.style.opacity='0'; div.style.transform='translateX(20px)'; setTimeout(()=>div.remove(),300); }, 3200);
+}
+
+/* ============ COMPUTE ============ */
+function compute(s){
+  const sales = Number(s.salesTarget)||0;
+  const actual = Number(s.actualSales)||0;
+  let totalFixed=0, totalVariable=0, totalProduct=0;
+  s.costs.forEach(c=>{
+    const amt=(Number(c.qty)||0)*(Number(c.unit)||0);
+    if(c.type==='Fixed') totalFixed+=amt;
+    else if(c.type==='Variable') totalVariable+=amt;
+    else if(c.type==='Product') totalProduct+=amt;
+  });
+  let totPurchase=0,totSelling=0;
+  s.products.forEach(p=>{
+    totPurchase+=(Number(p.qty)||0)*(Number(p.purchase)||0);
+    totSelling +=(Number(p.qty)||0)*(Number(p.selling)||0);
+  });
+  const margin = totSelling>0 ? (totSelling-totPurchase)/totSelling : 0;
+  const costRatio = 1 - margin;
+  const C25 = sales;
+  const C26 = -sales*costRatio;
+  const C27 = -totalVariable;
+  const C28 = -totalFixed;
+  const C29 = C26+C27+C28;
+  const C30 = C25+C29;
+  const C31 = C25+C26+C27;
+  const D31 = C25===0?0:C31/C25;
+  const C32 = D31===0?0:-C28/D31;
+  return {sales,actual,totalFixed,totalVariable,totalProduct,totPurchase,totSelling,margin,costRatio,
+          C25,C26,C27,C28,C29,C30,C31,D31,C32};
+}
+
+/* ============ RENDER ============ */
+function render(){
+  renderProducts();
+  renderCosts();
+  renderSummary();
+}
+function renderProducts(){
+  const tbody = document.querySelector('#productTable tbody');
+  tbody.innerHTML = state.products.map((p,i)=>{
+    const m = p.selling>0 ? (p.selling-p.purchase)/p.selling : 0;
+    return `<tr>
+      <td>${i+1}</td>
+      <td><input type="text" value="${escapeHtml(p.name)}" data-pi="${i}" data-field="name"></td>
+      <td><input type="number" min="0" step="1" value="${p.qty}" data-pi="${i}" data-field="qty"></td>
+      <td><input type="number" min="0" step="0.01" value="${p.purchase}" data-pi="${i}" data-field="purchase"></td>
+      <td><input type="number" min="0" step="0.01" value="${p.selling}" data-pi="${i}" data-field="selling"></td>
+      <td class="pct">${fmtPct(m)}</td>
+      <td class="action"><button data-del-product="${i}">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+function renderCosts(){
+  const tbody = document.querySelector('#costTable tbody');
+  tbody.innerHTML = state.costs.map((c,i)=>{
+    const amt=(Number(c.qty)||0)*(Number(c.unit)||0);
+    const tc = c.type==='Fixed'?'fixed':(c.type==='Variable'?'variable':'product');
+    const sel = c.type==='Product' ? `
+      <select data-ci="${i}" data-field="productIndex" style="font-size:11px;margin-top:4px;width:100%;border:1px dashed var(--border);">
+        <option value="">${t('link_product')}</option>
+        ${state.products.map((p,pi)=>`<option value="${pi}" ${c.productIndex===pi?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
+      </select>` : '';
+    return `<tr>
+      <td>${i+1}</td>
+      <td><input type="text" value="${escapeHtml(c.item)}" data-ci="${i}" data-field="item">${sel}</td>
+      <td><select data-ci="${i}" data-field="category">${CATEGORIES.map(k=>`<option ${c.category===k?'selected':''}>${k}</option>`).join('')}</select></td>
+      <td><select data-ci="${i}" data-field="type">${TYPES.map(k=>`<option ${c.type===k?'selected':''}>${k}</option>`).join('')}</select>
+          <div style="margin-top:4px;"><span class="pill ${tc}">${c.type}</span></div></td>
+      <td><input type="number" min="0" step="1" value="${c.qty}" data-ci="${i}" data-field="qty"></td>
+      <td><input type="number" min="0" step="0.01" value="${c.unit}" data-ci="${i}" data-field="unit"></td>
+      <td class="num">${fmt(amt)}</td>
+      <td class="action"><button data-del-cost="${i}">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+function renderSummary(){
+  const r = compute(state);
+  document.getElementById('prodTotPurchase').textContent = fmt(r.totPurchase);
+  document.getElementById('prodTotSelling').textContent  = fmt(r.totSelling);
+  document.getElementById('prodTotMargin').textContent   = fmtPct(r.margin);
+  document.getElementById('prodCostPct').textContent     = fmtPct(r.costRatio);
+  document.getElementById('totFixed').textContent = fmt(r.totalFixed);
+  document.getElementById('totVar').textContent   = fmt(r.totalVariable);
+  document.getElementById('totProd').textContent  = fmt(r.totalProduct);
+  document.getElementById('kFixed').textContent = fmt(r.totalFixed);
+  document.getElementById('kVar').textContent   = fmt(r.totalVariable);
+  document.getElementById('kProd').textContent  = fmt(r.totalProduct);
+  document.getElementById('kCM').textContent    = fmtPct(r.D31);
+
+  const rows = [
+    {no:1,key:'r_sales',b:r.sales,a:r.actual},
+    {no:2,key:'r_var',  b:r.totalVariable,a:0},
+    {no:3,key:'r_cm',   b:r.sales-r.totalVariable, a:r.actual-r.totalVariable},
+    {no:4,key:'r_fix',  b:r.totalFixed,a:0},
+    {no:5,key:'r_np',   b:(r.sales-r.totalVariable)-r.totalFixed, a:(r.actual-r.totalVariable)-r.totalFixed},
+  ];
+  document.querySelector('#budgetTable tbody').innerHTML = rows.map(row=>{
+    const v = row.a-row.b;
+    const vp = row.b===0?0:(row.a-row.b)/row.b;
+    return `<tr><td>${row.no}</td><td>${t(row.key)}</td><td class="num">${fmt(row.b)}</td><td class="num">${fmt(row.a)}</td><td class="num">${sign(v)}</td><td class="pct">${fmtPct(vp)}</td></tr>`;
+  }).join('');
+
+  const beRows = [
+    {no:1,k:'be_1',v:r.C25,p:1},
+    {no:2,k:'be_2',v:r.C26,p:r.C25?r.C26/r.C25:0},
+    {no:3,k:'be_3',v:r.C27,p:r.C25?r.C27/r.C25:0},
+    {no:4,k:'be_4',v:r.C28,p:r.C25?r.C28/r.C25:0},
+    {no:5,k:'be_5',v:r.C29,p:r.C25?r.C29/r.C25:0},
+    {no:6,k:'be_6',v:r.C30,p:r.C25?r.C30/r.C25:0},
+    {no:7,k:'be_7',v:r.C31,p:r.D31},
+    {no:8,k:'be_8',v:r.C32,p:r.C25?r.C32/r.C25:0,hi:1},
+  ];
+  document.querySelector('#beTable tbody').innerHTML = beRows.map(b=>{
+    const style = b.hi ? 'background:linear-gradient(90deg,rgba(232,93,60,.22),rgba(232,93,60,.08));font-weight:700;color:var(--coral-soft);' : '';
+    return `<tr style="${style}"><td>${b.no}</td><td>${t(b.k)}</td><td class="num">${sign(b.v)}</td><td class="pct">${fmtPct(b.p)}</td></tr>`;
+  }).join('');
+
+  document.getElementById('beValue').textContent = fmt(r.C32);
+  document.getElementById('bePct').textContent = fmtPct(r.C25?r.C32/r.C25:0);
+  document.getElementById('targetProfit').textContent = fmt(r.C30)+' MYR';
+
+  CTG.saveWorkingState(state);
+}
+
+/* ============ AUTH UI ============ */
+function renderAuthUI(){
+  const panel = document.getElementById('authPanel');
+  if(!panel) return;
+  const user = CTG.getUser();
+  if(!CTG.HAS_SUPABASE){
+    panel.innerHTML = `<span class="auth-status-pill offline">${t('auth_offline')}</span>`;
+    return;
+  }
+  if(!user){
+    panel.innerHTML = `
+      <span class="auth-status-pill" title="${t('auth_local')}">${t('auth_local')}</span>
+      <button class="btn-signin" id="btnSignIn" type="button">${t('sign_in')}</button>`;
+    document.getElementById('btnSignIn').onclick = ()=>openAuthModal('signin');
+    return;
+  }
+  // Signed in
+  const email = user.email || '';
+  const name  = (user.user_metadata && (user.user_metadata.full_name || user.user_metadata.name)) || email.split('@')[0];
+  const pic   = user.user_metadata && user.user_metadata.avatar_url;
+  const initials = name.split(/\s+/).slice(0,2).map(s=>s[0]||'').join('').toUpperCase();
+  const avatarStyle = pic ? `background-image:url('${escapeHtml(pic)}');` : '';
+  panel.innerHTML = `
+    <span class="auth-status-pill cloud" title="${t('auth_cloud')}">☁ ${t('auth_cloud')}</span>
+    <div class="user-wrap">
+      <button class="user-chip" id="btnUserMenu" type="button">
+        <span class="user-avatar" style="${avatarStyle}">${pic?'':escapeHtml(initials)}</span>
+        <span>${escapeHtml(name)}</span>
+      </button>
+      <div class="user-menu" id="userMenu">
+        <div class="um-email">${t('signed_in_as')}<br/><b style="color:#fff;">${escapeHtml(email)}</b></div>
+        <button class="danger" id="btnSignOut">↩ ${t('sign_out')}</button>
+      </div>
+    </div>`;
+  const wrap = panel.querySelector('.user-wrap');
+  const menu = document.getElementById('userMenu');
+  document.getElementById('btnUserMenu').onclick = (e)=>{ e.stopPropagation(); menu.classList.toggle('open'); };
+  document.addEventListener('click', (e)=>{ if(!wrap.contains(e.target)) menu.classList.remove('open'); });
+  document.getElementById('btnSignOut').onclick = async ()=>{ await CTG.signOut(); };
+}
+
+/* ============ AUTH MODAL ============ */
+function openAuthModal(stateName){
+  const modal = document.getElementById('authModal');
+  modal.classList.add('open');
+  setAuthModalState(stateName || 'signin');
+  document.body.style.overflow = 'hidden';
+}
+function closeAuthModal(){
+  const modal = document.getElementById('authModal');
+  modal.classList.remove('open');
+  document.body.style.overflow = '';
+  // clear any errors / form fields when closing
+  modal.querySelectorAll('[data-auth-error]').forEach(e=>{ e.classList.remove('show'); e.textContent=''; });
+}
+function setAuthModalState(name){
+  const modal = document.getElementById('authModal');
+  modal.querySelectorAll('.auth-state').forEach(el=>{
+    el.classList.toggle('active', el.dataset.authState === name);
+  });
+  // tabs are only meaningful for signin/signup
+  const tabs = document.getElementById('authTabs');
+  const showTabs = (name === 'signin' || name === 'signup');
+  tabs.style.display = showTabs ? '' : 'none';
+  if(showTabs){
+    tabs.querySelectorAll('.auth-tab').forEach(b=>{
+      b.classList.toggle('active', b.dataset.authGoto === name);
+    });
+  }
+  // clear any visible errors when moving between states
+  modal.querySelectorAll('[data-auth-error]').forEach(e=>{ e.classList.remove('show'); e.textContent=''; });
+}
+function setAuthError(stateName, message){
+  const el = document.querySelector(`.auth-state[data-auth-state="${stateName}"] [data-auth-error]`);
+  if(!el) return;
+  el.textContent = message;
+  el.classList.add('show');
+}
+function friendlyAuthError(err){
+  const msg = (err && err.message) || String(err || 'Error');
+  // Map common Supabase errors to friendlier text
+  if(/Invalid login credentials/i.test(msg)) return LANG==='zh' ? '邮箱或密码错误。' : 'Invalid email or password.';
+  if(/already registered/i.test(msg) || /User already registered/i.test(msg)) return LANG==='zh' ? '此邮箱已注册，请直接登录。' : 'This email is already registered. Try signing in.';
+  if(/Email not confirmed/i.test(msg)) return LANG==='zh' ? '请先点击邮件中的确认链接。' : 'Please click the confirmation link in your email first.';
+  if(/rate limit/i.test(msg)) return LANG==='zh' ? '请求太频繁，请稍后再试。' : 'Too many requests. Please try again in a minute.';
+  return msg;
+}
+
+// Close handlers
+document.addEventListener('click', e=>{
+  if(e.target.closest('[data-auth-close]')) closeAuthModal();
+  const goto = e.target.closest('[data-auth-goto]');
+  if(goto) setAuthModalState(goto.dataset.authGoto);
+});
+document.addEventListener('keydown', e=>{
+  if(e.key === 'Escape' && document.getElementById('authModal').classList.contains('open')) closeAuthModal();
+});
+
+// Form submissions
+document.querySelector('.auth-state[data-auth-state="signin"]').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const form = e.currentTarget;
+  const email = form.email.value.trim();
+  const password = form.password.value;
+  const submit = form.querySelector('.auth-submit');
+  submit.disabled = true;
+  try {
+    await CTG.signInWithPassword({ email, password });
+    closeAuthModal();
+    // onAuth listener will refresh UI and scenarios
+  } catch (err) {
+    console.error(err);
+    setAuthError('signin', friendlyAuthError(err));
+  } finally {
+    submit.disabled = false;
+  }
+});
+
+document.querySelector('.auth-state[data-auth-state="signup"]').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const form = e.currentTarget;
+  const email = form.email.value.trim();
+  const password = form.password.value;
+  const password2 = form.password2.value;
+  if(password.length < 6){ setAuthError('signup', t('auth_pwd_short')); return; }
+  if(password !== password2){ setAuthError('signup', t('auth_pwd_mismatch')); return; }
+  const submit = form.querySelector('.auth-submit');
+  submit.disabled = true;
+  try {
+    const res = await CTG.signUpWithPassword({ email, password });
+    if(res.needsConfirmation){
+      document.getElementById('signupSentEmail').textContent = email;
+      setAuthModalState('signup_sent');
+    } else {
+      closeAuthModal();
+    }
+  } catch (err) {
+    console.error(err);
+    setAuthError('signup', friendlyAuthError(err));
+  } finally {
+    submit.disabled = false;
+  }
+});
+
+document.querySelector('.auth-state[data-auth-state="forgot"]').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const form = e.currentTarget;
+  const email = form.email.value.trim();
+  const submit = form.querySelector('.auth-submit');
+  submit.disabled = true;
+  try {
+    await CTG.sendPasswordReset(email);
+    document.getElementById('forgotSentEmail').textContent = email;
+    setAuthModalState('forgot_sent');
+  } catch (err) {
+    console.error(err);
+    setAuthError('forgot', friendlyAuthError(err));
+  } finally {
+    submit.disabled = false;
+  }
+});
+
+document.querySelector('.auth-state[data-auth-state="recovery"]').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const form = e.currentTarget;
+  const password = form.password.value;
+  const password2 = form.password2.value;
+  if(password.length < 6){ setAuthError('recovery', t('auth_pwd_short')); return; }
+  if(password !== password2){ setAuthError('recovery', t('auth_pwd_mismatch')); return; }
+  const submit = form.querySelector('.auth-submit');
+  submit.disabled = true;
+  try {
+    await CTG.updatePassword(password);
+    closeAuthModal();
+    showToast(t('auth_pwd_updated'), 'success');
+  } catch (err) {
+    console.error(err);
+    setAuthError('recovery', friendlyAuthError(err));
+  } finally {
+    submit.disabled = false;
+  }
+});
+
+function updateStorageNote(){
+  const note = document.getElementById('storageNote');
+  if(!note) return;
+  if(!CTG.HAS_SUPABASE) note.textContent = t('note_save_offline');
+  else if(CTG.isSignedIn()) note.textContent = t('note_save_cloud');
+  else note.textContent = t('note_save_local');
+}
+
+/* ============ EVENTS ============ */
+document.addEventListener('input', e=>{
+  const tgt=e.target;
+  if(tgt.id==='salesTarget'){state.salesTarget=Number(tgt.value)||0; renderSummary(); return;}
+  if(tgt.id==='actualSales'){state.actualSales=Number(tgt.value)||0; renderSummary(); return;}
+  if(tgt.dataset.pi!==undefined){
+    const i=+tgt.dataset.pi, f=tgt.dataset.field;
+    state.products[i][f] = (f==='name') ? tgt.value : (Number(tgt.value)||0);
+    if(f==='purchase'){state.costs.forEach(c=>{if(c.type==='Product' && c.productIndex===i){c.unit=Number(tgt.value)||0;c.item=state.products[i].name;}});}
+    if(f==='name'){state.costs.forEach(c=>{if(c.type==='Product' && c.productIndex===i) c.item=tgt.value;});}
+    renderCosts(); renderSummary(); renderProducts();
+    return;
+  }
+  if(tgt.dataset.ci!==undefined){
+    const i=+tgt.dataset.ci, f=tgt.dataset.field;
+    if(f==='productIndex'){
+      const v=tgt.value;
+      state.costs[i].productIndex = v===''?null:Number(v);
+      if(state.costs[i].productIndex!==null && state.products[state.costs[i].productIndex]){
+        state.costs[i].unit=state.products[state.costs[i].productIndex].purchase;
+        state.costs[i].item=state.products[state.costs[i].productIndex].name;
+      }
+    } else {
+      state.costs[i][f] = (['item','category','type'].includes(f)) ? tgt.value : (Number(tgt.value)||0);
+    }
+    renderCosts(); renderSummary();
+  }
+});
+document.addEventListener('click', e=>{
+  if(e.target.dataset.delProduct!==undefined){
+    const i=+e.target.dataset.delProduct;
+    if(confirm(t('confirm_del_p'))){
+      state.products.splice(i,1);
+      state.costs.forEach(c=>{if(c.productIndex===i)c.productIndex=null; else if(c.productIndex>i)c.productIndex--;});
+      render();
+    }
+  }
+  if(e.target.dataset.delCost!==undefined){
+    const i=+e.target.dataset.delCost;
+    if(confirm(t('confirm_del_c'))){state.costs.splice(i,1); render();}
+  }
+});
+
+document.getElementById('btnAddProduct').onclick = ()=>{
+  state.products.push({name:'Product_'+(state.products.length+1), qty:1, purchase:0, selling:0});
+  render();
+};
+document.getElementById('btnAddCost').onclick = ()=>{
+  state.costs.push({item:'New Cost Item', category:'Other', type:'Fixed', qty:1, unit:0});
+  render();
+};
+document.getElementById('btnAddInventoryRow').onclick = ()=>{
+  state.costs.push({item:'Inventory Item', category:'Inventory', type:'Product', qty:1, unit:0, productIndex:null});
+  render();
+};
+document.getElementById('btnReset').onclick = ()=>{
+  if(confirm(t('confirm_reset'))){
+    state={salesTarget:75000,actualSales:0,products:deepCopy(DEFAULT_PRODUCTS),costs:deepCopy(DEFAULT_COSTS)};
+    document.getElementById('salesTarget').value=75000;
+    document.getElementById('actualSales').value=0;
+    render();
+  }
+};
+document.getElementById('btnClear').onclick = ()=>{
+  if(confirm(t('confirm_clear'))){
+    state={salesTarget:0,actualSales:0,products:[],costs:[]};
+    document.getElementById('salesTarget').value=0;
+    document.getElementById('actualSales').value=0;
+    render();
+  }
+};
+
+/* ============ SAVE SCENARIO (async) ============ */
+document.getElementById('btnSaveScenario').onclick = async ()=>{
+  const name = document.getElementById('scenarioName').value.trim();
+  if(!name){ alert(t('scn_need_name')); return; }
+  const btn = document.getElementById('btnSaveScenario');
+  const color = SCENARIO_COLORS[scenarios.length % SCENARIO_COLORS.length];
+  btn.disabled = true;
+  try {
+    const row = await CTG.saveScenario({ name, color, data: deepCopy(state) });
+    scenarios = await CTG.listScenarios();
+    selectedScenarios.add(row.id);
+    showToast(t('scn_saved'), 'success');
+    renderCompare();
+  } catch (err) {
+    console.error(err);
+    showToast(t('err_save'), 'error');
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+/* ============ COMPARE TAB ============ */
+function renderCompare(){
+  const bar = document.getElementById('scenarioBar');
+  const view = document.getElementById('compareView');
+  if(scenarios.length===0){
+    bar.innerHTML = `<span class="note" style="margin:auto;">${t('cmp_empty')}</span>`;
+    view.innerHTML = '';
+    return;
+  }
+  bar.innerHTML = scenarios.map(s=>{
+    const sel = selectedScenarios.has(s.id);
+    return `<span class="scenario-chip ${sel?'active':''}" data-scn="${s.id}" style="${sel?`background:${s.color};border-color:${s.color};color:#fff;`:''}">
+      <span style="width:10px;height:10px;border-radius:50%;background:${sel?'#fff':s.color};"></span>
+      ${escapeHtml(s.name)}
+      <span class="chip-x" data-scn-del="${s.id}" title="Delete">✕</span>
+    </span>`;
+  }).join('');
+
+  const sel = scenarios.filter(s=>selectedScenarios.has(s.id)).slice(0,4);
+  if(sel.length===0){ view.innerHTML = `<p class="note" style="text-align:center;padding:20px;">${LANG==='zh'?'请选择上方方案以对比':'Select scenarios above to compare'}</p>`; return; }
+  view.innerHTML = `<div class="compare-grid" style="grid-template-columns:repeat(${sel.length},1fr);">
+    ${sel.map(s=>{
+      const c = compute(s.data);
+      return `<div class="compare-card" style="border-top:4px solid ${s.color};">
+        <h4><span class="dot" style="background:${s.color};"></span>${escapeHtml(s.name)}</h4>
+        <div class="compare-row"><span class="lab">${t('sales_target')}</span><span class="val">MYR ${fmt(c.sales)}</span></div>
+        <div class="compare-row"><span class="lab">${t('kpi_fixed')}</span><span class="val">${fmt(c.totalFixed)}</span></div>
+        <div class="compare-row"><span class="lab">${t('kpi_var')}</span><span class="val">${fmt(c.totalVariable)}</span></div>
+        <div class="compare-row"><span class="lab">${t('kpi_prod')} %</span><span class="val">${fmtPct(c.costRatio)}</span></div>
+        <div class="compare-row"><span class="lab">${t('kpi_cm')}</span><span class="val">${fmtPct(c.D31)}</span></div>
+        <div class="compare-row"><span class="lab">${t('target_np')}</span><span class="val" style="color:${c.C30>=0?'var(--success)':'var(--danger)'};">${fmt(c.C30)}</span></div>
+        <div class="compare-row highlight"><span class="lab">⚡ ${LANG==='zh'?'损益平衡':'Break-Even'}</span><span class="val">${fmt(c.C32)}</span></div>
+      </div>`;
+    }).join('')}
+  </div>`;
+
+  if(sel.length>=1){
+    view.innerHTML += `<div class="chart-box" style="margin-top:16px;"><h3>${LANG==='zh'?'方案对比图':'Scenario Comparison'}</h3><canvas id="cmpChart" height="80"></canvas></div>`;
+    setTimeout(()=>drawCompareChart(sel),50);
+  }
+}
+
+document.addEventListener('click', async e=>{
+  if(e.target.dataset.scnDel){
+    e.stopPropagation();
+    if(confirm(t('confirm_del_scn'))){
+      const id=e.target.dataset.scnDel;
+      try {
+        await CTG.deleteScenario(id);
+        scenarios = scenarios.filter(s=>s.id!==id);
+        selectedScenarios.delete(id);
+        renderCompare();
+      } catch (err) {
+        console.error(err);
+        showToast(t('err_save'), 'error');
+      }
+    }
+    return;
+  }
+  const chip = e.target.closest('[data-scn]');
+  if(chip){
+    const id = chip.dataset.scn;
+    if(selectedScenarios.has(id)) selectedScenarios.delete(id);
+    else if(selectedScenarios.size<4) selectedScenarios.add(id);
+    renderCompare();
+  }
+});
+
+let cmpChart;
+function drawCompareChart(sel){
+  const ctx = document.getElementById('cmpChart');
+  if(!ctx) return;
+  if(cmpChart) cmpChart.destroy();
+  const labels = [t('sales_target'),t('kpi_fixed'),t('kpi_var'),t('be_8'),t('target_np')];
+  cmpChart = new Chart(ctx,{
+    type:'bar',
+    data:{labels, datasets: sel.map(s=>{
+      const c = compute(s.data);
+      return {
+        label: s.name,
+        backgroundColor: s.color+'cc',
+        borderColor: s.color,
+        borderWidth:2,
+        data:[c.sales, c.totalFixed, c.totalVariable, c.C32, c.C30]
+      };
+    })},
+    options:{
+      responsive:true, maintainAspectRatio:true,
+      plugins:{legend:{position:'top'}},
+      scales:{y:{ticks:{callback:v=>'MYR '+(v/1000).toFixed(0)+'k'}}}
+    }
+  });
+}
+
+/* ============ SENSITIVITY TAB ============ */
+let chartProfit, chartBE, chartPie;
+function renderSensitivity(){
+  const r = compute(state);
+  document.getElementById('sCurSales').textContent = 'MYR '+fmt(r.sales);
+  document.getElementById('sCurBE').textContent = 'MYR '+fmt(r.C32);
+  document.getElementById('sCurNP').textContent = 'MYR '+fmt(r.C30);
+
+  const steps = [];
+  for(let pct=-50; pct<=50; pct+=10){ steps.push(pct); }
+  const salesData = steps.map(p => r.sales * (1+p/100));
+  const profitData = salesData.map(s=>{
+    const C26 = -s*r.costRatio;
+    const C27 = -r.totalVariable;
+    const C28 = -r.totalFixed;
+    return s + C26 + C27 + C28;
+  });
+  const fixedSteps = steps.map(p => r.totalFixed*(1+p/100));
+  const beData = fixedSteps.map(fc => r.D31===0?0:fc/r.D31);
+
+  const tbody = document.querySelector('#sensTable tbody');
+  tbody.innerHTML = steps.map((p,i)=>{
+    const s = salesData[i];
+    const C26 = -s*r.costRatio, C27 = -r.totalVariable, C28 = -r.totalFixed;
+    const np = s+C26+C27+C28;
+    const safety = s>0 ? (s-r.C32)/s : 0;
+    const pcls = p===0 ? 'background:rgba(91,155,213,.12);font-weight:700;' : '';
+    const npcls = np>=0?'pos':'neg';
+    return `<tr style="${pcls}"><td>${p>0?'+':''}${p}%</td><td class="num">${fmt(s)}</td><td class="num">${fmt(r.C32)}</td><td class="num"><span class="${npcls}">${fmt(np)}</span></td><td class="pct">${fmtPct(safety)}</td></tr>`;
+  }).join('');
+
+  if(chartProfit) chartProfit.destroy();
+  chartProfit = new Chart(document.getElementById('chartProfit'),{
+    type:'line',
+    data:{
+      labels: steps.map(p=>(p>0?'+':'')+p+'%'),
+      datasets:[
+        {label:t('be_6'), data:profitData, borderColor:'#5B9BD5', backgroundColor:'rgba(91,155,213,0.15)', fill:true, tension:.35, pointRadius:5, pointBackgroundColor:'#5B9BD5', borderWidth:3},
+        {label:LANG==='zh'?'盈亏分界':'Zero Profit Line', data:steps.map(()=>0), borderColor:'#E85D3C', borderDash:[6,5], pointRadius:0, fill:false, borderWidth:2}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:true,
+      plugins:{legend:{position:'top'},tooltip:{callbacks:{label:c=>c.dataset.label+': MYR '+fmt(c.parsed.y)}}},
+      scales:{
+        x:{title:{display:true,text:LANG==='zh'?'销售目标变动':'Sales Target Change'}},
+        y:{title:{display:true,text:'MYR'},ticks:{callback:v=>(v/1000).toFixed(0)+'k'}}
+      }
+    }
+  });
+
+  if(chartBE) chartBE.destroy();
+  chartBE = new Chart(document.getElementById('chartBE'),{
+    type:'line',
+    data:{
+      labels: steps.map(p=>(p>0?'+':'')+p+'%'),
+      datasets:[{label:t('be_8'), data:beData, borderColor:'#E85D3C', backgroundColor:'rgba(232,93,60,0.15)', fill:true, tension:.35, pointRadius:5, pointBackgroundColor:'#E85D3C', borderWidth:3}]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:true,
+      plugins:{legend:{position:'top'},tooltip:{callbacks:{label:c=>'BE: MYR '+fmt(c.parsed.y)}}},
+      scales:{
+        x:{title:{display:true,text:LANG==='zh'?'固定成本变动':'Fixed Cost Change'}},
+        y:{title:{display:true,text:'MYR'},ticks:{callback:v=>(v/1000).toFixed(0)+'k'}}
+      }
+    }
+  });
+
+  if(chartPie) chartPie.destroy();
+  const productCostAmt = r.sales*r.costRatio;
+  chartPie = new Chart(document.getElementById('chartPie'),{
+    type:'doughnut',
+    data:{
+      labels:[t('kpi_fixed'),t('kpi_var'),t('kpi_prod')+' ('+fmtPct(r.costRatio)+' of Sales)',t('target_np')],
+      datasets:[{
+        data:[r.totalFixed, r.totalVariable, productCostAmt, Math.max(0,r.C30)],
+        backgroundColor:['#1F3A5F','#E85D3C','#5B9BD5','#10b981'],
+        borderColor:'#0C1421',borderWidth:4,hoverOffset:8
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:true,
+      plugins:{
+        legend:{position:'right'},
+        tooltip:{callbacks:{label:c=>c.label+': MYR '+fmt(c.parsed)+' ('+((c.parsed/r.sales)*100).toFixed(1)+'%)'}}
+      }
+    }
+  });
+}
+
+/* ============ TABS ============ */
+let currentTab = 'calc';
+document.querySelectorAll('.tab-btn').forEach(b=>{
+  b.onclick = ()=>{
+    document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    const id = b.dataset.tab;
+    document.getElementById('tab-'+id).classList.add('active');
+    currentTab = id;
+    if(id==='compare') renderCompare();
+    if(id==='sensitivity') renderSensitivity();
+  };
+});
+
+/* ============ EXPORT ============ */
+document.getElementById('btnExport').onclick = ()=>{
+  const r = compute(state);
+  const lines = [];
+  const csv = s=>{s=String(s??'');return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+  lines.push('Exhibition Event - Break-Even Calculator Export');
+  lines.push('Generated,'+new Date().toLocaleString());
+  lines.push('');
+  lines.push('BUDGET & INTERNAL CONTROL');
+  lines.push('No,Item,Budget,Actual,Variance');
+  lines.push(`1,Sales Target,${r.sales},${r.actual},${r.actual-r.sales}`);
+  lines.push(`2,Variable Cost,${r.totalVariable},0,${-r.totalVariable}`);
+  lines.push(`3,Contribution Margin,${r.sales-r.totalVariable},${r.actual-r.totalVariable},${r.actual-r.sales}`);
+  lines.push(`4,Fixed Cost,${r.totalFixed},0,${-r.totalFixed}`);
+  lines.push(`5,Net Profit,${(r.sales-r.totalVariable)-r.totalFixed},${(r.actual-r.totalVariable)-r.totalFixed},${r.actual-r.sales}`);
+  lines.push('');
+  lines.push('PRODUCT COST STRUCTURE');
+  lines.push('No,Product,Qty,Purchase,Selling,Margin%');
+  state.products.forEach((p,i)=>{
+    const m = p.selling?((p.selling-p.purchase)/p.selling*100).toFixed(2):0;
+    lines.push(`${i+1},${csv(p.name)},${p.qty},${p.purchase},${p.selling},${m}%`);
+  });
+  lines.push('');
+  lines.push('COST STRUCTURE');
+  lines.push('No,Cost Item,Category,Type,Qty,Unit,Amount');
+  state.costs.forEach((c,i)=>{
+    lines.push(`${i+1},${csv(c.item)},${c.category},${c.type},${c.qty},${c.unit},${(Number(c.qty)||0)*(Number(c.unit)||0)}`);
+  });
+  lines.push('');
+  lines.push('BREAK-EVEN POINT');
+  lines.push(`Target Sales,${r.C25}`);
+  lines.push(`Total Product Cost,${r.C26.toFixed(2)}`);
+  lines.push(`Total Variable Cost,${r.C27}`);
+  lines.push(`Total Fixed Cost,${r.C28}`);
+  lines.push(`Total Cost,${r.C29.toFixed(2)}`);
+  lines.push(`Target Net Profit,${r.C30.toFixed(2)}`);
+  lines.push(`Contribution Margin,${r.C31.toFixed(2)}`);
+  lines.push(`Contribution Margin %,${(r.D31*100).toFixed(2)}%`);
+  lines.push(`Break-Even Sales MYR,${r.C32.toFixed(2)}`);
+  if(scenarios.length){
+    lines.push('');lines.push('SAVED SCENARIOS COMPARISON');
+    lines.push('Name,Sales,Fixed,Variable,CM%,Net Profit,Break-Even');
+    scenarios.forEach(s=>{
+      const c = compute(s.data);
+      lines.push(`${csv(s.name)},${c.sales},${c.totalFixed},${c.totalVariable},${(c.D31*100).toFixed(2)}%,${c.C30.toFixed(2)},${c.C32.toFixed(2)}`);
+    });
+  }
+  const blob = new Blob(["﻿"+lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'Expo_BreakEven_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+};
+
+document.getElementById('btnPrint').onclick = ()=>window.print();
+
+/* ============ MIGRATE BANNER ============ */
+function maybeShowMigrate(){
+  const banner = document.getElementById('migrateBanner');
+  if(!banner) return;
+  const hasLocal = (JSON.parse(localStorage.getItem('ctg_bep_scenarios_v1') || '[]') || [])
+                    .some(s => String(s.id).startsWith('local_'));
+  banner.style.display = (CTG.isSignedIn() && hasLocal) ? 'flex' : 'none';
+}
+document.getElementById('btnMigrate').onclick = async ()=>{
+  const res = await CTG.migrateLocalToCloud();
+  if(res.migrated>0){
+    scenarios = await CTG.listScenarios();
+    renderCompare();
+    showToast(t('migrate_done').replace('{n}', res.migrated), 'success');
+  }
+  document.getElementById('migrateBanner').style.display = 'none';
+};
+document.getElementById('btnMigrateDismiss').onclick = ()=>{
+  document.getElementById('migrateBanner').style.display = 'none';
+};
+
+/* ============ INIT ============ */
+async function init(){
+  // restore working state + language
+  const savedState = CTG.loadWorkingState();
+  if(savedState){
+    state = savedState;
+    document.getElementById('salesTarget').value = state.salesTarget;
+    document.getElementById('actualSales').value = state.actualSales;
+  }
+  const savedLang = CTG.loadLang();
+  if(savedLang) setLang(savedLang); else renderAuthUI();
+
+  // Subscribe to auth changes BEFORE init() so we don't miss the first event.
+  CTG.onAuth(async ({ event, user }) => {
+    renderAuthUI();
+    updateStorageNote();
+    // Password reset link returns the user with a recovery session — show the
+    // "set new password" form immediately.
+    if(event === 'PASSWORD_RECOVERY'){
+      openAuthModal('recovery');
+    }
+    try {
+      scenarios = await CTG.listScenarios();
+    } catch (err) {
+      console.error(err);
+      showToast(t('err_load'), 'error');
+      scenarios = [];
+    }
+    if(currentTab==='compare') renderCompare();
+    maybeShowMigrate();
+  });
+  await CTG.init();
+
+  // First load of scenarios (covers offline mode where onAuth fires synchronously)
+  try { scenarios = await CTG.listScenarios(); } catch (err) { scenarios = []; }
+
+  updateStorageNote();
+  render();
+  if(currentTab==='compare') renderCompare();
+  maybeShowMigrate();
+}
+
+init();
+</script>
+</body>
+</html>
