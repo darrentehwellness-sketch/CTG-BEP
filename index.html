@@ -381,7 +381,11 @@
     border:1px solid rgba(232,93,60,.25);border-radius:var(--radius);padding:34px 28px;text-align:center;
     box-shadow:0 12px 40px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.02);
     position:relative;overflow:hidden;color:#fff;
+    /* Vertically center content so it visually balances the taller Sales Target card on the same row */
+    display:flex;flex-direction:column;justify-content:center;align-items:center;
+    min-height:100%;
   }
+  .breakeven-banner > *{width:100%;}
   .breakeven-banner::before, .breakeven-banner::after{content:'';position:absolute;border-radius:50%;filter:blur(60px);}
   .breakeven-banner::before{
     width:380px;height:380px;background:radial-gradient(circle,rgba(232,93,60,.65),transparent 70%);
