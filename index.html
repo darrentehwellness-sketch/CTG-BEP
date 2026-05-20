@@ -630,10 +630,73 @@
       <span class="note" id="storageNote" data-i18n="note_save_local">Auto-saved locally · Sign in to sync across devices</span>
     </div>
 
+    <!-- Product Costing -->
+    <div class="card">
+      <h2><span class="ic">①</span><span data-i18n="prod_title">Product Costing Control</span><span class="badge" data-i18n="prod_badge">Product Cost Structure</span></h2>
+      <div class="legend">
+        <span data-i18n="prod_legend1">Qty × Purchase = Cost</span> ·
+        <span data-i18n="prod_legend2">Margin % = (Selling − Purchase) ÷ Selling</span>
+      </div>
+      <div class="table-wrap">
+      <table id="productTable">
+        <thead><tr>
+          <th style="width:40px;">No</th><th data-i18n="th_prod">Product Name</th>
+          <th style="width:80px;" data-i18n="th_qty">Qty</th>
+          <th style="width:130px;" data-i18n="th_purchase">Purchase Price</th>
+          <th style="width:130px;" data-i18n="th_selling">Selling Price</th>
+          <th style="width:120px;" data-i18n="th_margin">Margin %</th>
+          <th style="width:42px;"></th>
+        </tr></thead>
+        <tbody></tbody>
+        <tfoot>
+          <tr><td colspan="3" style="text-align:right;" data-i18n="th_total">Total:</td>
+              <td class="num" id="prodTotPurchase">—</td><td class="num" id="prodTotSelling">—</td>
+              <td class="pct" id="prodTotMargin">—</td><td></td></tr>
+          <tr><td colspan="5" style="text-align:right;" data-i18n="th_costpct">Cost % of Selling (1 − Margin):</td>
+              <td class="pct" id="prodCostPct">—</td><td></td></tr>
+        </tfoot>
+      </table>
+      </div>
+      <div class="add-row"><button id="btnAddProduct">+ <span data-i18n="add_prod">Add Product</span></button></div>
+    </div>
+
+    <!-- Cost Structure -->
+    <div class="card">
+      <h2><span class="ic">②</span><span data-i18n="cost_title">Cost Structure</span><span class="badge" data-i18n="cost_badge">Fixed / Variable / Product</span></h2>
+      <div class="legend">
+        <span class="pill fixed">Fixed</span> <span data-i18n="cost_l_f">incurred regardless of sales</span> ·
+        <span class="pill variable">Variable</span> <span data-i18n="cost_l_v">scales with sales</span> ·
+        <span class="pill product">Product</span> <span data-i18n="cost_l_p">inventory items</span>
+      </div>
+      <div class="table-wrap">
+      <table id="costTable">
+        <thead><tr>
+          <th style="width:40px;">No</th><th data-i18n="th_cost_item">Cost Item</th>
+          <th style="width:170px;" data-i18n="th_cat">Category</th>
+          <th style="width:110px;" data-i18n="th_type">Type</th>
+          <th style="width:70px;" data-i18n="th_qty">Qty</th>
+          <th style="width:120px;" data-i18n="th_unit">Unit Price</th>
+          <th style="width:120px;" data-i18n="th_amt">Amount (MYR)</th>
+          <th style="width:42px;"></th>
+        </tr></thead>
+        <tbody></tbody>
+        <tfoot>
+          <tr><td colspan="6" style="text-align:right;" data-i18n="tf_fix">Total Fixed Cost:</td><td class="num" id="totFixed">—</td><td></td></tr>
+          <tr><td colspan="6" style="text-align:right;" data-i18n="tf_var">Total Variable Cost:</td><td class="num" id="totVar">—</td><td></td></tr>
+          <tr><td colspan="6" style="text-align:right;" data-i18n="tf_prod">Total Product Cost (Inventory):</td><td class="num" id="totProd">—</td><td></td></tr>
+        </tfoot>
+      </table>
+      </div>
+      <div class="add-row">
+        <button id="btnAddCost">+ <span data-i18n="add_cost">Add Cost Item</span></button>
+        <button class="ghost" id="btnAddInventoryRow">+ <span data-i18n="add_inv">Add Inventory Row</span></button>
+      </div>
+    </div>
+
     <!-- Sales & BE Banner -->
     <div class="grid-2">
       <div class="card">
-        <h2><span class="ic">①</span><span data-i18n="sales_input">Sales Target Input</span></h2>
+        <h2><span class="ic">③</span><span data-i18n="sales_input">Sales Target Input</span></h2>
         <div class="input-group">
           <label data-i18n="sales_target">Sales Target</label>
           <div class="input-prefix"><input type="number" id="salesTarget" value="75000" min="0" step="100"/></div>
@@ -668,7 +731,7 @@
 
     <!-- Budget & Actual -->
     <div class="card">
-      <h2><span class="ic">②</span><span data-i18n="budget_title">Budgeting & Internal Control</span><span class="badge" data-i18n="budget_badge">Budget vs Actual</span></h2>
+      <h2><span class="ic">④</span><span data-i18n="budget_title">Budgeting & Internal Control</span><span class="badge" data-i18n="budget_badge">Budget vs Actual</span></h2>
       <div class="table-wrap">
       <table id="budgetTable">
         <thead><tr>
@@ -680,69 +743,6 @@
       </div>
       <div class="formula" data-i18n="budget_formula">
         Contribution Margin = Sales − Variable Cost &nbsp;|&nbsp; Net Profit = Contribution Margin − Fixed Cost
-      </div>
-    </div>
-
-    <!-- Product Costing -->
-    <div class="card">
-      <h2><span class="ic">③</span><span data-i18n="prod_title">Product Costing Control</span><span class="badge" data-i18n="prod_badge">Product Cost Structure</span></h2>
-      <div class="legend">
-        <span data-i18n="prod_legend1">Qty × Purchase = Cost</span> ·
-        <span data-i18n="prod_legend2">Margin % = (Selling − Purchase) ÷ Selling</span>
-      </div>
-      <div class="table-wrap">
-      <table id="productTable">
-        <thead><tr>
-          <th style="width:40px;">No</th><th data-i18n="th_prod">Product Name</th>
-          <th style="width:80px;" data-i18n="th_qty">Qty</th>
-          <th style="width:130px;" data-i18n="th_purchase">Purchase Price</th>
-          <th style="width:130px;" data-i18n="th_selling">Selling Price</th>
-          <th style="width:120px;" data-i18n="th_margin">Margin %</th>
-          <th style="width:42px;"></th>
-        </tr></thead>
-        <tbody></tbody>
-        <tfoot>
-          <tr><td colspan="3" style="text-align:right;" data-i18n="th_total">Total:</td>
-              <td class="num" id="prodTotPurchase">—</td><td class="num" id="prodTotSelling">—</td>
-              <td class="pct" id="prodTotMargin">—</td><td></td></tr>
-          <tr><td colspan="5" style="text-align:right;" data-i18n="th_costpct">Cost % of Selling (1 − Margin):</td>
-              <td class="pct" id="prodCostPct">—</td><td></td></tr>
-        </tfoot>
-      </table>
-      </div>
-      <div class="add-row"><button id="btnAddProduct">+ <span data-i18n="add_prod">Add Product</span></button></div>
-    </div>
-
-    <!-- Cost Structure -->
-    <div class="card">
-      <h2><span class="ic">④</span><span data-i18n="cost_title">Cost Structure</span><span class="badge" data-i18n="cost_badge">Fixed / Variable / Product</span></h2>
-      <div class="legend">
-        <span class="pill fixed">Fixed</span> <span data-i18n="cost_l_f">incurred regardless of sales</span> ·
-        <span class="pill variable">Variable</span> <span data-i18n="cost_l_v">scales with sales</span> ·
-        <span class="pill product">Product</span> <span data-i18n="cost_l_p">inventory items</span>
-      </div>
-      <div class="table-wrap">
-      <table id="costTable">
-        <thead><tr>
-          <th style="width:40px;">No</th><th data-i18n="th_cost_item">Cost Item</th>
-          <th style="width:170px;" data-i18n="th_cat">Category</th>
-          <th style="width:110px;" data-i18n="th_type">Type</th>
-          <th style="width:70px;" data-i18n="th_qty">Qty</th>
-          <th style="width:120px;" data-i18n="th_unit">Unit Price</th>
-          <th style="width:120px;" data-i18n="th_amt">Amount (MYR)</th>
-          <th style="width:42px;"></th>
-        </tr></thead>
-        <tbody></tbody>
-        <tfoot>
-          <tr><td colspan="6" style="text-align:right;" data-i18n="tf_fix">Total Fixed Cost:</td><td class="num" id="totFixed">—</td><td></td></tr>
-          <tr><td colspan="6" style="text-align:right;" data-i18n="tf_var">Total Variable Cost:</td><td class="num" id="totVar">—</td><td></td></tr>
-          <tr><td colspan="6" style="text-align:right;" data-i18n="tf_prod">Total Product Cost (Inventory):</td><td class="num" id="totProd">—</td><td></td></tr>
-        </tfoot>
-      </table>
-      </div>
-      <div class="add-row">
-        <button id="btnAddCost">+ <span data-i18n="add_cost">Add Cost Item</span></button>
-        <button class="ghost" id="btnAddInventoryRow">+ <span data-i18n="add_inv">Add Inventory Row</span></button>
       </div>
     </div>
 
