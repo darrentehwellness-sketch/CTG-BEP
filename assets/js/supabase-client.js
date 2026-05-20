@@ -98,6 +98,27 @@
     if (error) throw error;
   }
 
+  async function updateDisplayName(name) {
+    _ensureSb();
+    const { error } = await sb.auth.updateUser({ data: { full_name: name } });
+    if (error) throw error;
+  }
+
+  // ---------- admin RPCs ----------
+  async function isAppAdmin() {
+    if (!sb || !currentUser) return false;
+    const { data, error } = await sb.rpc('is_app_admin');
+    if (error) { console.error(error); return false; }
+    return !!data;
+  }
+
+  async function adminListUsers() {
+    _ensureSb();
+    const { data, error } = await sb.rpc('admin_list_users');
+    if (error) throw error;
+    return data || [];
+  }
+
   async function signOut() {
     if (!sb) return;
     await sb.auth.signOut();
@@ -185,6 +206,9 @@
     signUpWithPassword,
     sendPasswordReset,
     updatePassword,
+    updateDisplayName,
+    isAppAdmin,
+    adminListUsers,
     signOut,
     listScenarios,
     saveScenario,
