@@ -620,6 +620,7 @@
     <button class="tab-btn" data-tab="compare"><span class="ic">⚖️</span><span data-i18n="tab_compare">Compare Scenarios</span></button>
     <button class="tab-btn" data-tab="sensitivity"><span class="ic">📈</span><span data-i18n="tab_sens">Sensitivity Analysis</span></button>
     <button class="tab-btn" data-tab="settings"><span class="ic">⚙️</span><span data-i18n="tab_settings">Settings</span></button>
+    <button class="tab-btn admin-only" data-tab="entities" id="tabBtnEntities"><span class="ic">🏢</span><span data-i18n="tab_entities">Entities</span></button>
     <button class="tab-btn admin-only" data-tab="users" id="tabBtnUsers"><span class="ic">👥</span><span data-i18n="tab_users">User Management</span></button>
   </div>
 </nav>
@@ -666,6 +667,12 @@
         <div class="input-group">
           <label data-i18n="scn_name">Scenario Name (for saving)</label>
           <input type="text" id="scenarioName" placeholder="e.g. KLCC Expo - June 2026"/>
+        </div>
+        <div class="input-group">
+          <label data-i18n="scn_entity">Entity (company)</label>
+          <select id="scenarioEntity" style="width:100%;padding:11px 14px;border:1px solid var(--border-strong);border-radius:8px;background:rgba(7,13,23,.6);color:var(--text);font:inherit;">
+            <option value="" data-i18n="scn_entity_none">— No entity —</option>
+          </select>
         </div>
       </div>
 
@@ -919,6 +926,135 @@
   </div>
 
   <!-- ============================================================== -->
+  <!-- TAB: ENTITIES — admin only -->
+  <!-- ============================================================== -->
+  <div class="tab-panel" id="tab-entities">
+    <div class="card">
+      <h2><span class="ic">🏢</span><span data-i18n="entities_title">Entities (Companies)</span><span class="badge" data-i18n="users_badge">Admin only</span></h2>
+
+      <div id="entitiesDenied" style="display:none;">
+        <p class="note" data-i18n="users_denied">Access denied. This panel is admin-only.</p>
+      </div>
+
+      <div id="entitiesAdmin" style="display:none;">
+        <p class="note" data-i18n="entities_help">Maintain the list of JV partner companies. Users pick from this list when saving a scenario.</p>
+
+        <div style="display:flex;gap:10px;margin:14px 0;flex-wrap:wrap;align-items:center;">
+          <button class="accent" id="btnNewEntity">+ <span data-i18n="entities_new">New Entity</span></button>
+          <button class="ghost" id="btnRefreshEntities">↻ <span data-i18n="users_refresh">Refresh</span></button>
+        </div>
+
+        <div class="table-wrap">
+          <table id="entitiesTable">
+            <thead><tr>
+              <th data-i18n="ent_th_name">Name</th>
+              <th data-i18n="ent_th_legal">Legal Name</th>
+              <th data-i18n="ent_th_reg">SSM / Reg No</th>
+              <th data-i18n="ent_th_contact">Contact</th>
+              <th data-i18n="ent_th_active">Active</th>
+              <th style="width:120px;text-align:center;" data-i18n="ent_th_actions">Actions</th>
+            </tr></thead>
+            <tbody><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Entity form (shown when adding or editing) -->
+    <div class="card" id="entityFormCard" style="display:none;">
+      <h2><span class="ic">✎</span><span id="entityFormTitle" data-i18n="entities_form_new">New Entity</span></h2>
+      <form id="formEntity" autocomplete="off">
+        <input type="hidden" id="entityId"/>
+
+        <div class="grid-2">
+          <div class="input-group">
+            <label data-i18n="ent_f_name">Display Name *</label>
+            <input type="text" id="entName" required placeholder="DRSMILE"/>
+          </div>
+          <div class="input-group">
+            <label data-i18n="ent_f_legal">Legal Name</label>
+            <input type="text" id="entLegalName" placeholder="DRSMILE WHITENING SDN BHD"/>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="input-group">
+            <label data-i18n="ent_f_reg">SSM / Reg No</label>
+            <input type="text" id="entRegNo" placeholder="202401012345"/>
+          </div>
+          <div class="input-group">
+            <label data-i18n="ent_f_tax">Tax No (SST)</label>
+            <input type="text" id="entTaxNo" placeholder="W10-1234-56789012"/>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label data-i18n="ent_f_addr1">Address Line 1</label>
+          <input type="text" id="entAddr1"/>
+        </div>
+        <div class="input-group">
+          <label data-i18n="ent_f_addr2">Address Line 2</label>
+          <input type="text" id="entAddr2"/>
+        </div>
+
+        <div class="grid-3">
+          <div class="input-group">
+            <label data-i18n="ent_f_city">City</label>
+            <input type="text" id="entCity" placeholder="Kuala Lumpur"/>
+          </div>
+          <div class="input-group">
+            <label data-i18n="ent_f_state">State</label>
+            <input type="text" id="entState" placeholder="WP Kuala Lumpur"/>
+          </div>
+          <div class="input-group">
+            <label data-i18n="ent_f_postcode">Postcode</label>
+            <input type="text" id="entPostcode" placeholder="50450"/>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label data-i18n="ent_f_country">Country</label>
+          <input type="text" id="entCountry" value="Malaysia"/>
+        </div>
+
+        <div class="grid-3">
+          <div class="input-group">
+            <label data-i18n="ent_f_contact_person">Contact Person</label>
+            <input type="text" id="entContactPerson"/>
+          </div>
+          <div class="input-group">
+            <label data-i18n="ent_f_contact_email">Contact Email</label>
+            <input type="email" id="entContactEmail"/>
+          </div>
+          <div class="input-group">
+            <label data-i18n="ent_f_contact_phone">Contact Phone</label>
+            <input type="tel" id="entContactPhone" placeholder="+60 12-345 6789"/>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label data-i18n="ent_f_notes">Notes</label>
+          <input type="text" id="entNotes" placeholder="Internal notes about this entity"/>
+        </div>
+
+        <div class="input-group">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="entIsActive" checked style="width:auto;"/>
+            <span data-i18n="ent_f_active">Active (appears in dropdown)</span>
+          </label>
+        </div>
+
+        <div class="auth-error" data-entity-error></div>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button type="submit" class="success" id="btnSaveEntity"><span data-i18n="ent_save">Save Entity</span></button>
+          <button type="button" class="ghost" id="btnCancelEntity"><span data-i18n="ent_cancel">Cancel</span></button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
   <!-- TAB: USER MANAGEMENT — admin only -->
   <!-- ============================================================== -->
   <div class="tab-panel" id="tab-users">
@@ -1086,6 +1222,24 @@ const I18N = {
     users_note:"Invite, delete, and edit users via the Supabase Dashboard (link above).",
     users_th_email:"Email", users_th_confirmed:"Confirmed", users_th_created:"Created", users_th_last:"Last sign-in",
     users_never:"Never", users_load_err:"Could not load users. Make sure you're signed in as an admin.",
+    tab_entities:"Entities",
+    entities_title:"Entities (Companies)",
+    entities_help:"Maintain the list of JV partner companies. Users pick from this list when saving a scenario.",
+    entities_new:"New Entity", entities_form_new:"New Entity", entities_form_edit:"Edit Entity",
+    ent_th_name:"Name", ent_th_legal:"Legal Name", ent_th_reg:"SSM / Reg No", ent_th_contact:"Contact",
+    ent_th_active:"Active", ent_th_actions:"Actions",
+    ent_f_name:"Display Name *", ent_f_legal:"Legal Name", ent_f_reg:"SSM / Reg No",
+    ent_f_tax:"Tax No (SST)", ent_f_addr1:"Address Line 1", ent_f_addr2:"Address Line 2",
+    ent_f_city:"City", ent_f_state:"State", ent_f_postcode:"Postcode", ent_f_country:"Country",
+    ent_f_contact_person:"Contact Person", ent_f_contact_email:"Contact Email", ent_f_contact_phone:"Contact Phone",
+    ent_f_notes:"Notes", ent_f_active:"Active (appears in dropdown)",
+    ent_save:"Save Entity", ent_cancel:"Cancel",
+    ent_saved:"Entity saved.", ent_deleted:"Entity deleted.",
+    ent_confirm_del:"Delete this entity? Scenarios tagged with it will keep working but become unlinked.",
+    ent_edit:"Edit", ent_del:"Delete",
+    ent_none:"No entities yet. Click 'New Entity' to add your first company.",
+    ent_name_required:"Display name is required.",
+    scn_entity:"Entity (company)", scn_entity_none:"— No entity —",
     reset:"Reset Sample", clear:"Clear All", save_scn:"Save as Scenario",
     note_save_local:"Auto-saved on this device · Sign in to sync across devices",
     note_save_cloud:"Auto-saved · Scenarios synced to your account",
@@ -1179,6 +1333,24 @@ const I18N = {
     users_note:"通过 Supabase Dashboard（上方链接）邀请、删除和编辑用户。",
     users_th_email:"邮箱", users_th_confirmed:"已确认", users_th_created:"创建时间", users_th_last:"最近登录",
     users_never:"从未", users_load_err:"无法加载用户列表。请确认您以管理员身份登录。",
+    tab_entities:"公司实体",
+    entities_title:"公司实体",
+    entities_help:"维护合资公司清单。用户保存方案时从此清单中选择。",
+    entities_new:"新增实体", entities_form_new:"新增实体", entities_form_edit:"编辑实体",
+    ent_th_name:"名称", ent_th_legal:"法律名称", ent_th_reg:"SSM / 注册号", ent_th_contact:"联络",
+    ent_th_active:"启用", ent_th_actions:"操作",
+    ent_f_name:"显示名称 *", ent_f_legal:"法律全名", ent_f_reg:"SSM / 注册号",
+    ent_f_tax:"税号 (SST)", ent_f_addr1:"地址 1", ent_f_addr2:"地址 2",
+    ent_f_city:"城市", ent_f_state:"州属", ent_f_postcode:"邮编", ent_f_country:"国家",
+    ent_f_contact_person:"联络人", ent_f_contact_email:"联络邮箱", ent_f_contact_phone:"联络电话",
+    ent_f_notes:"备注", ent_f_active:"启用（在下拉列表中显示）",
+    ent_save:"保存实体", ent_cancel:"取消",
+    ent_saved:"实体已保存。", ent_deleted:"实体已删除。",
+    ent_confirm_del:"删除此实体？已标记此实体的方案会保留但不再链接。",
+    ent_edit:"编辑", ent_del:"删除",
+    ent_none:"尚无实体。点击「新增实体」添加第一家公司。",
+    ent_name_required:"必须填写显示名称。",
+    scn_entity:"公司实体", scn_entity_none:"— 不选 —",
     reset:"重置范例", clear:"全部清空", save_scn:"保存为方案",
     note_save_local:"已自动储存在本机 · 登录后可跨设备同步",
     note_save_cloud:"已自动储存 · 方案已同步到您的账户",
@@ -1801,11 +1973,12 @@ document.getElementById('btnClear').onclick = ()=>{
 document.getElementById('btnSaveScenario').onclick = async ()=>{
   const name = document.getElementById('scenarioName').value.trim();
   if(!name){ alert(t('scn_need_name')); return; }
+  const entity_id = document.getElementById('scenarioEntity').value || null;
   const btn = document.getElementById('btnSaveScenario');
   const color = SCENARIO_COLORS[scenarios.length % SCENARIO_COLORS.length];
   btn.disabled = true;
   try {
-    const row = await CTG.saveScenario({ name, color, data: deepCopy(state) });
+    const row = await CTG.saveScenario({ name, color, data: deepCopy(state), entity_id });
     scenarios = await CTG.listScenarios();
     selectedScenarios.add(row.id);
     showToast(t('scn_saved'), 'success');
@@ -1841,8 +2014,11 @@ function renderCompare(){
   view.innerHTML = `<div class="compare-grid" style="grid-template-columns:repeat(${sel.length},1fr);">
     ${sel.map(s=>{
       const c = compute(s.data);
+      const entity = s.entity_id ? _entitiesCache.find(e=>e.id===s.entity_id) : null;
+      const entityChip = entity ? `<div style="font-size:11px;color:var(--sky-soft);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin:-8px 0 12px;padding:4px 10px;background:rgba(91,155,213,.12);border-radius:6px;display:inline-block;">🏢 ${escapeHtml(entity.name)}</div>` : '';
       return `<div class="compare-card" style="border-top:4px solid ${s.color};">
         <h4><span class="dot" style="background:${s.color};"></span>${escapeHtml(s.name)}</h4>
+        ${entityChip}
         <div class="compare-row"><span class="lab">${t('sales_target')}</span><span class="val">MYR ${fmt(c.sales)}</span></div>
         <div class="compare-row"><span class="lab">${t('kpi_fixed')}</span><span class="val">${fmt(c.totalFixed)}</span></div>
         <div class="compare-row"><span class="lab">${t('kpi_var')}</span><span class="val">${fmt(c.totalVariable)}</span></div>
@@ -2015,6 +2191,7 @@ document.querySelectorAll('.tab-btn').forEach(b=>{
     if(id==='compare') renderCompare();
     if(id==='sensitivity') renderSensitivity();
     if(id==='settings') renderSettingsTab();
+    if(id==='entities') renderEntitiesTab();
     if(id==='users') renderUsersTab();
   };
 });
@@ -2155,12 +2332,161 @@ document.getElementById('formChangePassword').addEventListener('submit', async e
   }
 });
 
+/* ============ ENTITIES TAB ============ */
+let _entitiesCache = [];
+
+async function refreshEntitiesCache(){
+  if(!CTG.isSignedIn()) { _entitiesCache = []; populateScenarioEntityDropdown(); return; }
+  try {
+    _entitiesCache = await CTG.listEntities();
+  } catch (err) { console.error(err); _entitiesCache = []; }
+  populateScenarioEntityDropdown();
+}
+
+function populateScenarioEntityDropdown(){
+  const sel = document.getElementById('scenarioEntity');
+  if(!sel) return;
+  const prev = sel.value;
+  const active = _entitiesCache.filter(e => e.is_active !== false);
+  sel.innerHTML = '<option value="">' + t('scn_entity_none') + '</option>' +
+    active.map(e => '<option value="' + e.id + '">' + escapeHtml(e.name) + '</option>').join('');
+  sel.value = prev || '';
+}
+
+async function renderEntitiesTab(){
+  const admin = await CTG.isAppAdmin();
+  document.getElementById('entitiesAdmin').style.display  = admin ? 'block' : 'none';
+  document.getElementById('entitiesDenied').style.display = admin ? 'none'  : 'block';
+  document.getElementById('entityFormCard').style.display = 'none';
+  if(!admin) return;
+
+  await refreshEntitiesCache();
+  const tbody = document.querySelector('#entitiesTable tbody');
+  if(_entitiesCache.length === 0){
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">' + t('ent_none') + '</td></tr>';
+    return;
+  }
+  tbody.innerHTML = _entitiesCache.map(e => {
+    const contact = [e.contact_person, e.contact_email, e.contact_phone].filter(Boolean).join(' · ');
+    return '<tr>' +
+      '<td><b style="color:#fff;">' + escapeHtml(e.name) + '</b></td>' +
+      '<td style="color:var(--text-soft);">' + escapeHtml(e.legal_name || '') + '</td>' +
+      '<td style="color:var(--text-soft);font-family:Consolas,Menlo,monospace;font-size:12px;">' + escapeHtml(e.registration_number || '') + '</td>' +
+      '<td style="color:var(--text-soft);font-size:12px;">' + escapeHtml(contact) + '</td>' +
+      '<td>' + (e.is_active ? '<span class="pos">✓</span>' : '<span class="neg">✗</span>') + '</td>' +
+      '<td style="text-align:center;">' +
+        '<button class="ghost" data-ent-edit="' + e.id + '" style="padding:4px 10px;font-size:11px;margin-right:4px;">' + t('ent_edit') + '</button>' +
+        '<button class="danger" data-ent-del="' + e.id + '" style="padding:4px 10px;font-size:11px;">' + t('ent_del') + '</button>' +
+      '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+function openEntityForm(entity){
+  const form = document.getElementById('formEntity');
+  form.reset();
+  document.querySelector('[data-entity-error]').classList.remove('show');
+  if(entity){
+    document.getElementById('entityFormTitle').textContent = t('entities_form_edit');
+    document.getElementById('entityId').value          = entity.id;
+    document.getElementById('entName').value           = entity.name || '';
+    document.getElementById('entLegalName').value      = entity.legal_name || '';
+    document.getElementById('entRegNo').value          = entity.registration_number || '';
+    document.getElementById('entTaxNo').value          = entity.tax_number || '';
+    document.getElementById('entAddr1').value          = entity.address_line1 || '';
+    document.getElementById('entAddr2').value          = entity.address_line2 || '';
+    document.getElementById('entCity').value           = entity.city || '';
+    document.getElementById('entState').value          = entity.state || '';
+    document.getElementById('entPostcode').value       = entity.postcode || '';
+    document.getElementById('entCountry').value        = entity.country || 'Malaysia';
+    document.getElementById('entContactPerson').value  = entity.contact_person || '';
+    document.getElementById('entContactEmail').value   = entity.contact_email || '';
+    document.getElementById('entContactPhone').value   = entity.contact_phone || '';
+    document.getElementById('entNotes').value          = entity.notes || '';
+    document.getElementById('entIsActive').checked     = entity.is_active !== false;
+  } else {
+    document.getElementById('entityFormTitle').textContent = t('entities_form_new');
+    document.getElementById('entityId').value = '';
+    document.getElementById('entCountry').value = 'Malaysia';
+    document.getElementById('entIsActive').checked = true;
+  }
+  document.getElementById('entityFormCard').style.display = 'block';
+  document.getElementById('entityFormCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+document.getElementById('btnNewEntity').onclick     = ()=>openEntityForm(null);
+document.getElementById('btnCancelEntity').onclick  = ()=>{ document.getElementById('entityFormCard').style.display = 'none'; };
+document.getElementById('btnRefreshEntities').onclick = renderEntitiesTab;
+
+document.getElementById('formEntity').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const errEl = document.querySelector('[data-entity-error]');
+  errEl.classList.remove('show');
+  const id = document.getElementById('entityId').value;
+  const name = document.getElementById('entName').value.trim();
+  if(!name){ errEl.textContent = t('ent_name_required'); errEl.classList.add('show'); return; }
+  const payload = {
+    name,
+    legal_name:          document.getElementById('entLegalName').value.trim() || null,
+    registration_number: document.getElementById('entRegNo').value.trim() || null,
+    tax_number:          document.getElementById('entTaxNo').value.trim() || null,
+    address_line1:       document.getElementById('entAddr1').value.trim() || null,
+    address_line2:       document.getElementById('entAddr2').value.trim() || null,
+    city:                document.getElementById('entCity').value.trim() || null,
+    state:               document.getElementById('entState').value.trim() || null,
+    postcode:            document.getElementById('entPostcode').value.trim() || null,
+    country:             document.getElementById('entCountry').value.trim() || null,
+    contact_person:      document.getElementById('entContactPerson').value.trim() || null,
+    contact_email:       document.getElementById('entContactEmail').value.trim() || null,
+    contact_phone:       document.getElementById('entContactPhone').value.trim() || null,
+    notes:               document.getElementById('entNotes').value.trim() || null,
+    is_active:           document.getElementById('entIsActive').checked
+  };
+  const btn = document.getElementById('btnSaveEntity');
+  btn.disabled = true;
+  try {
+    if(id) await CTG.updateEntity(id, payload);
+    else   await CTG.createEntity(payload);
+    showToast(t('ent_saved'), 'success');
+    document.getElementById('entityFormCard').style.display = 'none';
+    await renderEntitiesTab();
+  } catch (err) {
+    console.error(err);
+    errEl.textContent = friendlyAuthError(err); errEl.classList.add('show');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.addEventListener('click', async e=>{
+  const editId = e.target.dataset.entEdit;
+  if(editId){
+    const ent = _entitiesCache.find(x=>x.id===editId);
+    if(ent) openEntityForm(ent);
+    return;
+  }
+  const delId = e.target.dataset.entDel;
+  if(delId){
+    if(!confirm(t('ent_confirm_del'))) return;
+    try {
+      await CTG.deleteEntity(delId);
+      showToast(t('ent_deleted'), 'success');
+      await renderEntitiesTab();
+      // Refresh saved scenarios because some may have lost their entity link
+      scenarios = await CTG.listScenarios();
+      if(currentTab==='compare') renderCompare();
+    } catch (err) {
+      console.error(err);
+      showToast(friendlyAuthError(err), 'error');
+    }
+  }
+});
+
 /* ============ USER MANAGEMENT TAB ============ */
 let _isAdminCache = false;
 async function refreshAdminFlag(){
   _isAdminCache = await CTG.isAppAdmin();
-  const btn = document.getElementById('tabBtnUsers');
-  if(btn) btn.classList.toggle('visible', _isAdminCache);
+  document.querySelectorAll('.tab-btn.admin-only').forEach(btn => btn.classList.toggle('visible', _isAdminCache));
   return _isAdminCache;
 }
 
@@ -2234,10 +2560,13 @@ async function init(){
       showToast(t('err_load'), 'error');
       scenarios = [];
     }
-    // Refresh admin flag — shows/hides the User Management sidebar button.
+    // Refresh admin flag — shows/hides admin-only sidebar buttons.
     await refreshAdminFlag();
+    // Refresh entities cache so the Scenario Save dropdown is current.
+    await refreshEntitiesCache();
     if(currentTab==='compare')  renderCompare();
     if(currentTab==='settings') renderSettingsTab();
+    if(currentTab==='entities') renderEntitiesTab();
     if(currentTab==='users')    renderUsersTab();
     maybeShowMigrate();
   });

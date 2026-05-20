@@ -119,6 +119,39 @@
     return data || [];
   }
 
+  // ---------- entities (company profiles) ----------
+  // All authenticated users can read (for dropdown); writes are admin-only via RLS.
+  const ENTITY_FIELDS = 'id,name,legal_name,registration_number,tax_number,address_line1,address_line2,city,state,postcode,country,contact_person,contact_email,contact_phone,notes,is_active,created_at,updated_at';
+
+  async function listEntities({ activeOnly = false } = {}) {
+    if (!sb || !currentUser) return [];
+    let q = sb.from('entities').select(ENTITY_FIELDS).order('name');
+    if (activeOnly) q = q.eq('is_active', true);
+    const { data, error } = await q;
+    if (error) { console.error(error); return []; }
+    return data || [];
+  }
+
+  async function createEntity(payload) {
+    _ensureSb();
+    const { data, error } = await sb.from('entities').insert(payload).select(ENTITY_FIELDS).single();
+    if (error) throw error;
+    return data;
+  }
+
+  async function updateEntity(id, payload) {
+    _ensureSb();
+    const { data, error } = await sb.from('entities').update(payload).eq('id', id).select(ENTITY_FIELDS).single();
+    if (error) throw error;
+    return data;
+  }
+
+  async function deleteEntity(id) {
+    _ensureSb();
+    const { error } = await sb.from('entities').delete().eq('id', id);
+    if (error) throw error;
+  }
+
   async function signOut() {
     if (!sb) return;
     await sb.auth.signOut();
@@ -132,7 +165,7 @@
     if (sb && currentUser) {
       const { data, error } = await sb
         .from('scenarios')
-        .select('id,name,color,data,created_at,updated_at')
+        .select('id,name,color,data,entity_id,created_at,updated_at')
         .order('updated_at', { ascending: false });
       if (error) { console.error(error); return lsRead(LS_KEY, []); }
       return data || [];
@@ -140,18 +173,20 @@
     return lsRead(LS_KEY, []);
   }
 
-  async function saveScenario({ name, color, data }) {
+  async function saveScenario({ name, color, data, entity_id }) {
     const now = new Date().toISOString();
     if (sb && currentUser) {
+      const insertRow = { user_id: currentUser.id, name, color, data };
+      if (entity_id) insertRow.entity_id = entity_id;
       const { data: row, error } = await sb
         .from('scenarios')
-        .insert({ user_id: currentUser.id, name, color, data })
+        .insert(insertRow)
         .select()
         .single();
       if (error) { console.error(error); throw error; }
       return row;
     }
-    const row = { id: 'local_' + Date.now().toString(36), name, color, data, created_at: now, updated_at: now };
+    const row = { id: 'local_' + Date.now().toString(36), name, color, data, entity_id: entity_id || null, created_at: now, updated_at: now };
     const all = lsRead(LS_KEY, []);
     all.unshift(row);
     lsWrite(LS_KEY, all);
@@ -209,6 +244,10 @@
     updateDisplayName,
     isAppAdmin,
     adminListUsers,
+    listEntities,
+    createEntity,
+    updateEntity,
+    deleteEntity,
     signOut,
     listScenarios,
     saveScenario,
