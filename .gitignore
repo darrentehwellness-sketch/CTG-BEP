@@ -1,7 +1,5 @@
-# Local-only configuration (real Supabase keys go here — anon key is safe to commit,
-# but we leave config.js out so each environment can have its own).
-# If you want the same keys for everyone, delete this line and commit config.js.
-config.js
+# config.js IS committed in this repo — the Supabase publishable key is
+# safe to publish (Row Level Security enforces what each user can see).
 
 # OS / editor cruft
 .DS_Store
