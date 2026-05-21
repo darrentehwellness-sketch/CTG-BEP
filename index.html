@@ -883,6 +883,21 @@
   .migrate-banner .msg{flex:1;font-size:13px;color:var(--text);}
   .migrate-banner .msg b{color:var(--sky-soft);}
 
+  /* ============ PRODUCT COSTING — ROOMIER TABLE ============ */
+  /* Give the Product Cost Build-Up table more breathing room so the
+     numbers are easier to read at a glance. */
+  #pcProductsTable{font-size:13px;}
+  #pcProductsTable th{padding:11px 10px;font-size:11px;letter-spacing:.6px;line-height:1.25;}
+  #pcProductsTable td{padding:10px 10px;}
+  #pcProductsTable td input,
+  #pcProductsTable td select{
+    padding:8px 10px;font-size:13.5px;border-radius:7px;
+    background:rgba(7,13,23,.45);border:1px solid rgba(91,155,213,.10);
+  }
+  #pcProductsTable td input[type="number"]{font-weight:600;}
+  #pcProductsTable td.num{font-size:13.5px;font-weight:700;letter-spacing:.2px;}
+  #pcProductsTable tfoot td{padding:14px 10px;font-size:13.5px;}
+
   /* ============ PRODUCT COSTING — MARGIN FLAGS ============ */
   .pc-flag{display:inline-block;font-size:14px;line-height:1;vertical-align:middle;margin-right:2px;}
   .pc-flag-red   { color:#ef4444;text-shadow:0 0 8px rgba(239,68,68,.6); }
@@ -1421,20 +1436,22 @@
       <div class="table-wrap">
       <table id="pcProductsTable">
         <thead><tr>
-          <th style="width:36px;">No</th>
-          <th data-i18n="pc_th_name">Product Name</th>
-          <th style="width:70px;" data-i18n="pc_th_units">Units</th>
-          <th style="width:130px;" data-i18n="pc_th_sku">Package SKU Cost</th>
-          <th style="width:80px;" data-i18n="pc_th_duties">Duties %</th>
-          <th style="width:100px;" data-i18n="pc_th_freight">Inbound Freight</th>
-          <th style="width:100px;" data-i18n="pc_th_warehouse">Warehousing</th>
-          <th style="width:100px;" data-i18n="pc_th_pack_mat">Packaging Mat.</th>
-          <th style="width:100px;" data-i18n="pc_th_landed">Landed/Unit</th>
-          <th style="width:90px;" data-i18n="pc_th_benchmark">Benchmark %</th>
-          <th style="width:110px;" data-i18n="pc_th_suggested">Suggested Price</th>
-          <th style="width:110px;" data-i18n="pc_th_selling">Selling Price</th>
-          <th style="width:115px;" data-i18n="pc_th_margin">Margin % / Flag</th>
-          <th style="width:36px;"></th>
+          <th style="width:42px;">No</th>
+          <th style="min-width:180px;" data-i18n="pc_th_name">Product Name</th>
+          <th style="width:90px;" data-i18n="pc_th_units">Units</th>
+          <th style="width:160px;" data-i18n="pc_th_sku">Package SKU Cost</th>
+          <th style="width:100px;" data-i18n="pc_th_duties">Duties %</th>
+          <th style="width:120px;" data-i18n="pc_th_freight">Inbound Freight</th>
+          <th style="width:120px;" data-i18n="pc_th_warehouse">Warehousing</th>
+          <th style="width:120px;" data-i18n="pc_th_pack_mat">Packaging Mat.</th>
+          <th style="width:120px;" data-i18n="pc_th_landed">Landed/Unit</th>
+          <th style="width:110px;" data-i18n="pc_th_benchmark">Benchmark %</th>
+          <th style="width:130px;" data-i18n="pc_th_suggested">Suggested Price</th>
+          <th style="width:130px;background:linear-gradient(180deg,rgba(16,185,129,.18),rgba(16,185,129,.06));color:#6ee7b7;" data-i18n="pc_th_safe">Safe Price (75%)</th>
+          <th style="width:130px;" data-i18n="pc_th_selling">Selling Price</th>
+          <th style="width:140px;" data-i18n="pc_th_margin">Margin % / Flag</th>
+          <th style="width:130px;" data-i18n="pc_th_advisor">Advisor</th>
+          <th style="width:42px;"></th>
         </tr></thead>
         <tbody></tbody>
         <tfoot>
@@ -1445,8 +1462,10 @@
             <td class="num" id="pcProdAvgLanded">—</td>
             <td></td>
             <td></td>
+            <td></td>
             <td class="num" id="pcProdTotRevenue">—</td>
             <td class="pct" id="pcProdAvgMargin">—</td>
+            <td></td>
             <td></td>
           </tr>
         </tfoot>
@@ -1470,7 +1489,8 @@
           3. <b>Contribution/Unit</b> = Net Revenue/Unit − Landed Unit Cost<br/>
           4. <b>Margin %</b> = Contribution/Unit ÷ Selling Price<br/>
           5. <b>Suggested Price</b> = Landed Unit Cost ÷ ((1 − Combined Fee%) − Benchmark%)<br/>
-          6. <b>Flag</b>: 0–69.9% Red · 70–74.99% Amber · 75–100% Green
+          6. <b>Safe Price (75%)</b> = Landed Unit Cost ÷ ((1 − Combined Fee%) − 0.75)<br/>
+          7. <b>Flag</b>: 0–69.9% Red · 70–74.99% Amber · 75–100% Green
         </div>
       </details>
     </div>
@@ -2037,13 +2057,19 @@ const I18N = {
     pc_th_sku:"Package SKU Cost", pc_th_duties:"Duties %",
     pc_th_freight:"Inbound Freight", pc_th_warehouse:"Warehousing", pc_th_pack_mat:"Packaging Mat.",
     pc_th_landed:"Landed/Unit", pc_th_benchmark:"Benchmark %", pc_th_suggested:"Suggested Price",
+    pc_th_safe:"Safe Price (75%)", pc_th_advisor:"Advisor",
     pc_th_selling:"Selling Price", pc_th_margin:"Margin % / Flag",
+    pc_advisor_safe:"✓ Safe band",
+    pc_advisor_amber:"Add RM {n} to reach safe",
+    pc_advisor_red:"Add RM {n} to reach safe",
+    pc_advisor_unreachable:"Fees too high for 75% margin",
+    pc_advisor_setprice:"Set a selling price",
     pc_tf_totals:"Totals:",
     pc_add_product:"Add Product",
     pc_flag_legend:"Margin flag bands:",
     pc_flag_red:"Below 70%", pc_flag_amber:"70 – 74.99%", pc_flag_green:"75% and above",
     pc_show_logic:"Show calculation logic",
-    pc_logic:"1. <b>Landed Unit Cost</b> = Package SKU Cost + (SKU × Duties%) + Inbound Freight + Warehousing + Packaging<br/>2. <b>Net Revenue/Unit</b> = Selling Price × (1 − Combined Fee%)<br/>3. <b>Contribution/Unit</b> = Net Revenue/Unit − Landed Unit Cost<br/>4. <b>Margin %</b> = Contribution/Unit ÷ Selling Price<br/>5. <b>Suggested Price</b> = Landed Unit Cost ÷ ((1 − Combined Fee%) − Benchmark%)<br/>6. <b>Flag</b>: 0–69.9% Red · 70–74.99% Amber · 75–100% Green",
+    pc_logic:"1. <b>Landed Unit Cost</b> = Package SKU Cost + (SKU × Duties%) + Inbound Freight + Warehousing + Packaging<br/>2. <b>Net Revenue/Unit</b> = Selling Price × (1 − Combined Fee%)<br/>3. <b>Contribution/Unit</b> = Net Revenue/Unit − Landed Unit Cost<br/>4. <b>Margin %</b> = Contribution/Unit ÷ Selling Price<br/>5. <b>Suggested Price</b> = Landed Unit Cost ÷ ((1 − Combined Fee%) − Benchmark%)<br/>6. <b>Safe Price (75%)</b> = Landed Unit Cost ÷ ((1 − Combined Fee%) − 0.75)<br/>7. <b>Flag</b>: 0–69.9% Red · 70–74.99% Amber · 75–100% Green",
     // Package SKU modal
     pc_sku_btn_title:"Open Package SKU Calculation",
     pc_sku_modal_title:"Package SKU Calculation",
@@ -3565,6 +3591,9 @@ function pcSaveState(){ try{ localStorage.setItem(PC_LS_KEY, JSON.stringify(pcSt
 function pcCombinedFeePct(){
   return clampNum(pcState.feeConfig.platformPct, 100) + clampNum(pcState.feeConfig.gatewayPct, 100);
 }
+/* Safe margin threshold = 75% — the green-flag band. */
+const PC_SAFE_MARGIN = 0.75;
+
 function pcComputeProduct(p){
   const skuCost   = Number(p.skuCost)            || 0;
   const duties    = skuCost * (Number(p.dutiesPct)||0) / 100;
@@ -3575,13 +3604,32 @@ function pcComputeProduct(p){
   const fee       = pcCombinedFeePct() / 100;       // 0..1
   const sp        = Number(p.sellingPrice)       || 0;
   const benchmark = (Number(p.benchmarkPct)||0) / 100;
-  // Suggested price: solve sellingPrice × (1−fee) − landed = sellingPrice × benchmark
+  // Suggested price: hit user's benchmark margin. Solve
+  //   sellingPrice × (1−fee) − landed = sellingPrice × benchmark
   const denom = (1 - fee) - benchmark;
   const suggestedPrice = (landed > 0 && denom > 0) ? landed / denom : 0;
+  // Safe price: the minimum selling price to hit a 75% margin (green band).
+  //   sellingPrice × (1−fee) − landed = sellingPrice × 0.75
+  const safeDenom = (1 - fee) - PC_SAFE_MARGIN;
+  const safePrice = (landed > 0 && safeDenom > 0) ? landed / safeDenom : 0;
+  const safeReachable = safeDenom > 0;
   const netRev  = sp * (1 - fee);
   const contrib = netRev - landed;
   const margin  = sp > 0 ? contrib / sp : 0;
-  return { duties, landed, fee, suggestedPrice, netRev, contrib, margin };
+  return { duties, landed, fee, suggestedPrice, safePrice, safeReachable, netRev, contrib, margin };
+}
+
+/* Advisor: 1-line guidance about reaching the green (≥75%) band. */
+function pcAdvisor(p, c){
+  const sp = Number(p.sellingPrice) || 0;
+  if(sp <= 0) return { cls:'grey',  text: t('pc_advisor_setprice') };
+  if(!c.safeReachable) return { cls:'red', text: t('pc_advisor_unreachable') };
+  if(sp >= c.safePrice) return { cls:'green', text: t('pc_advisor_safe') };
+  const gap = c.safePrice - sp;
+  // < 75% but >= 70% = amber; < 70% = red
+  const marginPct = c.margin * 100;
+  const cls = marginPct >= 70 ? 'amber' : 'red';
+  return { cls, text: 'Add RM ' + fmt(gap) + ' to reach safe' };
 }
 function pcMarginFlag(marginPct){
   // marginPct is a percentage (0–100), not a fraction
@@ -3643,6 +3691,7 @@ function pcRenderProducts(){
     const c = pcComputeProduct(p);
     const marginPct = c.margin * 100;
     const flag = pcMarginFlag(marginPct);
+    const adv  = pcAdvisor(p, c);
     const skuBtnTitle = (p.skuComponents && p.skuComponents.length) ? 'Package SKU: '+p.skuComponents.length+' components' : 'Open Package SKU calculator';
     return `<tr>
       <td>${i+1}</td>
@@ -3659,8 +3708,10 @@ function pcRenderProducts(){
       <td class="num" data-pcp-out="${i}-landed">${fmt(c.landed)}</td>
       <td><input type="number" min="0" max="100" step="0.1" value="${p.benchmarkPct}" data-pcp="${i}" data-field="benchmarkPct"></td>
       <td class="num" data-pcp-out="${i}-suggested">${c.suggestedPrice > 0 ? fmt(c.suggestedPrice) : '—'}</td>
+      <td class="num" data-pcp-out="${i}-safe" style="color:#6ee7b7;font-weight:800;">${c.safeReachable && c.safePrice > 0 ? fmt(c.safePrice) : '—'}</td>
       <td><input type="number" min="0" step="0.01" value="${p.sellingPrice}"   data-pcp="${i}" data-field="sellingPrice"></td>
       <td data-pcp-out="${i}-margin"><span class="pc-margin-cell ${flag.cls}">${flag.icon} ${flag.text}</span></td>
+      <td data-pcp-out="${i}-advisor"><span class="pc-margin-cell ${adv.cls}" style="font-size:11.5px;font-weight:600;">${adv.text}</span></td>
       <td class="action"><button data-pcp-del="${i}">✕</button></td>
     </tr>`;
   }).join('');
@@ -3694,12 +3745,17 @@ function pcPatchProductRow(i){
   if(!p) return;
   const c = pcComputeProduct(p);
   const flag = pcMarginFlag(c.margin * 100);
+  const adv  = pcAdvisor(p, c);
   const landed    = document.querySelector(`[data-pcp-out="${i}-landed"]`);
   const suggested = document.querySelector(`[data-pcp-out="${i}-suggested"]`);
+  const safe      = document.querySelector(`[data-pcp-out="${i}-safe"]`);
   const margin    = document.querySelector(`[data-pcp-out="${i}-margin"]`);
+  const advisor   = document.querySelector(`[data-pcp-out="${i}-advisor"]`);
   if(landed)    landed.textContent    = fmt(c.landed);
   if(suggested) suggested.textContent = c.suggestedPrice > 0 ? fmt(c.suggestedPrice) : '—';
+  if(safe)      safe.textContent      = (c.safeReachable && c.safePrice > 0) ? fmt(c.safePrice) : '—';
   if(margin)    margin.innerHTML      = `<span class="pc-margin-cell ${flag.cls}">${flag.icon} ${flag.text}</span>`;
+  if(advisor)   advisor.innerHTML     = `<span class="pc-margin-cell ${adv.cls}" style="font-size:11.5px;font-weight:600;">${adv.text}</span>`;
 }
 function pcPatchAllRows(){ pcState.products.forEach((_,i) => pcPatchProductRow(i)); }
 
@@ -3820,12 +3876,14 @@ document.getElementById('btnPcExport').onclick = () => {
   lines.push('Combined Fee %,' + pcCombinedFeePct().toFixed(2) + '%');
   lines.push('');
   lines.push('PRODUCTS');
-  lines.push('No,Name,Units,Package SKU Cost,Duties %,Inbound Freight,Warehousing,Packaging Mat.,Landed/Unit,Benchmark %,Suggested Price,Selling Price,Margin %,Flag');
+  lines.push('No,Name,Units,Package SKU Cost,Duties %,Inbound Freight,Warehousing,Packaging Mat.,Landed/Unit,Benchmark %,Suggested Price,Safe Price (75%),Selling Price,Margin %,Flag,Advisor');
   pcState.products.forEach((p,i) => {
     const c = pcComputeProduct(p);
     const marginPct = c.margin * 100;
     const flagTxt = marginPct < 70 ? 'RED' : (marginPct < 75 ? 'AMBER' : 'GREEN');
-    lines.push(`${i+1},${csv(p.name)},${p.units},${p.skuCost},${p.dutiesPct}%,${p.inboundFreight},${p.warehousing},${p.packagingMaterials},${c.landed.toFixed(2)},${p.benchmarkPct}%,${c.suggestedPrice.toFixed(2)},${p.sellingPrice},${marginPct.toFixed(2)}%,${flagTxt}`);
+    const adv = pcAdvisor(p, c);
+    const safeTxt = (c.safeReachable && c.safePrice > 0) ? c.safePrice.toFixed(2) : 'N/A';
+    lines.push(`${i+1},${csv(p.name)},${p.units},${p.skuCost},${p.dutiesPct}%,${p.inboundFreight},${p.warehousing},${p.packagingMaterials},${c.landed.toFixed(2)},${p.benchmarkPct}%,${c.suggestedPrice.toFixed(2)},${safeTxt},${p.sellingPrice},${marginPct.toFixed(2)}%,${flagTxt},${csv(adv.text)}`);
     if(p.skuComponents && p.skuComponents.length){
       lines.push('  SKU components for "'+csv(p.name)+'":,Component,Qty,Unit Cost,Subtotal');
       p.skuComponents.forEach((cmp,j) => {
