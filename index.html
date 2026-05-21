@@ -3456,42 +3456,32 @@ document.getElementById('btnMigrateDismiss').onclick = ()=>{
 const PC_LS_KEY = 'ctg_pc_state_v2';
 
 // ----- Platform (merchant/commission) presets ---------------------------
-// Picking one auto-fills the platform fee %. "custom" leaves it editable.
+// Picking one auto-fills the platform fee %. "custom" (shown as "Other")
+// leaves it editable.
 const PC_PLATFORM_PRESETS = {
-  own:         { label:'Own Website (no commission)', pct:0 },
-  shopify:     { label:'Shopify',                     pct:0 },
-  woocommerce: { label:'WooCommerce (own site)',      pct:0 },
-  whatsapp:    { label:'WhatsApp Business',           pct:0 },
-  instagram:   { label:'Instagram Shop',              pct:0 },
-  facebook:    { label:'Facebook Marketplace',        pct:0 },
-  shopee:      { label:'Shopee MY',                   pct:7 },
-  lazada:      { label:'Lazada MY',                   pct:7 },
-  tiktok:      { label:'TikTok Shop MY',              pct:5 },
-  carousell:   { label:'Carousell',                   pct:3 },
-  carousellpro:{ label:'Carousell Pro',               pct:5 },
-  mudah:       { label:'Mudah.my',                    pct:3 },
-  grabmart:    { label:'GrabMart',                    pct:5 },
-  foodpanda:   { label:'FoodPanda Mart',              pct:7 },
-  zalora:      { label:'Zalora MY',                   pct:25 },
-  amazon:      { label:'Amazon SG',                   pct:15 },
-  custom:      { label:'Custom (manual %)',           pct:null }
+  shopify:     { label:'Shopify',     pct:0 },
+  tiktok:      { label:'TikTok Shop', pct:5 },
+  shopee:      { label:'Shopee',      pct:7 },
+  lazada:      { label:'Lazada',      pct:7 },
+  facebook:    { label:'Facebook',    pct:0 },
+  marketplace: { label:'Marketplace', pct:0 },
+  ctg4u:       { label:'CTG4U',       pct:0 },
+  custom:      { label:'Other',       pct:null }
 };
 
 // ----- Payment gateway presets ------------------------------------------
 const PC_GATEWAY_PRESETS = {
-  stripe:    { label:'Stripe',                  pct:2.9 },
-  fpx:       { label:'FPX (Malaysia local)',    pct:2.0 },
-  ipay88:    { label:'iPay88',                  pct:2.5 },
-  eghl:      { label:'eGHL',                    pct:2.9 },
-  molpay:    { label:'Razer Merchant (MOLPay)', pct:2.5 },
-  paypal:    { label:'PayPal',                  pct:3.9 },
-  billplz:   { label:'Billplz',                 pct:2.5 },
-  toyyibpay: { label:'ToyyibPay',               pct:2.0 },
-  atome:     { label:'Atome (BNPL)',            pct:5.0 },
-  shopback:  { label:'ShopBack PayLater',       pct:5.0 },
-  cod:       { label:'Cash on Delivery (0%)',   pct:0 },
-  bank:      { label:'Direct bank transfer',    pct:0 },
-  custom:    { label:'Custom (manual %)',       pct:null }
+  cod:           { label:'Cash on Delivery', pct:0 },
+  fund_transfer: { label:'Fund Transfer',    pct:0 },
+  atome:         { label:'Atome',            pct:5.0 },
+  hipay:         { label:'HiPay',            pct:2.5 },
+  payex:         { label:'Payex',            pct:2.5 },
+  ezbeli:        { label:'Ezbeli',           pct:2.0 },
+  ahapay:        { label:'Ahapay',           pct:2.5 },
+  stripe:        { label:'Stripe',           pct:2.9 },
+  ipay88:        { label:'iPay88',           pct:2.5 },
+  fiuu:          { label:'FIUU',             pct:2.5 },
+  custom:        { label:'Other',            pct:null }
 };
 
 // Default product (sensible Malaysian e-comm sample)
@@ -3670,8 +3660,12 @@ function pcRenderFeeConfig(){
       `<option value="${k}">${escapeHtml(PC_GATEWAY_PRESETS[k].label)}</option>`).join('');
     sel2.dataset.built = '1';
   }
-  if(sel1) sel1.value = pcState.feeConfig.platformKey || 'shopify';
-  if(sel2) sel2.value = pcState.feeConfig.gatewayKey  || 'stripe';
+  // If a saved scenario references a preset key we no longer have, fall
+  // back to "Other" (custom) so the user's % stays visible and editable.
+  if(!PC_PLATFORM_PRESETS[pcState.feeConfig.platformKey]) pcState.feeConfig.platformKey = 'custom';
+  if(!PC_GATEWAY_PRESETS[pcState.feeConfig.gatewayKey])   pcState.feeConfig.gatewayKey   = 'custom';
+  if(sel1) sel1.value = pcState.feeConfig.platformKey;
+  if(sel2) sel2.value = pcState.feeConfig.gatewayKey;
   const plat = document.getElementById('pcFeePlatformPct');
   const gw   = document.getElementById('pcFeeGatewayPct');
   if(plat && document.activeElement !== plat) plat.value = pcState.feeConfig.platformPct;
