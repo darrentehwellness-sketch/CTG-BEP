@@ -248,6 +248,30 @@
     if (error) throw error;
   }
 
+  // ---------- Product Costing scenarios (DB-backed) ----------
+  async function pcListSavedScenarios() {
+    if (!sb || !currentUser) return [];
+    const { data, error } = await sb
+      .from('pc_scenarios')
+      .select('id,name,color,entity_id,data,created_at,updated_at')
+      .order('updated_at', { ascending: false });
+    if (error) { console.error(error); return []; }
+    return data || [];
+  }
+  async function pcSaveSavedScenario({ name, color, entity_id, data }) {
+    _ensureSb();
+    const insert = { user_id: currentUser.id, name, color, data };
+    if (entity_id) insert.entity_id = entity_id;
+    const { data: row, error } = await sb.from('pc_scenarios').insert(insert).select().single();
+    if (error) throw error;
+    return row;
+  }
+  async function pcDeleteSavedScenario(id) {
+    _ensureSb();
+    const { error } = await sb.from('pc_scenarios').delete().eq('id', id);
+    if (error) throw error;
+  }
+
   async function signOut() {
     if (!sb) return;
     await sb.auth.signOut();
@@ -356,6 +380,9 @@
     createEntity,
     updateEntity,
     deleteEntity,
+    pcListSavedScenarios,
+    pcSaveSavedScenario,
+    pcDeleteSavedScenario,
     signOut,
     listScenarios,
     saveScenario,

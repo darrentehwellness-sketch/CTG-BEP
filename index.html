@@ -25,8 +25,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=6"></script>
-<script src="assets/js/supabase-client.js?v=6"></script>
+<script src="config.js?v=7"></script>
+<script src="assets/js/supabase-client.js?v=7"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -992,6 +992,7 @@
     <div class="toolbar">
       <button class="ghost" id="btnPcReset">↺ <span data-i18n="reset">Reset Sample</span></button>
       <button class="ghost" id="btnPcClear">✕ <span data-i18n="clear">Clear All</span></button>
+      <button class="success" id="btnPcSave">⭐ <span data-i18n="pc_save_btn">Save as Scenario</span></button>
       <button class="accent" id="btnPcExport">⬇ <span data-i18n="export">Export CSV</span></button>
       <div style="flex:1"></div>
       <span class="note" data-i18n="pc_note">Auto-saved on this device · Independent from Exhibition BEP</span>
@@ -1109,6 +1110,44 @@
           6. <b>Verdict</b>: Profitable if Blended ROAS &gt; Break-Even ROAS
         </div>
       </details>
+    </div>
+
+    <!-- Section 3: Target ROAS Calculator -->
+    <div class="card">
+      <h2><span class="ic">③</span><span data-i18n="pc_target_title">Target ROAS Calculator</span><span class="badge" data-i18n="pc_target_badge">What ROAS do I need?</span></h2>
+      <p class="note" data-i18n="pc_target_help">Set a target net profit % and see the minimum ROAS your ads need to deliver. Uses your current Blended Margin from Section ①.</p>
+      <div class="grid-3" style="margin-top:14px;">
+        <div class="input-group">
+          <label data-i18n="pc_target_label">Target net profit (% of revenue)</label>
+          <input type="number" id="pcTargetProfitPct" min="0" max="99" step="0.5" value="20"/>
+        </div>
+        <div class="kpi" style="margin:0;">
+          <div class="label"><span class="dot"></span><span data-i18n="pc_target_required">Required ROAS</span></div>
+          <div class="value" id="pcTargetRequiredRoas">—</div>
+          <div class="sub" id="pcTargetRequiredSub">—</div>
+        </div>
+        <div class="kpi success" style="margin:0;">
+          <div class="label"><span class="dot"></span><span data-i18n="pc_target_status">Status vs current</span></div>
+          <div class="value" id="pcTargetStatus" style="font-size:18px;">—</div>
+          <div class="sub" id="pcTargetStatusSub">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 4: Channel Comparison Chart -->
+    <div class="card">
+      <h2><span class="ic">④</span><span data-i18n="pc_chart_title">Channel Comparison</span><span class="badge" data-i18n="pc_chart_badge">Spend · Revenue · Net</span></h2>
+      <div class="chart-box" style="margin-top:8px;border:none;padding:0;background:transparent;box-shadow:none;">
+        <canvas id="pcChannelChart" height="90"></canvas>
+      </div>
+    </div>
+
+    <!-- Section 5: Saved Scenarios (DB-backed) -->
+    <div class="card">
+      <h2><span class="ic">⑤</span><span data-i18n="pc_saved_title">Saved Scenarios</span></h2>
+      <div id="pcSavedList" style="display:flex;flex-direction:column;gap:8px;">
+        <p class="note" data-i18n="pc_saved_empty">No saved costings yet. Click Save to keep this configuration.</p>
+      </div>
     </div>
   </div>
 
@@ -1602,6 +1641,18 @@ const I18N = {
     pc_verdict_desc_loss:"Your blended ROAS is below the break-even line. Reduce CPA, lift AOV, or improve product margin.",
     pc_verdict_desc_nodata:"Add products + ad channels to see your profitability verdict.",
     pc_default_meta:"Meta Ads", pc_default_manychat:"ManyChat",
+    pc_target_title:"Target ROAS Calculator", pc_target_badge:"What ROAS do I need?",
+    pc_target_help:"Set a target net profit % and see the minimum ROAS your ads need to deliver. Uses your current Blended Margin from Section ①.",
+    pc_target_label:"Target net profit (% of revenue)",
+    pc_target_required:"Required ROAS", pc_target_status:"Status vs current",
+    pc_target_unreachable:"Unreachable (target > margin)",
+    pc_target_above:"Above target by", pc_target_below:"Below target by",
+    pc_chart_title:"Channel Comparison", pc_chart_badge:"Spend · Revenue · Net",
+    pc_chart_spend:"Ad Spend", pc_chart_revenue:"Revenue", pc_chart_net:"Net (after ad)",
+    pc_save_btn:"Save as Scenario", pc_saved_title:"Saved Scenarios",
+    pc_saved_empty:"No saved costings yet. Click Save to keep this configuration.",
+    pc_save_prompt:"Name this scenario:", pc_saved_ok:"Scenario saved.",
+    pc_load:"Load", pc_confirm_del:"Delete this saved scenario?",
     settings_title:"Settings", settings_account:"Account", settings_signin_first:"Please sign in to manage your account settings.",
     settings_name_title:"Display name", settings_name_label:"Your name", settings_name_save:"Save name", settings_name_saved:"Name updated.",
     settings_pwd_title:"Change password", settings_pwd_save:"Update password", settings_pwd_saved:"Password updated.",
@@ -1760,6 +1811,18 @@ const I18N = {
     pc_verdict_desc_loss:"综合 ROAS 低于盈亏平衡线。请降低 CPA、提升客单价或改善产品毛利。",
     pc_verdict_desc_nodata:"添加产品和广告渠道以查看盈利分析。",
     pc_default_meta:"Meta Ads", pc_default_manychat:"ManyChat",
+    pc_target_title:"目标 ROAS 计算器", pc_target_badge:"需要多少 ROAS？",
+    pc_target_help:"设定目标净利润 %，查看广告所需的最低 ROAS。使用 ① 中的综合毛利率。",
+    pc_target_label:"目标净利润（占营收 %）",
+    pc_target_required:"所需 ROAS", pc_target_status:"对照当前状况",
+    pc_target_unreachable:"无法达到（目标 > 毛利率）",
+    pc_target_above:"超目标", pc_target_below:"低于目标",
+    pc_chart_title:"渠道对比", pc_chart_badge:"广告费 · 营收 · 净利",
+    pc_chart_spend:"广告费", pc_chart_revenue:"营收", pc_chart_net:"广告后净利",
+    pc_save_btn:"保存为方案", pc_saved_title:"已保存方案",
+    pc_saved_empty:"尚未保存任何方案。点击保存以保留此设定。",
+    pc_save_prompt:"为此方案命名：", pc_saved_ok:"方案已保存。",
+    pc_load:"载入", pc_confirm_del:"删除此已保存方案？",
     settings_title:"设置", settings_account:"账户", settings_signin_first:"请先登录以管理账户设置。",
     settings_name_title:"显示名称", settings_name_label:"您的姓名", settings_name_save:"保存姓名", settings_name_saved:"姓名已更新。",
     settings_pwd_title:"修改密码", settings_pwd_save:"更新密码", settings_pwd_saved:"密码已更新。",
@@ -2726,7 +2789,7 @@ document.querySelectorAll('.tab-btn').forEach(b=>{
     if(id==='settings') renderSettingsTab();
     if(id==='entities') renderEntitiesTab();
     if(id==='users') renderUsersTab();
-    if(id==='pcalc') { pcEnsureChannels(); pcRender(); }
+    if(id==='pcalc') { pcEnsureChannels(); pcRender(); pcRefreshSaved(); }
   };
 });
 
@@ -2827,7 +2890,12 @@ const PC_PLATFORM_PRESETS = {
   lazada:     { label_en:'Lazada MY',                  label_zh:'Lazada 马来西亚',       payment:1.5, platform:7 },
   tiktok:     { label_en:'TikTok Shop MY',             label_zh:'TikTok Shop 马来西亚',  payment:1.5, platform:5 },
   carousell:  { label_en:'Carousell',                  label_zh:'Carousell',            payment:2.9, platform:3 },
+  carousellpro:{ label_en:'Carousell Pro',             label_zh:'Carousell Pro',        payment:2.9, platform:5 },
+  mudah:      { label_en:'Mudah.my',                   label_zh:'Mudah.my',             payment:2.5, platform:3 },
   grabmart:   { label_en:'GrabMart',                   label_zh:'GrabMart',             payment:2.5, platform:5 },
+  foodpanda:  { label_en:'FoodPanda Mart',             label_zh:'FoodPanda Mart',       payment:2.5, platform:7 },
+  instagram:  { label_en:'Instagram Shop',             label_zh:'Instagram 商店',        payment:2.9, platform:0 },
+  facebook:   { label_en:'Facebook Marketplace',       label_zh:'Facebook Marketplace', payment:2.9, platform:0 },
   atome:      { label_en:'Atome (BNPL)',               label_zh:'Atome (先买后付)',     payment:5.0, platform:0 },
   custom:     { label_en:'Custom (manual %)',          label_zh:'自定义 (手动 %)',       payment:null, platform:null }
 };
@@ -2846,6 +2914,10 @@ const PC_COURIER_PRESETS = {
   lalamove:  { label_en:'Lalamove same-day',   label_zh:'Lalamove 当日达',    ship:12 },
   grabexp:   { label_en:'Grab Express',        label_zh:'Grab Express',      ship:10 },
   shopeexp:  { label_en:'Shopee Express',      label_zh:'Shopee Express',    ship:5 },
+  skynet:    { label_en:'Skynet',              label_zh:'Skynet',            ship:8 },
+  gdex:      { label_en:'GDex',                label_zh:'GDex',              ship:7 },
+  citylink:  { label_en:'City-Link Express',   label_zh:'City-Link Express', ship:8 },
+  aramex:    { label_en:'Aramex',              label_zh:'Aramex',            ship:9 },
   pickup:    { label_en:'Self pickup',         label_zh:'自取',              ship:0 },
   custom:    { label_en:'Custom (manual)',     label_zh:'自定义',            ship:null }
 };
@@ -3042,8 +3114,87 @@ function pcRenderSummary(){
       delta.style.color = '#fca5a5';
     }
   }
+  // Target ROAS panel (Section 3)
+  pcRenderTargetRoas(a);
+  // Channel chart (Section 4)
+  pcRenderChannelChart();
   pcSaveState();
 }
+
+/* ===== Target ROAS calculator ===== */
+function pcRenderTargetRoas(a){
+  const tgtInput = document.getElementById('pcTargetProfitPct');
+  if(!tgtInput) return;
+  const tgt = Math.max(0, Math.min(99, Number(tgtInput.value)||0)) / 100;
+  const requiredEl = document.getElementById('pcTargetRequiredRoas');
+  const requiredSub = document.getElementById('pcTargetRequiredSub');
+  const statusEl = document.getElementById('pcTargetStatus');
+  const statusSub = document.getElementById('pcTargetStatusSub');
+  // ROAS needed = 1 / (margin% - target%)
+  if(a.blendedMargin <= 0){
+    requiredEl.textContent = '—';
+    requiredSub.textContent = '—';
+    statusEl.textContent = '—';
+    statusSub.textContent = '—';
+    return;
+  }
+  if(tgt >= a.blendedMargin){
+    requiredEl.textContent = '∞';
+    requiredSub.textContent = t('pc_target_unreachable');
+    statusEl.textContent = '⚠️';
+    statusSub.textContent = t('pc_target_unreachable');
+    return;
+  }
+  const required = 1 / (a.blendedMargin - tgt);
+  requiredEl.textContent = required.toFixed(2) + '×';
+  requiredSub.textContent = 'RM 1 spend → RM ' + required.toFixed(2) + ' revenue';
+  if(a.blendedRoas <= 0){
+    statusEl.textContent = '—';
+    statusSub.textContent = '—';
+  } else if(a.blendedRoas >= required){
+    const gap = ((a.blendedRoas - required) / required * 100).toFixed(1);
+    statusEl.textContent = '✓ ' + t('pc_target_above') + ' ' + gap + '%';
+    statusSub.textContent = a.blendedRoas.toFixed(2) + '× vs ' + required.toFixed(2) + '× needed';
+  } else {
+    const gap = ((required - a.blendedRoas) / required * 100).toFixed(1);
+    statusEl.textContent = '✗ ' + t('pc_target_below') + ' ' + gap + '%';
+    statusSub.textContent = a.blendedRoas.toFixed(2) + '× vs ' + required.toFixed(2) + '× needed';
+  }
+}
+// Live-update when user changes target
+document.addEventListener('input', e=>{
+  if(e.target && e.target.id === 'pcTargetProfitPct'){
+    pcRenderTargetRoas(pcAggregate());
+  }
+});
+
+/* ===== Channel comparison chart ===== */
+let pcChannelChart;
+function pcRenderChannelChart(){
+  const ctx = document.getElementById('pcChannelChart');
+  if(!ctx || typeof Chart === 'undefined') return;
+  const { blendedMargin } = pcAggregate();
+  const labels = pcState.channels.map(c => c.name || '?');
+  const spends = pcState.channels.map(c => Number(c.spend)||0);
+  const revenues = pcState.channels.map(c => (Number(c.orders)||0) * (Number(c.aov)||0));
+  const nets    = pcState.channels.map((c,i) => revenues[i] * blendedMargin - spends[i]);
+  if(pcChannelChart) pcChannelChart.destroy();
+  pcChannelChart = new Chart(ctx, {
+    type:'bar',
+    data:{ labels, datasets:[
+      { label: t('pc_chart_spend'),   data: spends,   backgroundColor:'rgba(232,93,60,.7)',  borderColor:'#E85D3C', borderWidth:1 },
+      { label: t('pc_chart_revenue'), data: revenues, backgroundColor:'rgba(91,155,213,.7)', borderColor:'#5B9BD5', borderWidth:1 },
+      { label: t('pc_chart_net'),     data: nets,     backgroundColor:'rgba(16,185,129,.7)', borderColor:'#10b981', borderWidth:1 }
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:true,
+      plugins:{ legend:{ position:'top' },
+        tooltip:{ callbacks:{ label: c => c.dataset.label+': MYR '+fmt(c.parsed.y) } } },
+      scales:{ y:{ ticks:{ callback: v => 'MYR '+(v/1000).toFixed(1)+'k' } } }
+    }
+  });
+}
+
 function pcRender(){ pcRenderProducts(); pcRenderChannels(); pcRenderSummary(); }
 
 // Patch individual cells without rebuilding tbody (preserves input focus)
@@ -3236,6 +3387,72 @@ document.getElementById('btnPcExport').onclick = ()=>{
 function pcEnsureChannels(){
   if(!pcState.channels) pcState.channels = pcDefaultChannels();
 }
+
+/* ===== Saved scenarios (DB-backed) ===== */
+let _pcSavedCache = [];
+async function pcRefreshSaved(){
+  const wrap = document.getElementById('pcSavedList');
+  if(!wrap) return;
+  if(!CTG.HAS_SUPABASE || !CTG.isSignedIn()){
+    wrap.innerHTML = `<p class="note">${t('settings_signin_first')}</p>`;
+    return;
+  }
+  try { _pcSavedCache = await CTG.pcListSavedScenarios(); }
+  catch(e){ console.error(e); _pcSavedCache = []; }
+  if(_pcSavedCache.length === 0){
+    wrap.innerHTML = `<p class="note">${t('pc_saved_empty')}</p>`;
+    return;
+  }
+  wrap.innerHTML = _pcSavedCache.map(s => {
+    const dt = new Date(s.updated_at || s.created_at).toLocaleString();
+    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(7,13,23,.4);border:1px solid var(--border);border-radius:10px;">
+      <span style="width:10px;height:10px;border-radius:50%;background:${s.color || 'var(--coral)'};box-shadow:0 0 8px ${s.color || 'var(--coral)'};"></span>
+      <div style="flex:1;min-width:0;">
+        <div style="color:#fff;font-weight:600;">${escapeHtml(s.name)}</div>
+        <div style="font-size:11.5px;color:var(--muted);">${dt}</div>
+      </div>
+      <button class="ghost" data-pc-saved-load="${s.id}">↻ ${t('pc_load')}</button>
+      <button class="danger" data-pc-saved-del="${s.id}" style="padding:6px 10px;font-size:11.5px;">✕</button>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('btnPcSave').onclick = async ()=>{
+  if(!CTG.isSignedIn()){ alert(t('settings_signin_first')); return; }
+  const name = prompt(t('pc_save_prompt'), 'My Costing ' + new Date().toLocaleDateString());
+  if(!name) return;
+  const colors = ['#E85D3C','#5B9BD5','#10b981','#F08570','#3D7AB0','#1F3A5F'];
+  const color = colors[_pcSavedCache.length % colors.length];
+  try{
+    await CTG.pcSaveSavedScenario({ name: name.trim(), color, entity_id: null, data: deepCopy(pcState) });
+    showToast(t('pc_saved_ok'), 'success');
+    await pcRefreshSaved();
+  } catch (err) {
+    console.error(err);
+    showToast(t('err_save'), 'error');
+  }
+};
+
+document.addEventListener('click', async e=>{
+  if(e.target.dataset.pcSavedLoad){
+    const id = e.target.dataset.pcSavedLoad;
+    const s = _pcSavedCache.find(x => x.id === id);
+    if(s && s.data){
+      pcState = deepCopy(s.data);
+      pcEnsureChannels();
+      pcRender();
+      showToast('Loaded: ' + s.name, 'success');
+    }
+  }
+  if(e.target.dataset.pcSavedDel){
+    const id = e.target.dataset.pcSavedDel;
+    if(!confirm(t('pc_confirm_del'))) return;
+    try{
+      await CTG.pcDeleteSavedScenario(id);
+      await pcRefreshSaved();
+    } catch (err) { console.error(err); showToast(t('err_save'), 'error'); }
+  }
+});
 
 /* ============ SETTINGS TAB ============ */
 async function renderSettingsTab(){
