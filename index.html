@@ -883,20 +883,51 @@
   .migrate-banner .msg{flex:1;font-size:13px;color:var(--text);}
   .migrate-banner .msg b{color:var(--sky-soft);}
 
-  /* ============ PRODUCT COSTING — ROOMIER TABLE ============ */
-  /* Give the Product Cost Build-Up table more breathing room so the
-     numbers are easier to read at a glance. */
-  #pcProductsTable{font-size:13px;}
-  #pcProductsTable th{padding:11px 10px;font-size:11px;letter-spacing:.6px;line-height:1.25;}
-  #pcProductsTable td{padding:10px 10px;}
-  #pcProductsTable td input,
-  #pcProductsTable td select{
+  /* ============ ROOMIER DATA TABLES (all calculators) ============ */
+  /* Consistent breathing room across product/cost/SKU/PC tables. */
+  #productTable, #costTable, #pcProductsTable, #pcSkuTable{font-size:13px;}
+  #productTable th, #costTable th, #pcProductsTable th, #pcSkuTable th{
+    padding:11px 10px;font-size:11px;letter-spacing:.6px;line-height:1.25;
+  }
+  #productTable td, #costTable td, #pcProductsTable td, #pcSkuTable td{
+    padding:10px 10px;
+  }
+  #productTable td input, #productTable td select,
+  #costTable td input,    #costTable td select,
+  #pcProductsTable td input, #pcProductsTable td select,
+  #pcSkuTable td input,   #pcSkuTable td select{
     padding:8px 10px;font-size:13.5px;border-radius:7px;
     background:rgba(7,13,23,.45);border:1px solid rgba(91,155,213,.10);
   }
-  #pcProductsTable td input[type="number"]{font-weight:600;}
-  #pcProductsTable td.num{font-size:13.5px;font-weight:700;letter-spacing:.2px;}
-  #pcProductsTable tfoot td{padding:14px 10px;font-size:13.5px;}
+  #productTable td input[type="number"],
+  #costTable td input[type="number"],
+  #pcProductsTable td input[type="number"],
+  #pcSkuTable td input[type="number"]{font-weight:600;}
+  #productTable td.num, #costTable td.num,
+  #pcProductsTable td.num, #pcSkuTable td.num{
+    font-size:13.5px;font-weight:700;letter-spacing:.2px;
+  }
+  #productTable tfoot td, #costTable tfoot td,
+  #pcProductsTable tfoot td, #pcSkuTable tfoot td{
+    padding:14px 10px;font-size:13.5px;
+  }
+  /* Slightly brighter row hover for clarity */
+  #productTable tbody tr:hover, #costTable tbody tr:hover,
+  #pcProductsTable tbody tr:hover, #pcSkuTable tbody tr:hover{
+    background:rgba(91,155,213,.12);
+  }
+  /* Empty-state row */
+  .empty-row td{
+    text-align:center;color:var(--muted);font-style:italic;padding:24px 12px;
+    background:rgba(7,13,23,.20);
+  }
+
+  /* Subtle green band behind the Safe Price column for emphasis */
+  #pcProductsTable td[data-pcp-out$="-safe"]{
+    background:linear-gradient(180deg,rgba(16,185,129,.08),rgba(16,185,129,.02));
+    border-left:1px solid rgba(16,185,129,.15);
+    border-right:1px solid rgba(16,185,129,.15);
+  }
 
   /* ============ PRODUCT COSTING — MARGIN FLAGS ============ */
   .pc-flag{display:inline-block;font-size:14px;line-height:1;vertical-align:middle;margin-right:2px;}
@@ -1438,19 +1469,19 @@
         <thead><tr>
           <th style="width:42px;">No</th>
           <th style="min-width:180px;" data-i18n="pc_th_name">Product Name</th>
-          <th style="width:90px;" data-i18n="pc_th_units">Units</th>
-          <th style="width:160px;" data-i18n="pc_th_sku">Package SKU Cost</th>
-          <th style="width:100px;" data-i18n="pc_th_duties">Duties %</th>
-          <th style="width:120px;" data-i18n="pc_th_freight">Inbound Freight</th>
-          <th style="width:120px;" data-i18n="pc_th_warehouse">Warehousing</th>
-          <th style="width:120px;" data-i18n="pc_th_pack_mat">Packaging Mat.</th>
-          <th style="width:120px;" data-i18n="pc_th_landed">Landed/Unit</th>
-          <th style="width:110px;" data-i18n="pc_th_benchmark">Benchmark %</th>
-          <th style="width:130px;" data-i18n="pc_th_suggested">Suggested Price</th>
-          <th style="width:130px;background:linear-gradient(180deg,rgba(16,185,129,.18),rgba(16,185,129,.06));color:#6ee7b7;" data-i18n="pc_th_safe">Safe Price (75%)</th>
-          <th style="width:130px;" data-i18n="pc_th_selling">Selling Price</th>
-          <th style="width:140px;" data-i18n="pc_th_margin">Margin % / Flag</th>
-          <th style="width:130px;" data-i18n="pc_th_advisor">Advisor</th>
+          <th style="width:90px;" data-i18n="pc_th_units" title="How many units in this scenario / batch">Units</th>
+          <th style="width:160px;" data-i18n="pc_th_sku" title="Cost of the package as a whole. Click 📦 to break it down by component.">Package SKU Cost</th>
+          <th style="width:100px;" data-i18n="pc_th_duties" title="Import duties / customs % applied to the SKU cost">Duties %</th>
+          <th style="width:120px;" data-i18n="pc_th_freight" title="Inbound freight & transportation per unit">Inbound Freight</th>
+          <th style="width:120px;" data-i18n="pc_th_warehouse" title="Warehousing — variable portion per unit (storage, handling)">Warehousing</th>
+          <th style="width:120px;" data-i18n="pc_th_pack_mat" title="Packaging materials per unit (boxes, bubble wrap, leaflets)">Packaging Mat.</th>
+          <th style="width:120px;" data-i18n="pc_th_landed" title="SKU + Duties + Freight + Warehousing + Packaging Materials">Landed/Unit</th>
+          <th style="width:110px;" data-i18n="pc_th_benchmark" title="Target margin you want to hit on this product">Benchmark %</th>
+          <th style="width:130px;" data-i18n="pc_th_suggested" title="Selling price needed to hit your benchmark margin, after platform + gateway fees">Suggested Price</th>
+          <th style="width:130px;background:linear-gradient(180deg,rgba(16,185,129,.18),rgba(16,185,129,.06));color:#6ee7b7;" data-i18n="pc_th_safe" title="Minimum selling price to land in the green margin band (≥75%)">Safe Price (75%)</th>
+          <th style="width:130px;" data-i18n="pc_th_selling" title="What you actually charge customers">Selling Price</th>
+          <th style="width:140px;" data-i18n="pc_th_margin" title="Actual margin based on selling price · 🔴 <70% · 🟠 70–74.99% · 🟢 ≥75%">Margin % / Flag</th>
+          <th style="width:130px;" data-i18n="pc_th_advisor" title="Per-row guidance to reach the safe (green) margin band">Advisor</th>
           <th style="width:42px;"></th>
         </tr></thead>
         <tbody></tbody>
@@ -2866,7 +2897,16 @@ document.addEventListener('click', e=>{
   if(goto) setAuthModalState(goto.dataset.authGoto);
 });
 document.addEventListener('keydown', e=>{
-  if(e.key === 'Escape' && document.getElementById('authModal').classList.contains('open')) closeAuthModal();
+  if(e.key !== 'Escape') return;
+  const authM = document.getElementById('authModal');
+  if(authM && authM.classList.contains('open')) { closeAuthModal(); return; }
+  const skuM = document.getElementById('pcSkuModal');
+  if(skuM && skuM.style.display !== 'none') { if(typeof pcCloseSkuModal === 'function') pcCloseSkuModal(); return; }
+  const userM = document.getElementById('userEditModal');
+  if(userM && userM.classList.contains('open')) {
+    if(typeof closeUserEditModal === 'function') closeUserEditModal();
+    else userM.classList.remove('open');
+  }
 });
 
 // Form submissions
@@ -3341,23 +3381,45 @@ function updatePageHeader(tabId){
   if(subEl){   subEl.setAttribute('data-i18n', m.sub);     subEl.textContent   = t(m.sub); }
 }
 
+const TAB_LS_KEY = 'ctg_current_tab_v1';
+function activateTab(id, opts){
+  opts = opts || {};
+  const btn = document.querySelector('.tab-btn[data-tab="'+id+'"]');
+  const panel = document.getElementById('tab-'+id);
+  if(!btn || !panel) return false;
+  document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(x=>x.classList.remove('active'));
+  btn.classList.add('active');
+  panel.classList.add('active');
+  currentTab = id;
+  try { localStorage.setItem(TAB_LS_KEY, id); } catch(e){}
+  updatePageHeader(id);
+  if(id==='compare') renderCompare();
+  if(id==='sensitivity') renderSensitivity();
+  if(id==='settings') renderSettingsTab();
+  if(id==='entities') renderEntitiesTab();
+  if(id==='users') renderUsersTab();
+  if(id==='pcalc') { pcEnsureChannels(); pcRender(); pcRefreshSaved(); }
+  // Scroll content back to top so the user starts at the page header
+  if(!opts.skipScroll){
+    const main = document.querySelector('.main-content');
+    if(main) main.scrollTop = 0;
+    else window.scrollTo({top:0});
+  }
+  return true;
+}
 document.querySelectorAll('.tab-btn').forEach(b=>{
-  b.onclick = ()=>{
-    document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active'));
-    document.querySelectorAll('.tab-panel').forEach(x=>x.classList.remove('active'));
-    b.classList.add('active');
-    const id = b.dataset.tab;
-    document.getElementById('tab-'+id).classList.add('active');
-    currentTab = id;
-    updatePageHeader(id);
-    if(id==='compare') renderCompare();
-    if(id==='sensitivity') renderSensitivity();
-    if(id==='settings') renderSettingsTab();
-    if(id==='entities') renderEntitiesTab();
-    if(id==='users') renderUsersTab();
-    if(id==='pcalc') { pcEnsureChannels(); pcRender(); pcRefreshSaved(); }
-  };
+  b.onclick = ()=> activateTab(b.dataset.tab);
 });
+// Restore last-active tab on load (skip if admin-only and user isn't admin)
+try {
+  const savedTab = localStorage.getItem(TAB_LS_KEY);
+  if(savedTab && savedTab !== 'calc'){
+    const tgtBtn = document.querySelector('.tab-btn[data-tab="'+savedTab+'"]');
+    // Don't restore admin tabs if the button is hidden (non-admin user)
+    if(tgtBtn && tgtBtn.offsetParent !== null) activateTab(savedTab, { skipScroll:true });
+  }
+} catch(e){}
 
 /* ============ EXPORT ============ */
 document.getElementById('btnExport').onclick = ()=>{
@@ -3613,6 +3675,7 @@ function pcComputeProduct(p){
 function pcAdvisor(p, c){
   const sp = Number(p.sellingPrice) || 0;
   if(sp <= 0) return { cls:'grey',  text: t('pc_advisor_setprice') };
+  if(c.landed <= 0) return { cls:'grey', text: 'Set a landed cost' };
   if(!c.safeReachable) return { cls:'red', text: t('pc_advisor_unreachable') };
   if(sp >= c.safePrice) return { cls:'green', text: t('pc_advisor_safe') };
   const gap = c.safePrice - sp;
@@ -3622,11 +3685,13 @@ function pcAdvisor(p, c){
   return { cls, text: 'Add RM ' + fmt(gap) + ' to reach safe' };
 }
 function pcMarginFlag(marginPct){
-  // marginPct is a percentage (0–100), not a fraction
+  // marginPct is a percentage (0–100), not a fraction.
+  // Negative margins (selling below cost) are treated as red, not grey.
+  if(!isFinite(marginPct))  return { cls:'grey',  icon:'●', text:'—' };
+  if(marginPct < 0)         return { cls:'red',   icon:'🔴', text:marginPct.toFixed(1)+'%' };
   if(marginPct < 0.01)      return { cls:'grey',  icon:'●', text:'—' };
   if(marginPct < 70)        return { cls:'red',   icon:'🔴', text:marginPct.toFixed(1)+'%' };
   if(marginPct < 75)        return { cls:'amber', icon:'🟠', text:marginPct.toFixed(1)+'%' };
-  if(marginPct <= 100)      return { cls:'green', icon:'🟢', text:marginPct.toFixed(1)+'%' };
   return { cls:'green', icon:'🟢', text:marginPct.toFixed(1)+'%' };
 }
 
@@ -3642,8 +3707,7 @@ function pcAggregate(){
     totalContrib += u * c.contrib;
   });
   const blendedMargin = totalRevenue > 0 ? totalContrib / totalRevenue : 0;
-  const avgLanded = pcState.products.length > 0 ? totalLanded / Math.max(1, totalUnits || pcState.products.length) : 0;
-  return { totalUnits, totalRevenue, totalLanded, totalNetRev, totalContrib, blendedMargin, avgLanded };
+  return { totalUnits, totalRevenue, totalLanded, totalNetRev, totalContrib, blendedMargin };
 }
 
 /* ===== Rendering ===== */
@@ -3681,6 +3745,10 @@ function pcRenderFeeConfig(){
 function pcRenderProducts(){
   const tbody = document.querySelector('#pcProductsTable tbody');
   if(!tbody) return;
+  if(pcState.products.length === 0){
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="16">No products yet. Click + Add Product to start building a costing.</td></tr>`;
+    return;
+  }
   tbody.innerHTML = pcState.products.map((p,i) => {
     const c = pcComputeProduct(p);
     const marginPct = c.margin * 100;
