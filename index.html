@@ -500,6 +500,91 @@
   .toast.info{border-left:4px solid var(--sky);}
   @keyframes slideIn{from{opacity:0;transform:translateX(20px);}to{opacity:1;transform:none;}}
 
+  /* ============ FULL-PAGE LOGIN GATE (Xero-style) ============ */
+  .login-gate{
+    position:fixed;inset:0;z-index:300;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:40px 20px;overflow-y:auto;
+    background:
+      radial-gradient(ellipse 800px 600px at 12% 8%, rgba(31,58,95,.55), transparent 55%),
+      radial-gradient(ellipse 700px 500px at 92% 10%, rgba(232,93,60,.32), transparent 60%),
+      radial-gradient(ellipse 600px 450px at 50% 95%, rgba(91,155,213,.22), transparent 60%),
+      linear-gradient(180deg, #070D17 0%, #0C1421 100%);
+  }
+  .login-gate.hidden{display:none;}
+  .login-gate::before{
+    content:'';position:absolute;inset:0;pointer-events:none;opacity:.35;
+    background-image:url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .08 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    mix-blend-mode:overlay;
+  }
+  .login-gate > *{position:relative;z-index:2;}
+
+  .login-card{
+    width:100%;max-width:420px;text-align:center;
+    background:linear-gradient(180deg,rgba(19,28,45,.92),rgba(12,20,33,.88));
+    border:1px solid var(--border-strong);border-radius:18px;
+    padding:40px 36px;
+    box-shadow:0 30px 80px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.02);
+    backdrop-filter:blur(20px);
+  }
+  .login-logo{
+    width:80px;height:80px;margin:0 auto 20px;display:block;
+    filter:drop-shadow(0 6px 18px rgba(232,93,60,.5)) drop-shadow(0 0 28px rgba(91,155,213,.35));
+  }
+  .login-card h1{
+    margin:0 0 6px;font-size:22px;font-weight:700;color:#fff;letter-spacing:-.2px;
+  }
+  .login-card .login-sub{
+    margin:0 0 28px;font-size:12.5px;color:var(--muted);font-weight:500;
+    text-transform:uppercase;letter-spacing:2px;
+  }
+  .login-card .login-brand-mark{
+    font-size:11px;font-weight:800;letter-spacing:4px;color:var(--coral-soft);
+    text-transform:uppercase;margin-bottom:14px;
+  }
+  .login-field{text-align:left;margin-bottom:14px;}
+  .login-field label{
+    display:block;font-size:11px;font-weight:700;color:var(--sky-soft);
+    margin-bottom:6px;text-transform:uppercase;letter-spacing:.6px;
+  }
+  .login-field input{
+    width:100%;padding:13px 16px;border:1px solid var(--border-strong);border-radius:10px;font:inherit;
+    background:rgba(7,13,23,.7);color:var(--text);transition:.18s;font-size:14px;
+  }
+  .login-field input:focus{outline:none;border-color:var(--coral);box-shadow:0 0 0 3px rgba(232,93,60,.20);background:rgba(7,13,23,.9);}
+  .login-error{
+    font-size:12.5px;color:#fca5a5;background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.25);
+    padding:10px 14px;border-radius:8px;margin:8px 0 14px;display:none;text-align:left;
+  }
+  .login-error.show{display:block;}
+  .login-submit{
+    width:100%;background:linear-gradient(135deg,var(--coral),var(--coral-deep));color:#fff;border:none;
+    padding:14px;border-radius:10px;cursor:pointer;font-size:14px;font-weight:700;letter-spacing:.3px;
+    box-shadow:0 4px 14px rgba(232,93,60,.35);margin-top:10px;transition:.18s;
+  }
+  .login-submit:hover{filter:brightness(1.08);transform:translateY(-1px);box-shadow:0 6px 18px rgba(232,93,60,.45);}
+  .login-submit:disabled{opacity:.6;cursor:wait;transform:none;}
+  .login-links{margin-top:18px;display:flex;justify-content:space-between;gap:12px;font-size:12.5px;flex-wrap:wrap;}
+  .login-links button{
+    background:transparent;color:var(--sky-soft);border:none;padding:6px 4px;cursor:pointer;
+    font-size:12.5px;font-weight:600;box-shadow:none;
+  }
+  .login-links button:hover{color:#fff;background:transparent;transform:none;text-decoration:underline;}
+  .login-lang{
+    margin-top:16px;display:flex;justify-content:center;gap:6px;
+    border-top:1px solid var(--border);padding-top:14px;
+  }
+  .login-lang button{
+    background:rgba(255,255,255,.04);color:var(--text-soft);border:1px solid var(--border-strong);
+    padding:5px 14px;border-radius:20px;cursor:pointer;font-size:11.5px;font-weight:700;
+    box-shadow:none;letter-spacing:.5px;
+  }
+  .login-lang button.active{background:var(--coral);color:#fff;border-color:var(--coral);}
+  .login-footer{
+    margin-top:30px;font-size:11px;color:var(--muted);letter-spacing:1px;text-align:center;
+  }
+  .login-footer b{color:var(--coral-soft);letter-spacing:2.5px;font-weight:800;}
+
   /* ============ AUTH MODAL ============ */
   .auth-modal{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;padding:20px;}
   .auth-modal.open{display:flex;animation:fadeIn .2s ease;}
@@ -582,6 +667,43 @@
 </style>
 </head>
 <body>
+
+<!-- ============ FULL-PAGE LOGIN GATE (shown when not signed in) ============ -->
+<div class="login-gate hidden" id="loginGate">
+  <div class="login-card">
+    <img class="login-logo" src="assets/img/ctg_logo.png" alt="CTG"/>
+    <div class="login-brand-mark">CTG</div>
+    <h1 data-i18n="gate_title">Sign in to CTG BEP</h1>
+    <p class="login-sub" data-i18n="gate_sub">Exhibition Break-Even Calculator</p>
+
+    <form id="formGateLogin" autocomplete="on">
+      <div class="login-field">
+        <label data-i18n="auth_email">Email</label>
+        <input type="email" id="gateEmail" required autocomplete="email"/>
+      </div>
+      <div class="login-field">
+        <label data-i18n="auth_password">Password</label>
+        <input type="password" id="gatePassword" required minlength="6" autocomplete="current-password"/>
+      </div>
+      <div class="login-error" id="gateError"></div>
+      <button type="submit" class="login-submit" id="gateSubmit"><span data-i18n="auth_signin">Sign In</span></button>
+    </form>
+
+    <div class="login-links">
+      <button type="button" id="gateForgotBtn"><span data-i18n="auth_forgot">Forgot password?</span></button>
+      <button type="button" id="gateHelpBtn"><span data-i18n="gate_help">Can't sign in?</span></button>
+    </div>
+
+    <div class="login-lang">
+      <button type="button" id="gateLangEn" class="active" onclick="setLang('en')">EN</button>
+      <button type="button" id="gateLangZh" onclick="setLang('zh')">中文</button>
+    </div>
+
+    <div class="login-footer">
+      <b>CTG</b> &nbsp;·&nbsp; <span data-i18n="gate_footer">Invite-only · Contact your admin for access</span>
+    </div>
+  </div>
+</div>
 
 <!-- ============ HEADER ============ -->
 <header>
@@ -1240,6 +1362,10 @@ const I18N = {
     ent_none:"No entities yet. Click 'New Entity' to add your first company.",
     ent_name_required:"Display name is required.",
     scn_entity:"Entity (company)", scn_entity_none:"— No entity —",
+    gate_title:"Sign in to CTG BEP", gate_sub:"Exhibition Break-Even Calculator",
+    gate_help:"Can't sign in?",
+    gate_help_msg:"This tool is invite-only. If you haven't received an invitation, contact your CTG admin to be added.",
+    gate_footer:"Invite-only · Contact your admin for access",
     reset:"Reset Sample", clear:"Clear All", save_scn:"Save as Scenario",
     note_save_local:"Auto-saved on this device · Sign in to sync across devices",
     note_save_cloud:"Auto-saved · Scenarios synced to your account",
@@ -1351,6 +1477,10 @@ const I18N = {
     ent_none:"尚无实体。点击「新增实体」添加第一家公司。",
     ent_name_required:"必须填写显示名称。",
     scn_entity:"公司实体", scn_entity_none:"— 不选 —",
+    gate_title:"登录 CTG BEP", gate_sub:"展会损益平衡点计算器",
+    gate_help:"无法登录？",
+    gate_help_msg:"本工具仅限受邀使用。若您尚未收到邀请，请联系 CTG 管理员添加您。",
+    gate_footer:"仅限受邀 · 请联系管理员获取访问",
     reset:"重置范例", clear:"全部清空", save_scn:"保存为方案",
     note_save_local:"已自动储存在本机 · 登录后可跨设备同步",
     note_save_cloud:"已自动储存 · 方案已同步到您的账户",
@@ -1436,6 +1566,10 @@ function setLang(lang){
   LANG = lang;
   document.getElementById('lang-en').classList.toggle('active', lang==='en');
   document.getElementById('lang-zh').classList.toggle('active', lang==='zh');
+  const gateEn = document.getElementById('gateLangEn');
+  const gateZh = document.getElementById('gateLangZh');
+  if(gateEn) gateEn.classList.toggle('active', lang==='en');
+  if(gateZh) gateZh.classList.toggle('active', lang==='zh');
   document.documentElement.lang = lang==='zh' ? 'zh-CN':'en';
   document.querySelectorAll('[data-i18n]').forEach(el=>{
     const key = el.getAttribute('data-i18n');
@@ -1670,6 +1804,57 @@ function renderAuthUI(){
   document.getElementById('btnUserMenu').onclick = (e)=>{ e.stopPropagation(); menu.classList.toggle('open'); };
   document.addEventListener('click', (e)=>{ if(!wrap.contains(e.target)) menu.classList.remove('open'); });
   document.getElementById('btnSignOut').onclick = async ()=>{ await CTG.signOut(); };
+}
+
+/* ============ LOGIN GATE (full-page) ============ */
+function setGateError(msg){
+  const el = document.getElementById('gateError');
+  el.textContent = msg || '';
+  el.classList.toggle('show', !!msg);
+}
+function showLoginGate(){
+  document.getElementById('loginGate').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  setTimeout(()=>{ const f = document.getElementById('gateEmail'); if(f && !f.value) f.focus(); }, 100);
+}
+function hideLoginGate(){
+  document.getElementById('loginGate').classList.add('hidden');
+  document.body.style.overflow = '';
+  setGateError('');
+}
+
+document.getElementById('formGateLogin').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const email = document.getElementById('gateEmail').value.trim();
+  const password = document.getElementById('gatePassword').value;
+  const submit = document.getElementById('gateSubmit');
+  setGateError('');
+  submit.disabled = true;
+  try {
+    await CTG.signInWithPassword({ email, password });
+    // onAuth listener will hide the gate and load the app
+  } catch (err) {
+    console.error(err);
+    setGateError(friendlyAuthError(err));
+  } finally {
+    submit.disabled = false;
+  }
+});
+
+document.getElementById('gateForgotBtn').onclick = ()=>{
+  const email = document.getElementById('gateEmail').value.trim();
+  openAuthModal('forgot');
+  const forgotEmail = document.querySelector('.auth-state[data-auth-state="forgot"] input[name="email"]');
+  if(forgotEmail && email) forgotEmail.value = email;
+};
+
+document.getElementById('gateHelpBtn').onclick = ()=>{ alert(t('gate_help_msg')); };
+
+function syncGateLangButtons(){
+  const en = document.getElementById('gateLangEn');
+  const zh = document.getElementById('gateLangZh');
+  if(en) en.classList.toggle('active', LANG==='en');
+  if(zh) zh.classList.toggle('active', LANG==='zh');
 }
 
 /* ============ AUTH MODAL ============ */
@@ -2567,6 +2752,19 @@ async function init(){
   CTG.onAuth(async ({ event, user }) => {
     renderAuthUI();
     updateStorageNote();
+    syncGateLangButtons();
+
+    // ----- Login gate visibility -----
+    // Show the full-page login gate whenever Supabase is configured and the user
+    // is signed out. Hide it as soon as the user signs in. Recovery flow (password
+    // reset link) keeps the gate hidden because the user is technically signed in
+    // with a temporary session — the recovery modal handles that case.
+    if(CTG.HAS_SUPABASE){
+      if(user) hideLoginGate();
+      else if(event !== 'PASSWORD_RECOVERY') showLoginGate();
+    } else {
+      hideLoginGate(); // offline mode (no Supabase config) → no gate
+    }
 
     // TOKEN_REFRESHED fires whenever Supabase silently rotates the access token
     // (every ~50 min, or after each browser-tab refocus). The session is the same
