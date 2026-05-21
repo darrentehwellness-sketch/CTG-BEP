@@ -25,8 +25,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=14"></script>
-<script src="assets/js/supabase-client.js?v=14"></script>
+<script src="config.js?v=15"></script>
+<script src="assets/js/supabase-client.js?v=15"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -728,6 +728,27 @@
     margin-top:30px;font-size:11px;color:var(--muted);letter-spacing:1px;text-align:center;
   }
   .login-footer b{color:var(--coral-soft);letter-spacing:2.5px;font-weight:800;}
+
+  /* ============ ENTITY CHECKBOX LIST (Edit User modal) ============ */
+  .entity-checkbox-list{
+    max-height:200px;overflow-y:auto;
+    background:rgba(7,13,23,.6);border:1px solid var(--border-strong);border-radius:8px;
+    padding:6px;display:flex;flex-direction:column;gap:2px;
+  }
+  .entity-checkbox-list .ent-row{
+    display:flex;align-items:center;gap:10px;
+    padding:8px 10px;border-radius:6px;cursor:pointer;
+    color:var(--text);font-size:13px;transition:background .12s;
+  }
+  .entity-checkbox-list .ent-row:hover{background:rgba(255,255,255,.05);}
+  .entity-checkbox-list .ent-row input[type="checkbox"]{
+    width:16px;height:16px;cursor:pointer;accent-color:rgb(var(--accent-rgb));
+    flex-shrink:0;margin:0;
+  }
+  .entity-checkbox-list .ent-row.checked{background:rgba(var(--accent-rgb)/0.10);}
+  .entity-checkbox-list .ent-empty{
+    text-align:center;color:var(--muted);padding:14px;font-size:12.5px;
+  }
 
   /* ============ ACCENT COLOR SWATCHES ============ */
   .accent-swatches{display:flex;gap:8px;align-items:center;}
@@ -1743,11 +1764,12 @@
           </div>
 
           <div class="auth-field">
-            <label data-i18n="users_entity_label">Assigned entity</label>
-            <select id="userEditEntity" style="width:100%;padding:11px 14px;border:1px solid var(--border-strong);border-radius:8px;background:rgba(7,13,23,.6);color:var(--text);font:inherit;">
-              <option value="" data-i18n="users_entity_none">— No entity —</option>
-            </select>
-            <div class="note" data-i18n="users_entity_hint">Normal users are locked to this entity when saving scenarios. Admins ignore this.</div>
+            <label>
+              <span data-i18n="users_entities_label">Assigned entities</span>
+              <span id="userEditEntitiesCount" style="float:right;color:var(--muted);font-weight:600;font-size:11px;">0</span>
+            </label>
+            <div class="entity-checkbox-list" id="userEditEntities"></div>
+            <div class="note" data-i18n="users_entities_hint">Normal users can save scenarios only against their assigned entities. Admins ignore this list.</div>
           </div>
 
           <div class="auth-error" data-user-edit-error></div>
@@ -1948,6 +1970,10 @@ const I18N = {
     users_role_label:"Role", users_role_user:"Normal User", users_role_admin:"Admin",
     users_entity_label:"Assigned entity", users_entity_none:"— No entity —",
     users_entity_hint:"Normal users are locked to this entity when saving scenarios. Admins can pick any entity freely.",
+    users_entities_label:"Assigned entities",
+    users_entities_hint:"Normal users can save scenarios only against their assigned entities. Admins ignore this list.",
+    users_no_entities:"No active entities. Create one in the Entities tab first.",
+    users_selected_count:"{n} selected",
     users_save:"Save", users_saved:"User updated.",
     users_self_demote_err:"You cannot demote yourself from admin.",
     users_never:"Never", users_load_err:"Could not load users. Make sure you're signed in as an admin.",
@@ -2121,6 +2147,10 @@ const I18N = {
     users_role_label:"角色", users_role_user:"普通用户", users_role_admin:"管理员",
     users_entity_label:"所属公司", users_entity_none:"— 不选 —",
     users_entity_hint:"普通用户保存方案时会锁定为此公司。管理员可任意选择。",
+    users_entities_label:"所属公司（可多选）",
+    users_entities_hint:"普通用户只能将方案保存到所分配的公司。管理员不受此限制。",
+    users_no_entities:"暂无启用的公司实体。请先到「公司实体」分页新增。",
+    users_selected_count:"已选 {n}",
     users_save:"保存", users_saved:"用户已更新。",
     users_self_demote_err:"不能将自己从管理员降级。",
     users_never:"从未", users_load_err:"无法加载用户列表。请确认您以管理员身份登录。",
@@ -3899,36 +3929,59 @@ function populateScenarioEntityDropdown(){
 }
 
 // Called after profile loads (and whenever the entities cache or profile changes).
-// For non-admin users with an assigned entity_id, force the scenario-entity dropdown
-// to their entity and disable changing it. Admins keep free choice.
+// For non-admin users: restrict the scenario-entity dropdown to only their assigned entities.
+//   - 0 entities → enabled, shows only "No entity" option (effectively no choice)
+//   - 1 entity  → pre-selected and disabled (locked)
+//   - N entities → enabled, dropdown filtered to those N options
+// Admins keep free choice across all entities.
 async function applyEntityLock(){
   const sel = document.getElementById('scenarioEntity');
   if(!sel) return;
   if(!CTG.HAS_SUPABASE || !CTG.isSignedIn()){
-    sel.disabled = false;
-    sel.title = '';
-    sel.style.opacity = '';
+    sel.disabled = false; sel.title = ''; sel.style.opacity = '';
     return;
   }
   const profile = await CTG.getCurrentProfile();
   if(!profile){ sel.disabled = false; return; }
+
+  // Admin: free choice over all entities — dropdown already populated by populateScenarioEntityDropdown
   if(profile.role === 'admin'){
+    sel.disabled = false; sel.title = ''; sel.style.opacity = '';
+    return;
+  }
+
+  const ids = Array.isArray(profile.entity_ids) ? profile.entity_ids : [];
+  const names = Array.isArray(profile.entity_names) ? profile.entity_names : [];
+
+  // Rebuild dropdown options filtered to user's entities
+  const prev = sel.value;
+  const opts = ['<option value="">' + t('scn_entity_none') + '</option>'];
+  ids.forEach((id, i) => {
+    const name = names[i] || '';
+    opts.push('<option value="' + id + '">' + escapeHtml(name) + '</option>');
+  });
+  sel.innerHTML = opts.join('');
+
+  if(ids.length === 1){
+    sel.value = ids[0];
+    sel.disabled = true;
+    sel.title = (LANG === 'zh')
+      ? '您的账户已锁定至「' + (names[0] || '') + '」。如需更改请联系管理员。'
+      : 'Your account is locked to "' + (names[0] || '') + '". Contact your admin to change.';
+    sel.style.opacity = '.85';
+  } else if(ids.length > 1){
+    sel.disabled = false;
+    sel.title = (LANG === 'zh')
+      ? '请从您所属的公司中选择一个保存方案。'
+      : 'Pick one of your assigned entities for this scenario.';
+    sel.style.opacity = '';
+    // Restore previous selection if it's still valid
+    if(prev && ids.includes(prev)) sel.value = prev;
+  } else {
+    // 0 entities assigned — no entity options available
     sel.disabled = false;
     sel.title = '';
     sel.style.opacity = '';
-    return;
-  }
-  // Normal user
-  if(profile.entity_id){
-    sel.value = profile.entity_id;
-    sel.disabled = true;
-    sel.title = (LANG === 'zh')
-      ? '您的账户已锁定至「' + (profile.entity_name || '') + '」。如需更改请联系管理员。'
-      : 'Your account is locked to "' + (profile.entity_name || '') + '". Contact your admin to change.';
-    sel.style.opacity = '.85';
-  } else {
-    // User has no entity assigned yet — leave dropdown enabled but they only see one option ("none")
-    sel.disabled = false;
   }
 }
 
@@ -4108,14 +4161,17 @@ async function renderSidebarProfile(){
   const pic = meta.avatar_url;
   const fullName = meta.full_name || meta.name || user.email || '';
 
-  // Get richer info from profile RPC (role + entity + display_name)
-  let role = 'user', entityName = null, displayName = null;
+  // Get richer info from profile RPC (role + entities[] + display_name)
+  let role = 'user', entityLabel = null, displayName = null;
   try {
     const profile = await CTG.getCurrentProfile();
     if(profile){
       role = profile.role || 'user';
-      entityName = profile.entity_name || null;
       displayName = profile.display_name || profile.full_name || null;
+      const names = Array.isArray(profile.entity_names) ? profile.entity_names : [];
+      if(names.length === 1)      entityLabel = names[0];
+      else if(names.length === 2) entityLabel = names[0] + ', ' + names[1];
+      else if(names.length > 2)   entityLabel = names.length + (LANG === 'zh' ? ' 家公司' : ' entities');
     }
   } catch(e){}
 
@@ -4136,7 +4192,7 @@ async function renderSidebarProfile(){
   badge.className = role === 'admin' ? 'badge-admin' : 'badge-user';
   badge.textContent = role === 'admin' ? t('users_role_admin') : t('users_role_user');
   const entEl = document.getElementById('sidebarEntity');
-  entEl.textContent = entityName ? '· 🏢 ' + entityName : '';
+  entEl.textContent = entityLabel ? '· 🏢 ' + entityLabel : '';
 }
 
 /* ===== Accent color picker (persisted in localStorage) ===== */
@@ -4263,8 +4319,10 @@ async function renderUsersTab(){
       const roleLabel = u.role === 'admin'
         ? `<span class="pill" style="background:rgba(232,93,60,.18);color:var(--coral-soft);border:1px solid rgba(232,93,60,.30);">${t('users_role_admin')}</span>`
         : `<span class="pill" style="background:rgba(91,155,213,.15);color:var(--sky-soft);border:1px solid rgba(91,155,213,.30);">${t('users_role_user')}</span>`;
-      const entityLabel = u.entity_name
-        ? `<span style="color:#fff;font-weight:600;">🏢 ${escapeHtml(u.entity_name)}</span>`
+      // Multi-entity: show comma-separated list, fallback to dash
+      const names = Array.isArray(u.entity_names) ? u.entity_names : [];
+      const entityLabel = names.length > 0
+        ? `<span style="color:#fff;font-weight:600;">🏢 ${escapeHtml(names.join(', '))}</span>`
         : `<span style="color:var(--muted);">—</span>`;
       return `
       <tr>
@@ -4288,16 +4346,43 @@ function openUserEditModal(user){
   document.getElementById('userEditId').value    = user.id;
   document.getElementById('userEditEmail').textContent = user.email || '';
   document.getElementById('userEditRole').value  = user.role || 'user';
-  // Populate entity options from cache
-  const sel = document.getElementById('userEditEntity');
-  sel.innerHTML = `<option value="">${t('users_entity_none')}</option>` +
-    _entitiesCache.filter(e=>e.is_active!==false).map(e=>`<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('');
-  sel.value = user.entity_id || '';
+  // Render checkbox list of all active entities, pre-checking the user's current assignments
+  renderEntityCheckboxes(user.entity_ids || []);
   // Clear error and show modal
   const errEl = document.querySelector('[data-user-edit-error]');
   errEl.classList.remove('show'); errEl.textContent = '';
   document.getElementById('userEditModal').classList.add('open');
   document.body.style.overflow = 'hidden';
+}
+
+function renderEntityCheckboxes(selectedIds){
+  const wrap = document.getElementById('userEditEntities');
+  const countEl = document.getElementById('userEditEntitiesCount');
+  const active = _entitiesCache.filter(e => e.is_active !== false);
+  const sel = new Set(selectedIds || []);
+  if(active.length === 0){
+    wrap.innerHTML = `<div class="ent-empty">${t('users_no_entities')}</div>`;
+    countEl.textContent = t('users_selected_count').replace('{n}', '0');
+    return;
+  }
+  wrap.innerHTML = active.map(e => {
+    const checked = sel.has(e.id) ? 'checked' : '';
+    const cls    = sel.has(e.id) ? 'ent-row checked' : 'ent-row';
+    return `<label class="${cls}">
+      <input type="checkbox" value="${e.id}" ${checked}/>
+      <span>${escapeHtml(e.name)}</span>
+    </label>`;
+  }).join('');
+  countEl.textContent = t('users_selected_count').replace('{n}', String(sel.size));
+
+  // Live count + visual checked-row state
+  wrap.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', ()=>{
+      cb.closest('.ent-row').classList.toggle('checked', cb.checked);
+      const n = wrap.querySelectorAll('input[type="checkbox"]:checked').length;
+      countEl.textContent = t('users_selected_count').replace('{n}', String(n));
+    });
+  });
 }
 function closeUserEditModal(){
   document.getElementById('userEditModal').classList.remove('open');
@@ -4317,13 +4402,15 @@ document.getElementById('formUserEdit').addEventListener('submit', async e=>{
   e.preventDefault();
   const id = document.getElementById('userEditId').value;
   const role = document.getElementById('userEditRole').value;
-  const entity_id = document.getElementById('userEditEntity').value || null;
+  const entity_ids = Array.from(
+    document.querySelectorAll('#userEditEntities input[type="checkbox"]:checked')
+  ).map(cb => cb.value);
   const errEl = document.querySelector('[data-user-edit-error]');
   errEl.classList.remove('show');
   const submit = e.currentTarget.querySelector('button[type="submit"]');
   submit.disabled = true;
   try {
-    await CTG.adminSetUserProfile(id, role, entity_id);
+    await CTG.adminSetUserProfile(id, role, entity_ids);
     showToast(t('users_saved'), 'success');
     closeUserEditModal();
     await renderUsersTab();

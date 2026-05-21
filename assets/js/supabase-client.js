@@ -181,12 +181,15 @@
     return _profileCache;
   }
 
-  async function adminSetUserProfile(userId, role, entityId) {
+  async function adminSetUserProfile(userId, role, entityIds) {
     _ensureSb();
+    // entityIds is an array; backward-compat: accept null/undefined/single uuid
+    let ids = entityIds;
+    if (!Array.isArray(ids)) ids = ids ? [ids] : [];
     const { error } = await sb.rpc('admin_set_user_profile', {
       p_user_id: userId,
       p_role: role,
-      p_entity_id: entityId || null
+      p_entity_ids: ids
     });
     if (error) throw error;
   }
