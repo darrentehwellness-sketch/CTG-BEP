@@ -1465,12 +1465,9 @@
           <label data-i18n="scn_name">Scenario Name (for saving)</label>
           <input type="text" id="scenarioName" placeholder="e.g. KLCC Expo - June 2026"/>
         </div>
-        <div class="input-group">
-          <label data-i18n="scn_entity">Entity (company)</label>
-          <select id="scenarioEntity" style="width:100%;padding:11px 14px;border:1px solid var(--border-strong);border-radius:8px;background:rgba(7,13,23,.6);color:var(--text);font:inherit;">
-            <option value="" data-i18n="scn_entity_none">— No entity —</option>
-          </select>
-        </div>
+        <!-- Entity selector hidden — kept as a hidden input so existing JS that
+             reads #scenarioEntity continues to work (it just sends entity_id=null) -->
+        <input type="hidden" id="scenarioEntity" value=""/>
       </div>
 
       <div class="breakeven-banner">
