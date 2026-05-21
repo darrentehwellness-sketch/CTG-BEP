@@ -25,8 +25,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=15"></script>
-<script src="assets/js/supabase-client.js?v=15"></script>
+<script src="config.js?v=16"></script>
+<script src="assets/js/supabase-client.js?v=16"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -729,25 +729,55 @@
   }
   .login-footer b{color:var(--coral-soft);letter-spacing:2.5px;font-weight:800;}
 
-  /* ============ ENTITY CHECKBOX LIST (Edit User modal) ============ */
-  .entity-checkbox-list{
-    max-height:200px;overflow-y:auto;
-    background:rgba(7,13,23,.6);border:1px solid var(--border-strong);border-radius:8px;
-    padding:6px;display:flex;flex-direction:column;gap:2px;
+  /* ============ ENTITY CHIPS (Edit User modal, multi-select) ============ */
+  .ent-chips{
+    background:rgba(7,13,23,.5);border:1px solid var(--border-strong);border-radius:12px;
+    padding:12px;max-height:240px;overflow-y:auto;
   }
-  .entity-checkbox-list .ent-row{
-    display:flex;align-items:center;gap:10px;
-    padding:8px 10px;border-radius:6px;cursor:pointer;
-    color:var(--text);font-size:13px;transition:background .12s;
+  .ent-chips-list{
+    display:flex;flex-wrap:wrap;gap:6px;
   }
-  .entity-checkbox-list .ent-row:hover{background:rgba(255,255,255,.05);}
-  .entity-checkbox-list .ent-row input[type="checkbox"]{
-    width:16px;height:16px;cursor:pointer;accent-color:rgb(var(--accent-rgb));
-    flex-shrink:0;margin:0;
+  .ent-chip{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:7px 13px;border-radius:20px;cursor:pointer;
+    font-size:12.5px;font-weight:600;font-family:inherit;
+    border:1px solid var(--border-strong);
+    background:rgba(255,255,255,.03);color:var(--text-soft);
+    transition:background .15s, color .15s, border-color .15s, box-shadow .15s, transform .1s;
+    user-select:none;box-shadow:none;
   }
-  .entity-checkbox-list .ent-row.checked{background:rgba(var(--accent-rgb)/0.10);}
-  .entity-checkbox-list .ent-empty{
-    text-align:center;color:var(--muted);padding:14px;font-size:12.5px;
+  .ent-chip:hover{
+    background:rgba(255,255,255,.07);color:#fff;
+    border-color:rgba(255,255,255,.20);transform:translateY(-1px);
+  }
+  .ent-chip.selected{
+    background:rgb(var(--accent-rgb));color:#fff;
+    border-color:rgb(var(--accent-rgb));
+    box-shadow:0 3px 10px rgb(var(--accent-rgb) / 0.30);
+  }
+  .ent-chip.selected:hover{
+    filter:brightness(1.08);transform:translateY(-1px);
+  }
+  .ent-chip svg.chip-icon{
+    width:13px;height:13px;flex-shrink:0;opacity:0;
+    transition:opacity .15s;
+  }
+  .ent-chip.selected svg.chip-icon{opacity:1;}
+  /* Action row at the bottom of the chip box */
+  .ent-chip-actions{
+    display:flex;gap:6px;padding-top:10px;margin-top:10px;
+    border-top:1px solid var(--border);
+  }
+  .ent-chip-actions button{
+    background:rgba(255,255,255,.04);color:var(--text-soft);border:1px solid var(--border-strong);
+    padding:5px 12px;font-size:11.5px;cursor:pointer;border-radius:7px;
+    display:inline-flex;align-items:center;gap:5px;font-family:inherit;
+    box-shadow:none;font-weight:600;transition:.15s;
+  }
+  .ent-chip-actions button:hover{background:rgba(255,255,255,.10);color:#fff;transform:none;}
+  .ent-chip-actions button svg{width:11px;height:11px;}
+  .ent-empty{
+    text-align:center;color:var(--muted);padding:18px;font-size:12.5px;
   }
 
   /* ============ ACCENT COLOR SWATCHES ============ */
@@ -919,6 +949,20 @@
       <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
       <polyline points="16 17 21 12 16 7"/>
       <line x1="21" y1="12" x2="9" y2="12"/>
+    </symbol>
+    <!-- Check: selected state on chips -->
+    <symbol id="i-check" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <polyline points="20 6 9 17 4 12"/>
+    </symbol>
+    <!-- Plus -->
+    <symbol id="i-plus" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <line x1="12" y1="5" x2="12" y2="19"/>
+      <line x1="5" y1="12" x2="19" y2="12"/>
+    </symbol>
+    <!-- X -->
+    <symbol id="i-x" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <line x1="18" y1="6" x2="6" y2="18"/>
+      <line x1="6" y1="6" x2="18" y2="18"/>
     </symbol>
   </defs>
 </svg>
@@ -1768,7 +1812,7 @@
               <span data-i18n="users_entities_label">Assigned entities</span>
               <span id="userEditEntitiesCount" style="float:right;color:var(--muted);font-weight:600;font-size:11px;">0</span>
             </label>
-            <div class="entity-checkbox-list" id="userEditEntities"></div>
+            <div class="ent-chips" id="userEditEntities"></div>
             <div class="note" data-i18n="users_entities_hint">Normal users can save scenarios only against their assigned entities. Admins ignore this list.</div>
           </div>
 
@@ -4360,29 +4404,55 @@ function renderEntityCheckboxes(selectedIds){
   const countEl = document.getElementById('userEditEntitiesCount');
   const active = _entitiesCache.filter(e => e.is_active !== false);
   const sel = new Set(selectedIds || []);
+
   if(active.length === 0){
     wrap.innerHTML = `<div class="ent-empty">${t('users_no_entities')}</div>`;
-    countEl.textContent = t('users_selected_count').replace('{n}', '0');
+    countEl.textContent = t('users_selected_count').replace('{n}', '0 of 0');
     return;
   }
-  wrap.innerHTML = active.map(e => {
-    const checked = sel.has(e.id) ? 'checked' : '';
-    const cls    = sel.has(e.id) ? 'ent-row checked' : 'ent-row';
-    return `<label class="${cls}">
-      <input type="checkbox" value="${e.id}" ${checked}/>
-      <span>${escapeHtml(e.name)}</span>
-    </label>`;
-  }).join('');
-  countEl.textContent = t('users_selected_count').replace('{n}', String(sel.size));
 
-  // Live count + visual checked-row state
-  wrap.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-    cb.addEventListener('change', ()=>{
-      cb.closest('.ent-row').classList.toggle('checked', cb.checked);
-      const n = wrap.querySelectorAll('input[type="checkbox"]:checked').length;
-      countEl.textContent = t('users_selected_count').replace('{n}', String(n));
-    });
-  });
+  function updateCount(){
+    const n = wrap.querySelectorAll('.ent-chip.selected').length;
+    countEl.textContent = (LANG === 'zh')
+      ? '已选 ' + n + ' / ' + active.length
+      : n + ' of ' + active.length + ' selected';
+  }
+
+  const chips = active.map(e => {
+    const isSel = sel.has(e.id);
+    return `<button type="button" class="ent-chip${isSel ? ' selected' : ''}" data-entity-id="${e.id}">
+      <svg class="chip-icon"><use href="#i-check"/></svg>
+      <span>${escapeHtml(e.name)}</span>
+    </button>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <div class="ent-chips-list">${chips}</div>
+    <div class="ent-chip-actions">
+      <button type="button" data-chip-action="select-all"><svg><use href="#i-plus"/></svg> ${LANG==='zh'?'全选':'Select all'}</button>
+      <button type="button" data-chip-action="clear-all"><svg><use href="#i-x"/></svg> ${LANG==='zh'?'清除':'Clear'}</button>
+    </div>
+  `;
+
+  // Click handlers — delegated within this wrap to avoid leaking listeners
+  wrap.addEventListener('click', (e)=>{
+    const action = e.target.closest('[data-chip-action]');
+    if(action){
+      const which = action.dataset.chipAction;
+      wrap.querySelectorAll('.ent-chip').forEach(c => {
+        c.classList.toggle('selected', which === 'select-all');
+      });
+      updateCount();
+      return;
+    }
+    const chip = e.target.closest('.ent-chip');
+    if(chip){
+      chip.classList.toggle('selected');
+      updateCount();
+    }
+  }, { once: false });
+
+  updateCount();
 }
 function closeUserEditModal(){
   document.getElementById('userEditModal').classList.remove('open');
@@ -4403,8 +4473,8 @@ document.getElementById('formUserEdit').addEventListener('submit', async e=>{
   const id = document.getElementById('userEditId').value;
   const role = document.getElementById('userEditRole').value;
   const entity_ids = Array.from(
-    document.querySelectorAll('#userEditEntities input[type="checkbox"]:checked')
-  ).map(cb => cb.value);
+    document.querySelectorAll('#userEditEntities .ent-chip.selected')
+  ).map(chip => chip.dataset.entityId);
   const errEl = document.querySelector('[data-user-edit-error]');
   errEl.classList.remove('show');
   const submit = e.currentTarget.querySelector('button[type="submit"]');
