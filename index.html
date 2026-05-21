@@ -1036,12 +1036,16 @@
         <h3 style="font-size:14px;color:var(--sky-soft);margin:28px 0 12px;font-weight:700;" data-i18n="settings_pwd_title">Change password</h3>
         <form id="formChangePassword" autocomplete="off">
           <div class="input-group">
+            <label data-i18n="settings_current_pwd">Current password</label>
+            <input type="password" id="inputCurrentPassword" required autocomplete="current-password"/>
+          </div>
+          <div class="input-group">
             <label data-i18n="auth_new_password">New password</label>
-            <input type="password" id="inputNewPassword" minlength="6" autocomplete="new-password"/>
+            <input type="password" id="inputNewPassword" required minlength="6" autocomplete="new-password"/>
           </div>
           <div class="input-group">
             <label data-i18n="auth_password2">Confirm password</label>
-            <input type="password" id="inputNewPassword2" minlength="6" autocomplete="new-password"/>
+            <input type="password" id="inputNewPassword2" required minlength="6" autocomplete="new-password"/>
           </div>
           <div class="auth-error" data-pwd-error></div>
           <button type="submit" class="success" data-i18n="settings_pwd_save">Update password</button>
@@ -1342,6 +1346,8 @@ const I18N = {
     settings_title:"Settings", settings_account:"Account", settings_signin_first:"Please sign in to manage your account settings.",
     settings_name_title:"Display name", settings_name_label:"Your name", settings_name_save:"Save name", settings_name_saved:"Name updated.",
     settings_pwd_title:"Change password", settings_pwd_save:"Update password", settings_pwd_saved:"Password updated.",
+    settings_current_pwd:"Current password", settings_current_pwd_wrong:"Current password is incorrect.",
+    settings_pwd_same:"New password must be different from your current password.",
     users_title:"User Management", users_badge:"Admin only", users_denied:"Access denied. This panel is admin-only.",
     users_invite:"Invite User", users_refresh:"Refresh",
     users_note:"Invite, delete, and edit users via the Supabase Dashboard (link above).",
@@ -1457,6 +1463,8 @@ const I18N = {
     settings_title:"设置", settings_account:"账户", settings_signin_first:"请先登录以管理账户设置。",
     settings_name_title:"显示名称", settings_name_label:"您的姓名", settings_name_save:"保存姓名", settings_name_saved:"姓名已更新。",
     settings_pwd_title:"修改密码", settings_pwd_save:"更新密码", settings_pwd_saved:"密码已更新。",
+    settings_current_pwd:"当前密码", settings_current_pwd_wrong:"当前密码不正确。",
+    settings_pwd_same:"新密码不能与当前密码相同。",
     users_title:"用户管理", users_badge:"仅限管理员", users_denied:"访问被拒绝。仅限管理员使用。",
     users_invite:"邀请用户", users_refresh:"刷新",
     users_note:"通过 Supabase Dashboard（上方链接）邀请、删除和编辑用户。",
@@ -2516,16 +2524,34 @@ document.getElementById('formChangeName').addEventListener('submit', async e=>{
 
 document.getElementById('formChangePassword').addEventListener('submit', async e=>{
   e.preventDefault();
+  const current = document.getElementById('inputCurrentPassword').value;
   const p1 = document.getElementById('inputNewPassword').value;
   const p2 = document.getElementById('inputNewPassword2').value;
   const errEl = document.querySelector('[data-pwd-error]');
   errEl.classList.remove('show');
+
   if(p1.length < 6){ errEl.textContent = t('auth_pwd_short'); errEl.classList.add('show'); return; }
   if(p1 !== p2){    errEl.textContent = t('auth_pwd_mismatch'); errEl.classList.add('show'); return; }
+  if(current === p1){ errEl.textContent = t('settings_pwd_same'); errEl.classList.add('show'); return; }
+
+  const user = CTG.getUser();
+  if(!user || !user.email){ errEl.textContent = t('settings_signin_first'); errEl.classList.add('show'); return; }
+
   const btn = e.currentTarget.querySelector('button[type="submit"]');
   btn.disabled = true;
   try {
+    // Verify current password by attempting sign-in with it. Supabase has no dedicated
+    // "verify password" endpoint — re-signin is the standard pattern. This refreshes
+    // the existing session if successful (no disruption to the user).
+    try {
+      await CTG.signInWithPassword({ email: user.email, password: current });
+    } catch (verifyErr) {
+      errEl.textContent = t('settings_current_pwd_wrong'); errEl.classList.add('show');
+      return;
+    }
+    // Current password verified — change to new password
     await CTG.updatePassword(p1);
+    document.getElementById('inputCurrentPassword').value = '';
     document.getElementById('inputNewPassword').value = '';
     document.getElementById('inputNewPassword2').value = '';
     showToast(t('settings_pwd_saved'), 'success');
