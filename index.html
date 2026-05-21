@@ -25,8 +25,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=18"></script>
-<script src="assets/js/supabase-client.js?v=18"></script>
+<script src="config.js?v=19"></script>
+<script src="assets/js/supabase-client.js?v=19"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -129,7 +129,7 @@
   header .grain{display:none;}
   header .head-row{
     position:relative;z-index:2;
-    display:flex;align-items:center;gap:14px;max-width:1600px;margin:0 auto;flex-wrap:nowrap;
+    display:flex;align-items:center;gap:14px;flex-wrap:nowrap;
     padding:10px 24px;
   }
   header .brand{display:flex;align-items:center;gap:12px;min-width:0;}
@@ -226,7 +226,8 @@
   .user-wrap{position:relative;}
 
   /* ============ NAV: LEFT SIDEBAR (Bitrix24-style polish) ============ */
-  .app-layout{max-width:1600px;margin:0 auto;display:flex;gap:24px;padding:24px 32px 80px;align-items:flex-start;}
+  /* Full-width — no centered max-width. Sidebar sits flush against the left edge. */
+  .app-layout{display:flex;gap:22px;padding:20px 24px 80px 18px;align-items:flex-start;}
   .tabs{
     width:260px;flex-shrink:0;position:sticky;top:108px;
     background:linear-gradient(180deg, rgba(12,20,33,.95), rgba(7,13,23,.92));
@@ -1009,11 +1010,6 @@
       <button type="button" id="gateHelpBtn"><span data-i18n="gate_help">Can't sign in?</span></button>
     </div>
 
-    <div class="login-lang">
-      <button type="button" id="gateLangEn" class="active" onclick="setLang('en')">EN</button>
-      <button type="button" id="gateLangZh" onclick="setLang('zh')">中文</button>
-    </div>
-
     <div class="login-footer">
       <b>CTG</b> &nbsp;·&nbsp; <span data-i18n="gate_footer">Invite-only · Contact your admin for access</span>
     </div>
@@ -1031,10 +1027,6 @@
       </div>
     </div>
     <div class="head-actions">
-      <div class="lang-toggle">
-        <button id="lang-en" class="active" onclick="setLang('en')">EN</button>
-        <button id="lang-zh" onclick="setLang('zh')">中文</button>
-      </div>
       <div class="auth-panel" id="authPanel"></div>
     </div>
   </div>
@@ -2342,8 +2334,9 @@ let LANG = 'en';
 function t(key){ return (I18N[LANG]||I18N.en)[key] || key; }
 function setLang(lang){
   LANG = lang;
-  document.getElementById('lang-en').classList.toggle('active', lang==='en');
-  document.getElementById('lang-zh').classList.toggle('active', lang==='zh');
+  // Header lang toggle was removed (English-only deployment) — guard against null.
+  const ln = document.getElementById('lang-en');  if(ln) ln.classList.toggle('active', lang==='en');
+  const lz = document.getElementById('lang-zh');  if(lz) lz.classList.toggle('active', lang==='zh');
   const gateEn = document.getElementById('gateLangEn');
   const gateZh = document.getElementById('gateLangZh');
   if(gateEn) gateEn.classList.toggle('active', lang==='en');
