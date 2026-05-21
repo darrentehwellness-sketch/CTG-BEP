@@ -25,8 +25,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=5"></script>
-<script src="assets/js/supabase-client.js?v=5"></script>
+<script src="config.js?v=6"></script>
+<script src="assets/js/supabase-client.js?v=6"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -1036,6 +1036,7 @@
           <th style="width:110px;" data-i18n="pc_th_selling">Selling Price</th>
           <th style="width:100px;" data-i18n="pc_th_cogs">COGS</th>
           <th style="width:90px;" data-i18n="pc_th_pack">Packaging</th>
+          <th style="width:130px;" data-i18n="pc_th_courier">Courier</th>
           <th style="width:90px;" data-i18n="pc_th_ship">Shipping</th>
           <th style="width:90px;" data-i18n="pc_th_payfee">Payment %</th>
           <th style="width:90px;" data-i18n="pc_th_platfee">Platform %</th>
@@ -1049,7 +1050,7 @@
             <td colspan="3" style="text-align:right;" data-i18n="pc_tf_totals">Totals:</td>
             <td class="num" id="pcProdTotUnits">—</td>
             <td class="num" id="pcProdTotRevenue">—</td>
-            <td class="num" colspan="5" id="pcProdTotCosts">—</td>
+            <td class="num" colspan="6" id="pcProdTotCosts">—</td>
             <td class="num" id="pcProdTotContrib">—</td>
             <td class="pct" id="pcProdAvgMargin">—</td>
             <td></td>
@@ -1585,7 +1586,7 @@ const I18N = {
     pc_products_title:"Product Pricing & Unit Economics", pc_products_badge:"Cost build-up",
     pc_products_legend1:"Selling Price − COGS − Packaging − Shipping − Fees = Contribution per unit",
     pc_th_name:"Product Name", pc_th_platform:"Platform", pc_th_qty:"Units", pc_th_selling:"Selling Price", pc_th_cogs:"COGS",
-    pc_th_pack:"Packaging", pc_th_ship:"Shipping", pc_th_payfee:"Payment %", pc_th_platfee:"Platform %",
+    pc_th_pack:"Packaging", pc_th_courier:"Courier", pc_th_ship:"Shipping", pc_th_payfee:"Payment %", pc_th_platfee:"Platform %",
     pc_th_contrib:"Contrib./Unit", pc_th_margin:"Margin %",
     pc_tf_totals:"Totals:",
     pc_add_product:"Add Product", pc_add_channel:"Add Channel",
@@ -1743,7 +1744,7 @@ const I18N = {
     pc_products_title:"产品定价与单位经济", pc_products_badge:"成本构成",
     pc_products_legend1:"售价 − 货物成本 − 包装 − 运费 − 平台费 = 单位贡献",
     pc_th_name:"产品名称", pc_th_platform:"平台", pc_th_qty:"数量", pc_th_selling:"售价", pc_th_cogs:"货物成本",
-    pc_th_pack:"包装", pc_th_ship:"运费", pc_th_payfee:"支付 %", pc_th_platfee:"平台 %",
+    pc_th_pack:"包装", pc_th_courier:"快递", pc_th_ship:"运费", pc_th_payfee:"支付 %", pc_th_platfee:"平台 %",
     pc_th_contrib:"单位贡献", pc_th_margin:"毛利率 %",
     pc_tf_totals:"合计:",
     pc_add_product:"新增产品", pc_add_channel:"新增渠道",
@@ -2815,15 +2816,19 @@ document.getElementById('btnMigrateDismiss').onclick = ()=>{
 const PC_LS_KEY = 'ctg_pc_state_v1';
 
 // Platform fee presets — picking one auto-fills payment/platform %.
-// Source: typical Malaysian e-comm rates as of 2026. User can pick "custom" to edit freely.
+// Typical Malaysian e-comm rates as of 2026. User can pick "custom" to edit freely.
 const PC_PLATFORM_PRESETS = {
-  shopify:    { label_en:'Shopify (own site, Stripe)', label_zh:'Shopify 自营 (Stripe)', payment:2.9, platform:0 },
+  shopify:    { label_en:'Shopify (Stripe)',           label_zh:'Shopify (Stripe)',     payment:2.9, platform:0 },
   shopify_pay:{ label_en:'Shopify Payments',           label_zh:'Shopify Payments',     payment:2.9, platform:0 },
+  woocommerce:{ label_en:'WooCommerce (own site)',     label_zh:'WooCommerce 自营',      payment:2.9, platform:0 },
   own_fpx:    { label_en:'Own site (FPX local)',       label_zh:'自营站 (FPX 本地)',     payment:2.0, platform:0 },
+  whatsapp:   { label_en:'WhatsApp Business',          label_zh:'WhatsApp 商业',         payment:2.9, platform:0 },
   shopee:     { label_en:'Shopee MY',                  label_zh:'Shopee 马来西亚',       payment:1.5, platform:7 },
   lazada:     { label_en:'Lazada MY',                  label_zh:'Lazada 马来西亚',       payment:1.5, platform:7 },
   tiktok:     { label_en:'TikTok Shop MY',             label_zh:'TikTok Shop 马来西亚',  payment:1.5, platform:5 },
-  woocommerce:{ label_en:'WooCommerce (own site)',     label_zh:'WooCommerce 自营',      payment:2.9, platform:0 },
+  carousell:  { label_en:'Carousell',                  label_zh:'Carousell',            payment:2.9, platform:3 },
+  grabmart:   { label_en:'GrabMart',                   label_zh:'GrabMart',             payment:2.5, platform:5 },
+  atome:      { label_en:'Atome (BNPL)',               label_zh:'Atome (先买后付)',     payment:5.0, platform:0 },
   custom:     { label_en:'Custom (manual %)',          label_zh:'自定义 (手动 %)',       payment:null, platform:null }
 };
 function pcPlatformLabel(key){
@@ -2831,11 +2836,29 @@ function pcPlatformLabel(key){
   return LANG === 'zh' ? p.label_zh : p.label_en;
 }
 
+// Courier presets — picking one auto-fills the per-unit Shipping cost.
+// Typical Malaysian rates for parcels <2kg, peninsular delivery, 2026.
+const PC_COURIER_PRESETS = {
+  jnt:       { label_en:'J&T Express',         label_zh:'J&T 极兔',          ship:5 },
+  poslaju:   { label_en:'Pos Laju',            label_zh:'Pos Laju',          ship:8 },
+  ninjavan:  { label_en:'Ninja Van',           label_zh:'Ninja Van',         ship:6 },
+  dhl:       { label_en:'DHL eCommerce',       label_zh:'DHL eCommerce',     ship:7 },
+  lalamove:  { label_en:'Lalamove same-day',   label_zh:'Lalamove 当日达',    ship:12 },
+  grabexp:   { label_en:'Grab Express',        label_zh:'Grab Express',      ship:10 },
+  shopeexp:  { label_en:'Shopee Express',      label_zh:'Shopee Express',    ship:5 },
+  pickup:    { label_en:'Self pickup',         label_zh:'自取',              ship:0 },
+  custom:    { label_en:'Custom (manual)',     label_zh:'自定义',            ship:null }
+};
+function pcCourierLabel(key){
+  const c = PC_COURIER_PRESETS[key] || PC_COURIER_PRESETS.custom;
+  return LANG === 'zh' ? c.label_zh : c.label_en;
+}
+
 const PC_DEFAULT_PRODUCTS = [
-  // Demonstrate multiple platforms in defaults so users immediately see the dropdown's effect
-  { name:'Hero Product (Shopify)',  platform:'shopify', qty:200, sellingPrice:79,  cogs:18, packaging:2, shipping:5, paymentFeePct:2.9, platformFeePct:0 },
-  { name:'Same SKU on Shopee',      platform:'shopee',  qty:60,  sellingPrice:79,  cogs:18, packaging:2, shipping:5, paymentFeePct:1.5, platformFeePct:7 },
-  { name:'Upsell Bundle (TikTok)',  platform:'tiktok',  qty:40,  sellingPrice:149, cogs:35, packaging:3, shipping:7, paymentFeePct:1.5, platformFeePct:5 },
+  // Demonstrate multiple platforms + couriers in defaults
+  { name:'Hero Product (Shopify)',  platform:'shopify', courier:'jnt',     qty:200, sellingPrice:79,  cogs:18, packaging:2, shipping:5, paymentFeePct:2.9, platformFeePct:0 },
+  { name:'Same SKU on Shopee',      platform:'shopee',  courier:'shopeexp',qty:60,  sellingPrice:79,  cogs:18, packaging:2, shipping:5, paymentFeePct:1.5, platformFeePct:7 },
+  { name:'Upsell Bundle (TikTok)',  platform:'tiktok',  courier:'jnt',     qty:40,  sellingPrice:149, cogs:35, packaging:3, shipping:5, paymentFeePct:1.5, platformFeePct:5 },
 ];
 let PC_DEFAULT_CHANNELS;  // built after i18n loads to use translated default names
 function pcDefaultChannels(){
@@ -2911,12 +2934,17 @@ function pcRenderProducts(){
   const platformOptions = Object.keys(PC_PLATFORM_PRESETS).map(key =>
     `<option value="${key}">${escapeHtml(pcPlatformLabel(key))}</option>`
   ).join('');
+  const courierOptions = Object.keys(PC_COURIER_PRESETS).map(key =>
+    `<option value="${key}">${escapeHtml(pcCourierLabel(key))}</option>`
+  ).join('');
   tbody.innerHTML = pcState.products.map((p,i) => {
     const c = pcComputeProduct(p);
     const platform = p.platform || 'custom';
-    const isCustom = platform === 'custom';
-    // When a preset is picked, Pay/Plat % are auto-managed — show them muted/read-only-ish but still editable
-    const feeStyle = isCustom ? '' : 'opacity:.7;';
+    const courier  = p.courier  || 'custom';
+    const platformCustom = platform === 'custom';
+    const courierCustom  = courier  === 'custom';
+    const feeStyle  = platformCustom ? '' : 'opacity:.7;';
+    const shipStyle = courierCustom  ? '' : 'opacity:.7;';
     return `<tr>
       <td>${i+1}</td>
       <td><input type="text"   value="${escapeHtml(p.name)}"    data-pcp="${i}" data-field="name"></td>
@@ -2925,9 +2953,10 @@ function pcRenderProducts(){
       <td><input type="number" min="0" step="0.01" value="${p.sellingPrice}"  data-pcp="${i}" data-field="sellingPrice"></td>
       <td><input type="number" min="0" step="0.01" value="${p.cogs}"          data-pcp="${i}" data-field="cogs"></td>
       <td><input type="number" min="0" step="0.01" value="${p.packaging}"     data-pcp="${i}" data-field="packaging"></td>
-      <td><input type="number" min="0" step="0.01" value="${p.shipping}"      data-pcp="${i}" data-field="shipping"></td>
-      <td><input type="number" min="0" step="0.1"  value="${p.paymentFeePct}"  data-pcp="${i}" data-field="paymentFeePct"  style="${feeStyle}" title="${isCustom?'':'Auto-set by Platform'}"></td>
-      <td><input type="number" min="0" step="0.1"  value="${p.platformFeePct}" data-pcp="${i}" data-field="platformFeePct" style="${feeStyle}" title="${isCustom?'':'Auto-set by Platform'}"></td>
+      <td><select data-pcp="${i}" data-field="courier" style="font-size:11.5px;">${courierOptions.replace('value="'+courier+'"','value="'+courier+'" selected')}</select></td>
+      <td><input type="number" min="0" step="0.01" value="${p.shipping}"      data-pcp="${i}" data-field="shipping" style="${shipStyle}" title="${courierCustom?'':'Auto-set by Courier'}"></td>
+      <td><input type="number" min="0" step="0.1"  value="${p.paymentFeePct}"  data-pcp="${i}" data-field="paymentFeePct"  style="${feeStyle}"  title="${platformCustom?'':'Auto-set by Platform'}"></td>
+      <td><input type="number" min="0" step="0.1"  value="${p.platformFeePct}" data-pcp="${i}" data-field="platformFeePct" style="${feeStyle}"  title="${platformCustom?'':'Auto-set by Platform'}"></td>
       <td class="num">${sign(c.contrib)}</td>
       <td class="pct">${fmtPct(c.margin)}</td>
       <td class="action"><button data-pcp-del="${i}">✕</button></td>
@@ -3023,11 +3052,11 @@ function pcPatchProductRow(i){
   const c = pcComputeProduct(p);
   const row = document.querySelector(`#pcProductsTable tbody tr:nth-child(${i+1})`);
   if(!row) return;
-  // Columns: 0:no, 1:name, 2:platform-select, 3-9:inputs (qty + selling + cogs + pkg + ship + pay + plat),
-  //          10:contrib, 11:margin, 12:action
+  // Columns: 0:no, 1:name, 2:platform, 3:qty, 4:selling, 5:cogs, 6:pkg, 7:courier,
+  //          8:ship, 9:pay%, 10:plat%, 11:contrib, 12:margin, 13:action
   const cells = row.querySelectorAll('td');
-  if(cells[10]) cells[10].innerHTML  = sign(c.contrib);
-  if(cells[11]) cells[11].textContent = fmtPct(c.margin);
+  if(cells[11]) cells[11].innerHTML  = sign(c.contrib);
+  if(cells[12]) cells[12].textContent = fmtPct(c.margin);
 }
 function pcPatchChannelRow(i){
   const ch = pcState.channels[i];
@@ -3052,6 +3081,24 @@ document.addEventListener('input', e=>{
   const tgt = e.target;
   if(tgt.dataset.pcp !== undefined){
     const i = +tgt.dataset.pcp, f = tgt.dataset.field;
+    if(f === 'courier'){
+      // Courier preset chosen — record + auto-fill shipping cost unless 'custom'
+      pcState.products[i].courier = tgt.value;
+      const preset = PC_COURIER_PRESETS[tgt.value];
+      const row = document.querySelector(`#pcProductsTable tbody tr:nth-child(${i+1})`);
+      const shipInput = row && row.querySelector(`input[data-field="shipping"]`);
+      if(preset && preset.ship !== null){
+        pcState.products[i].shipping = preset.ship;
+        if(shipInput && document.activeElement !== shipInput) shipInput.value = preset.ship;
+        if(shipInput) shipInput.style.opacity = '.7';
+      } else if(shipInput){
+        shipInput.style.opacity = '';
+      }
+      pcPatchProductRow(i);
+      pcRenderSummary();
+      pcState.channels.forEach((_, ci) => pcPatchChannelRow(ci));
+      return;
+    }
     if(f === 'platform'){
       // Platform preset chosen — record + auto-fill payment/platform % unless 'custom'
       pcState.products[i].platform = tgt.value;
@@ -3086,8 +3133,7 @@ document.addEventListener('input', e=>{
       return;
     }
     pcState.products[i][f] = (f === 'name') ? tgt.value : (Number(tgt.value)||0);
-    // If user manually edits Pay% or Plat%, switch the platform select to 'custom' so
-    // the auto-fill stops fighting them
+    // If user manually edits Pay% or Plat%, switch the platform select to 'custom'
     if((f === 'paymentFeePct' || f === 'platformFeePct') && pcState.products[i].platform !== 'custom'){
       pcState.products[i].platform = 'custom';
       const row = document.querySelector(`#pcProductsTable tbody tr:nth-child(${i+1})`);
@@ -3097,6 +3143,14 @@ document.addEventListener('input', e=>{
       const platInput = row && row.querySelector(`input[data-field="platformFeePct"]`);
       if(payInput)  payInput.style.opacity  = '';
       if(platInput) platInput.style.opacity = '';
+    }
+    // If user manually edits Shipping, switch courier select to 'custom'
+    if(f === 'shipping' && pcState.products[i].courier !== 'custom'){
+      pcState.products[i].courier = 'custom';
+      const row = document.querySelector(`#pcProductsTable tbody tr:nth-child(${i+1})`);
+      const sel = row && row.querySelector(`select[data-field="courier"]`);
+      if(sel) sel.value = 'custom';
+      if(tgt) tgt.style.opacity = '';
     }
     pcPatchProductRow(i);
     pcRenderSummary();
@@ -3124,7 +3178,7 @@ document.addEventListener('click', e=>{
 });
 
 document.getElementById('btnPcAddProduct').onclick = ()=>{
-  pcState.products.push({ name:'New Product', platform:'shopify', qty:1, sellingPrice:0, cogs:0, packaging:0, shipping:0, paymentFeePct:2.9, platformFeePct:0 });
+  pcState.products.push({ name:'New Product', platform:'shopify', courier:'jnt', qty:1, sellingPrice:0, cogs:0, packaging:0, shipping:5, paymentFeePct:2.9, platformFeePct:0 });
   pcRender();
 };
 document.getElementById('btnPcAddChannel').onclick = ()=>{
@@ -3151,11 +3205,12 @@ document.getElementById('btnPcExport').onclick = ()=>{
   lines.push('Generated,'+new Date().toLocaleString());
   lines.push('');
   lines.push('PRODUCTS');
-  lines.push('No,Name,Platform,Units,Selling Price,COGS,Packaging,Shipping,Payment %,Platform %,Contribution/Unit,Margin %');
+  lines.push('No,Name,Platform,Units,Selling Price,COGS,Packaging,Courier,Shipping,Payment %,Platform %,Contribution/Unit,Margin %');
   pcState.products.forEach((p,i)=>{
     const c = pcComputeProduct(p);
     const platformLabel = (PC_PLATFORM_PRESETS[p.platform||'custom']||PC_PLATFORM_PRESETS.custom).label_en;
-    lines.push(`${i+1},${csv(p.name)},${csv(platformLabel)},${p.qty},${p.sellingPrice},${p.cogs},${p.packaging},${p.shipping},${p.paymentFeePct}%,${p.platformFeePct}%,${c.contrib.toFixed(2)},${(c.margin*100).toFixed(2)}%`);
+    const courierLabel  = (PC_COURIER_PRESETS[p.courier||'custom']||PC_COURIER_PRESETS.custom).label_en;
+    lines.push(`${i+1},${csv(p.name)},${csv(platformLabel)},${p.qty},${p.sellingPrice},${p.cogs},${p.packaging},${csv(courierLabel)},${p.shipping},${p.paymentFeePct}%,${p.platformFeePct}%,${c.contrib.toFixed(2)},${(c.margin*100).toFixed(2)}%`);
   });
   lines.push('');
   lines.push('AD CHANNELS');
