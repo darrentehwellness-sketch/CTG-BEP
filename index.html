@@ -1205,13 +1205,49 @@
           <table id="usersTable">
             <thead><tr>
               <th data-i18n="users_th_email">Email</th>
+              <th data-i18n="users_th_role">Role</th>
+              <th data-i18n="users_th_entity">Entity</th>
               <th data-i18n="users_th_confirmed">Confirmed</th>
-              <th data-i18n="users_th_created">Created</th>
               <th data-i18n="users_th_last">Last sign-in</th>
+              <th style="width:80px;text-align:center;" data-i18n="ent_th_actions">Actions</th>
             </tr></thead>
-            <tbody><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px;">Loading…</td></tr></tbody>
+            <tbody><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">Loading…</td></tr></tbody>
           </table>
         </div>
+      </div>
+    </div>
+
+    <!-- Edit user profile modal -->
+    <div class="auth-modal" id="userEditModal" role="dialog" aria-modal="true">
+      <div class="auth-backdrop" data-user-edit-close></div>
+      <div class="auth-card" style="max-width:460px;">
+        <button class="auth-close" type="button" data-user-edit-close aria-label="Close">×</button>
+        <h3 data-i18n="users_edit_title">Edit user</h3>
+        <p class="sub" id="userEditEmail" style="word-break:break-all;"></p>
+
+        <form id="formUserEdit" autocomplete="off">
+          <input type="hidden" id="userEditId"/>
+
+          <div class="auth-field">
+            <label data-i18n="users_role_label">Role</label>
+            <select id="userEditRole" style="width:100%;padding:11px 14px;border:1px solid var(--border-strong);border-radius:8px;background:rgba(7,13,23,.6);color:var(--text);font:inherit;">
+              <option value="user" data-i18n="users_role_user">Normal User</option>
+              <option value="admin" data-i18n="users_role_admin">Admin</option>
+            </select>
+          </div>
+
+          <div class="auth-field">
+            <label data-i18n="users_entity_label">Assigned entity</label>
+            <select id="userEditEntity" style="width:100%;padding:11px 14px;border:1px solid var(--border-strong);border-radius:8px;background:rgba(7,13,23,.6);color:var(--text);font:inherit;">
+              <option value="" data-i18n="users_entity_none">— No entity —</option>
+            </select>
+            <div class="note" data-i18n="users_entity_hint">Normal users are locked to this entity when saving scenarios. Admins ignore this.</div>
+          </div>
+
+          <div class="auth-error" data-user-edit-error></div>
+
+          <button type="submit" class="auth-submit"><span data-i18n="users_save">Save</span></button>
+        </form>
       </div>
     </div>
   </div>
@@ -1352,6 +1388,13 @@ const I18N = {
     users_invite:"Invite User", users_refresh:"Refresh",
     users_note:"Invite, delete, and edit users via the Supabase Dashboard (link above).",
     users_th_email:"Email", users_th_confirmed:"Confirmed", users_th_created:"Created", users_th_last:"Last sign-in",
+    users_th_role:"Role", users_th_entity:"Entity",
+    users_edit:"Edit", users_edit_title:"Edit user",
+    users_role_label:"Role", users_role_user:"Normal User", users_role_admin:"Admin",
+    users_entity_label:"Assigned entity", users_entity_none:"— No entity —",
+    users_entity_hint:"Normal users are locked to this entity when saving scenarios. Admins can pick any entity freely.",
+    users_save:"Save", users_saved:"User updated.",
+    users_self_demote_err:"You cannot demote yourself from admin.",
     users_never:"Never", users_load_err:"Could not load users. Make sure you're signed in as an admin.",
     tab_entities:"Entities",
     entities_title:"Entities (Companies)",
@@ -1469,6 +1512,13 @@ const I18N = {
     users_invite:"邀请用户", users_refresh:"刷新",
     users_note:"通过 Supabase Dashboard（上方链接）邀请、删除和编辑用户。",
     users_th_email:"邮箱", users_th_confirmed:"已确认", users_th_created:"创建时间", users_th_last:"最近登录",
+    users_th_role:"角色", users_th_entity:"所属公司",
+    users_edit:"编辑", users_edit_title:"编辑用户",
+    users_role_label:"角色", users_role_user:"普通用户", users_role_admin:"管理员",
+    users_entity_label:"所属公司", users_entity_none:"— 不选 —",
+    users_entity_hint:"普通用户保存方案时会锁定为此公司。管理员可任意选择。",
+    users_save:"保存", users_saved:"用户已更新。",
+    users_self_demote_err:"不能将自己从管理员降级。",
     users_never:"从未", users_load_err:"无法加载用户列表。请确认您以管理员身份登录。",
     tab_entities:"公司实体",
     entities_title:"公司实体",
@@ -2582,6 +2632,44 @@ function populateScenarioEntityDropdown(){
   sel.innerHTML = '<option value="">' + t('scn_entity_none') + '</option>' +
     active.map(e => '<option value="' + e.id + '">' + escapeHtml(e.name) + '</option>').join('');
   sel.value = prev || '';
+
+  // Apply entity lock based on the user's profile. Non-admins with an assigned
+  // entity see only their entity, preselected and the dropdown disabled.
+  applyEntityLock();
+}
+
+// Called after profile loads (and whenever the entities cache or profile changes).
+// For non-admin users with an assigned entity_id, force the scenario-entity dropdown
+// to their entity and disable changing it. Admins keep free choice.
+async function applyEntityLock(){
+  const sel = document.getElementById('scenarioEntity');
+  if(!sel) return;
+  if(!CTG.HAS_SUPABASE || !CTG.isSignedIn()){
+    sel.disabled = false;
+    sel.title = '';
+    sel.style.opacity = '';
+    return;
+  }
+  const profile = await CTG.getCurrentProfile();
+  if(!profile){ sel.disabled = false; return; }
+  if(profile.role === 'admin'){
+    sel.disabled = false;
+    sel.title = '';
+    sel.style.opacity = '';
+    return;
+  }
+  // Normal user
+  if(profile.entity_id){
+    sel.value = profile.entity_id;
+    sel.disabled = true;
+    sel.title = (LANG === 'zh')
+      ? '您的账户已锁定至「' + (profile.entity_name || '') + '」。如需更改请联系管理员。'
+      : 'Your account is locked to "' + (profile.entity_name || '') + '". Contact your admin to change.';
+    sel.style.opacity = '.85';
+  } else {
+    // User has no entity assigned yet — leave dropdown enabled but they only see one option ("none")
+    sel.disabled = false;
+  }
 }
 
 async function renderEntitiesTab(){
@@ -2744,6 +2832,7 @@ async function refreshAdminFlag(){
   return _isAdminCache;
 }
 
+let _usersCache = [];
 async function renderUsersTab(){
   const admin = await CTG.isAppAdmin();
   _isAdminCache = admin;
@@ -2751,28 +2840,96 @@ async function renderUsersTab(){
   document.getElementById('usersDenied').style.display = admin ? 'none'  : 'block';
   if(!admin) return;
 
+  // Ensure entities are loaded so the Edit modal can populate its dropdown
+  if (_entitiesCache.length === 0) await refreshEntitiesCache();
+
   const tbody = document.querySelector('#usersTable tbody');
-  tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px;">Loading…</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">Loading…</td></tr>`;
   try {
-    const users = await CTG.adminListUsers();
-    if(users.length === 0){
-      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px;">(no users yet)</td></tr>`;
+    _usersCache = await CTG.adminListUsers();
+    if(_usersCache.length === 0){
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">(no users yet)</td></tr>`;
       return;
     }
     const fmtDate = ts => ts ? new Date(ts).toLocaleString() : `<span style="color:var(--muted);">${t('users_never')}</span>`;
-    tbody.innerHTML = users.map(u => `
+    tbody.innerHTML = _usersCache.map(u => {
+      const roleLabel = u.role === 'admin'
+        ? `<span class="pill" style="background:rgba(232,93,60,.18);color:var(--coral-soft);border:1px solid rgba(232,93,60,.30);">${t('users_role_admin')}</span>`
+        : `<span class="pill" style="background:rgba(91,155,213,.15);color:var(--sky-soft);border:1px solid rgba(91,155,213,.30);">${t('users_role_user')}</span>`;
+      const entityLabel = u.entity_name
+        ? `<span style="color:#fff;font-weight:600;">🏢 ${escapeHtml(u.entity_name)}</span>`
+        : `<span style="color:var(--muted);">—</span>`;
+      return `
       <tr>
         <td>${escapeHtml(u.email || '')}</td>
+        <td>${roleLabel}</td>
+        <td>${entityLabel}</td>
         <td>${u.email_confirmed ? '<span class="pos">✓</span>' : '<span class="neg">✗</span>'}</td>
-        <td style="color:var(--text-soft);font-size:12px;">${fmtDate(u.created_at)}</td>
         <td style="color:var(--text-soft);font-size:12px;">${fmtDate(u.last_sign_in_at)}</td>
-      </tr>`).join('');
+        <td style="text-align:center;"><button class="ghost" data-user-edit="${u.id}" style="padding:4px 10px;font-size:11px;">${t('users_edit')}</button></td>
+      </tr>`;
+    }).join('');
   } catch (err) {
     console.error(err);
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#fca5a5;padding:24px;">${t('users_load_err')}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#fca5a5;padding:24px;">${t('users_load_err')}</td></tr>`;
   }
 }
 document.getElementById('btnRefreshUsers').addEventListener('click', renderUsersTab);
+
+/* ===== Edit User modal ===== */
+function openUserEditModal(user){
+  document.getElementById('userEditId').value    = user.id;
+  document.getElementById('userEditEmail').textContent = user.email || '';
+  document.getElementById('userEditRole').value  = user.role || 'user';
+  // Populate entity options from cache
+  const sel = document.getElementById('userEditEntity');
+  sel.innerHTML = `<option value="">${t('users_entity_none')}</option>` +
+    _entitiesCache.filter(e=>e.is_active!==false).map(e=>`<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('');
+  sel.value = user.entity_id || '';
+  // Clear error and show modal
+  const errEl = document.querySelector('[data-user-edit-error]');
+  errEl.classList.remove('show'); errEl.textContent = '';
+  document.getElementById('userEditModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeUserEditModal(){
+  document.getElementById('userEditModal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('click', e=>{
+  if(e.target.closest('[data-user-edit-close]')) closeUserEditModal();
+  const editId = e.target.dataset.userEdit;
+  if(editId){
+    const user = _usersCache.find(x=>x.id===editId);
+    if(user) openUserEditModal(user);
+  }
+});
+
+document.getElementById('formUserEdit').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const id = document.getElementById('userEditId').value;
+  const role = document.getElementById('userEditRole').value;
+  const entity_id = document.getElementById('userEditEntity').value || null;
+  const errEl = document.querySelector('[data-user-edit-error]');
+  errEl.classList.remove('show');
+  const submit = e.currentTarget.querySelector('button[type="submit"]');
+  submit.disabled = true;
+  try {
+    await CTG.adminSetUserProfile(id, role, entity_id);
+    showToast(t('users_saved'), 'success');
+    closeUserEditModal();
+    await renderUsersTab();
+  } catch (err) {
+    console.error(err);
+    const m = (err && err.message) || '';
+    if(/demote yourself/i.test(m)){ errEl.textContent = t('users_self_demote_err'); }
+    else errEl.textContent = friendlyAuthError(err);
+    errEl.classList.add('show');
+  } finally {
+    submit.disabled = false;
+  }
+});
 
 /* ============ INIT ============ */
 async function init(){
@@ -2838,6 +2995,8 @@ async function init(){
     await refreshAdminFlag();
     // Refresh entities cache so the Scenario Save dropdown is current.
     await refreshEntitiesCache();
+    // Apply entity lock for non-admins (dropdown is forced to their assigned entity)
+    await applyEntityLock();
     if(currentTab==='compare')  renderCompare();
     if(currentTab==='settings') renderSettingsTab();
     if(currentTab==='entities') renderEntitiesTab();

@@ -43,6 +43,9 @@
 
   // ---------- auth ----------
   let currentUser = null;
+  // Returns { role, entity_id, entity_name } for the signed-in user — or null if not signed in.
+  // Cached per-session so the calculator can synchronously read the user's entity.
+  let _profileCache = null;
 
   // Buffer auth events that fire before any listener attaches. Critical for
   // PASSWORD_RECOVERY: Supabase emits this event synchronously during the SDK's
@@ -60,6 +63,8 @@
       currentUser = session ? session.user : null;
       const newUid = currentUser ? currentUser.id : null;
       if (newUid && newUid !== prevUid) lsWrite(LS_LAST_UID, newUid);
+      // Invalidate profile cache when the user identity changes (sign-in/out/switch)
+      if (newUid !== prevUid) _profileCache = null;
       const payload = { event, user: currentUser, mode: currentUser ? 'cloud' : 'anonymous', prevUid, newUid };
       if (listeners.size === 0) _bufferedEvents.push(payload);
       else emit(payload);
@@ -150,6 +155,26 @@
     const { data, error } = await sb.rpc('admin_list_users');
     if (error) throw error;
     return data || [];
+  }
+
+  async function getCurrentProfile() {
+    if (!sb || !currentUser) { _profileCache = null; return null; }
+    if (_profileCache && _profileCache._uid === currentUser.id) return _profileCache;
+    const { data, error } = await sb.rpc('current_user_profile');
+    if (error) { console.error(error); return null; }
+    const row = (data && data[0]) || { role: 'user', entity_id: null, entity_name: null };
+    _profileCache = { _uid: currentUser.id, role: row.role, entity_id: row.entity_id, entity_name: row.entity_name };
+    return _profileCache;
+  }
+
+  async function adminSetUserProfile(userId, role, entityId) {
+    _ensureSb();
+    const { error } = await sb.rpc('admin_set_user_profile', {
+      p_user_id: userId,
+      p_role: role,
+      p_entity_id: entityId || null
+    });
+    if (error) throw error;
   }
 
   // ---------- entities (company profiles) ----------
@@ -277,6 +302,8 @@
     updateDisplayName,
     isAppAdmin,
     adminListUsers,
+    getCurrentProfile,
+    adminSetUserProfile,
     listEntities,
     createEntity,
     updateEntity,
