@@ -25,8 +25,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=13"></script>
-<script src="assets/js/supabase-client.js?v=13"></script>
+<script src="config.js?v=14"></script>
+<script src="assets/js/supabase-client.js?v=14"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -2247,6 +2247,42 @@ function setLang(lang){
   if(currentTab==='sensitivity') renderSensitivity();
   CTG.saveLang(lang);
 }
+
+/* ============ GLOBAL NUMERIC INPUT SANITIZER ============
+   Two rules across every <input type="number"> in the app:
+   1. Cap at 7 figures (9,999,999) — prevents silly values like 100000000
+      that break visual alignment and make no business sense for MYR amounts.
+   2. Blank values reset to 0 on blur, then re-fire 'input' so dependent
+      calculations refresh.
+   Respects tighter min/max attributes already on the element (e.g. max=99
+   for percentage inputs).
+*/
+(function initNumberSanitizer(){
+  const HARD_CAP = 9999999;
+  document.addEventListener('input', e=>{
+    const t = e.target;
+    if(!t.matches || !t.matches('input[type="number"]')) return;
+    if(t.value === '') return;                          // allow blank while typing
+    const n = parseFloat(t.value);
+    if(isNaN(n)) return;
+    const elMin = parseFloat(t.getAttribute('min'));
+    const elMax = parseFloat(t.getAttribute('max'));
+    const minV = !isNaN(elMin) ? elMin : 0;
+    const maxV = !isNaN(elMax) ? Math.min(elMax, HARD_CAP) : HARD_CAP;
+    let clamped = n;
+    if(clamped < minV) clamped = minV;
+    if(clamped > maxV) clamped = maxV;
+    if(clamped !== n) t.value = String(clamped);
+  }, true);   // capture phase — runs BEFORE other input handlers
+  document.addEventListener('blur', e=>{
+    const t = e.target;
+    if(!t.matches || !t.matches('input[type="number"]')) return;
+    if(t.value === '' || t.value === null || isNaN(parseFloat(t.value))){
+      t.value = '0';
+      t.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }, true);
+})();
 
 /* ============ DATA ============ */
 const DEFAULT_PRODUCTS = [
