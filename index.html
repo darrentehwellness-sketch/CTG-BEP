@@ -25,8 +25,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=7"></script>
-<script src="assets/js/supabase-client.js?v=7"></script>
+<script src="config.js?v=8"></script>
+<script src="assets/js/supabase-client.js?v=8"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -226,49 +226,109 @@
   .user-menu button.danger:hover{background:rgba(239,68,68,.12);color:#fff;}
   .user-wrap{position:relative;}
 
-  /* ============ NAV: LEFT SIDEBAR ============ */
+  /* ============ NAV: LEFT SIDEBAR (Bitrix24-style polish) ============ */
   .app-layout{max-width:1600px;margin:0 auto;display:flex;gap:24px;padding:24px 32px 80px;align-items:flex-start;}
   .tabs{
-    width:220px;flex-shrink:0;position:sticky;top:108px;
-    background:rgba(7,13,23,.85);backdrop-filter:blur(20px) saturate(180%);
-    border:1px solid var(--border);border-radius:var(--radius);
-    box-shadow:0 4px 16px rgba(0,0,0,.4);
-    padding:12px 10px;
+    width:248px;flex-shrink:0;position:sticky;top:108px;
+    background:linear-gradient(180deg, rgba(12,20,33,.95), rgba(7,13,23,.92));
+    backdrop-filter:blur(24px) saturate(180%);
+    border:1px solid var(--border);border-radius:16px;
+    box-shadow:0 8px 32px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.04);
+    padding:14px 12px;
   }
+
+  /* ----- User profile card at the top of the sidebar ----- */
+  .sidebar-profile{
+    display:none;        /* shown by JS when signed in */
+    padding:12px;margin-bottom:14px;
+    background:linear-gradient(135deg, rgba(232,93,60,.10), rgba(91,155,213,.10));
+    border:1px solid var(--border-strong);border-radius:12px;
+    align-items:center;gap:10px;
+  }
+  .sidebar-profile.visible{display:flex;}
+  .sidebar-profile .av{
+    width:38px;height:38px;border-radius:50%;flex-shrink:0;
+    background:linear-gradient(135deg, var(--coral), var(--coral-deep));
+    color:#fff;display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:14px;letter-spacing:.5px;
+    background-size:cover;background-position:center;
+    border:2px solid rgba(255,255,255,.15);
+    box-shadow:0 2px 8px rgba(0,0,0,.4);
+  }
+  .sidebar-profile .meta{min-width:0;flex:1;}
+  .sidebar-profile .name{
+    color:#fff;font-weight:700;font-size:13px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .sidebar-profile .sub{
+    display:flex;gap:6px;align-items:center;margin-top:2px;flex-wrap:wrap;
+    font-size:10.5px;color:var(--text-soft);
+  }
+  .sidebar-profile .badge-admin{
+    background:rgba(232,93,60,.20);color:var(--coral-soft);
+    padding:1px 7px;border-radius:8px;font-weight:700;letter-spacing:.5px;
+    border:1px solid rgba(232,93,60,.30);font-size:9.5px;text-transform:uppercase;
+  }
+  .sidebar-profile .badge-user{
+    background:rgba(91,155,213,.18);color:var(--sky-soft);
+    padding:1px 7px;border-radius:8px;font-weight:700;letter-spacing:.5px;
+    border:1px solid rgba(91,155,213,.28);font-size:9.5px;text-transform:uppercase;
+  }
+  .sidebar-profile .ent{
+    color:var(--text-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    font-size:10.5px;
+  }
+
   .tabs-inner{display:flex;flex-direction:column;gap:2px;}
-  .tab-section{display:flex;flex-direction:column;gap:2px;padding-bottom:10px;margin-bottom:8px;border-bottom:1px solid var(--border);}
-  .tab-section:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
+  .tab-section{display:flex;flex-direction:column;gap:1px;padding-bottom:6px;margin-bottom:10px;}
+  .tab-section:last-child{margin-bottom:0;padding-bottom:0;}
   .tab-section-label{
-    font-size:9.5px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;
-    color:var(--muted);padding:6px 14px 8px;display:flex;align-items:center;gap:8px;
+    font-size:10px;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;
+    color:var(--muted);padding:10px 12px 6px;
   }
-  .tab-section-label::after{
-    content:'';flex:1;height:1px;background:linear-gradient(to right, var(--border-strong), transparent);
-  }
-  .tab-section.admin-section{display:none;}            /* whole section hidden when no admin */
+  .tab-section.admin-section{display:none;}
   .tab-section.admin-section.visible{display:flex;}
+
+  /* ----- Sidebar buttons: rounded pill style ----- */
   .tab-btn{
-    background:transparent;color:var(--text-soft);border:none;padding:10px 14px;
-    cursor:pointer;font-size:13px;font-weight:600;border-left:3px solid transparent;border-radius:8px;
-    display:flex;align-items:center;gap:10px;white-space:nowrap;transition:.18s;
-    box-shadow:none;text-align:left;width:100%;
+    background:transparent;color:var(--text-soft);border:none;padding:10px 12px;
+    cursor:pointer;font-size:13px;font-weight:600;border-radius:10px;
+    display:flex;align-items:center;gap:11px;white-space:nowrap;transition:background .15s, color .15s;
+    box-shadow:none;text-align:left;width:100%;position:relative;
   }
-  .tab-btn:hover{color:var(--coral-soft);transform:none;background:rgba(232,93,60,.08);}
-  .tab-btn.active{color:var(--coral);border-left-color:var(--coral);background:rgba(232,93,60,.12);}
-  .tab-btn .ic{font-size:15px;flex-shrink:0;}
-  .tab-btn.admin-only{display:none;}                   /* individual button hidden until admin resolves */
+  .tab-btn:hover{
+    color:#fff;transform:none;
+    background:rgba(255,255,255,.05);
+  }
+  .tab-btn.active{
+    color:#fff;
+    background:linear-gradient(90deg, rgba(232,93,60,.25), rgba(232,93,60,.12));
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  /* Subtle active indicator dot — coral, on the left of active item */
+  .tab-btn.active::before{
+    content:'';position:absolute;left:-12px;top:50%;transform:translateY(-50%);
+    width:3px;height:18px;background:var(--coral);border-radius:0 2px 2px 0;
+    box-shadow:0 0 8px var(--coral);
+  }
+  .tab-btn .ic{
+    font-size:16px;flex-shrink:0;width:22px;text-align:center;
+    line-height:1;display:inline-flex;align-items:center;justify-content:center;
+  }
+  .tab-btn.admin-only{display:none;}
   .tab-btn.admin-only.visible{display:flex;}
 
   /* Mobile: sidebar becomes a horizontal scrolling strip on top */
   @media (max-width: 900px){
     .app-layout{flex-direction:column;padding:16px;gap:16px;}
-    .tabs{width:auto;position:relative;top:auto;padding:6px;}
+    .tabs{width:auto;position:relative;top:auto;padding:8px;border-radius:14px;}
+    .sidebar-profile{margin-bottom:8px;padding:8px 10px;}
     .tabs-inner{flex-direction:row;overflow-x:auto;gap:2px;}
-    .tab-section{flex-direction:row;border-bottom:none;border-right:1px solid var(--border);padding:0 8px 0 0;margin:0 4px 0 0;}
+    .tab-section{flex-direction:row;padding:0 6px 0 0;margin:0 4px 0 0;border-right:1px solid var(--border);}
     .tab-section:last-child{border-right:none;}
-    .tab-section-label{display:none;}     /* hide section labels in horizontal mode */
-    .tab-btn{padding:9px 12px;font-size:12.5px;border-left:none;border-bottom:3px solid transparent;border-radius:6px;}
-    .tab-btn.active{border-left:none;border-bottom-color:var(--coral);}
+    .tab-section-label{display:none;}
+    .tab-btn{padding:9px 12px;font-size:12.5px;border-radius:8px;}
+    .tab-btn.active::before{display:none;}
   }
 
   .main-content{flex:1;min-width:0;}
@@ -753,6 +813,19 @@
 
 <!-- Left sidebar: nav, organized into sections -->
 <nav class="tabs">
+
+  <!-- User profile card (shown when signed in) -->
+  <div class="sidebar-profile" id="sidebarProfile">
+    <div class="av" id="sidebarAv">—</div>
+    <div class="meta">
+      <div class="name" id="sidebarName">—</div>
+      <div class="sub">
+        <span id="sidebarRoleBadge" class="badge-user">User</span>
+        <span class="ent" id="sidebarEntity"></span>
+      </div>
+    </div>
+  </div>
+
   <div class="tabs-inner">
 
     <!-- Section 1: Exhibition BEP (the calculator app itself) -->
@@ -3511,6 +3584,7 @@ document.getElementById('formProfile').addEventListener('submit', async e=>{
     try { await CTG.updateDisplayName(display_name || full_name); } catch (e) {}
     showToast(t('prof_saved'), 'success');
     renderAuthUI();    // header avatar/name may have changed
+    renderSidebarProfile();   // sidebar card too
   } catch (err) {
     console.error(err);
     errEl.textContent = friendlyAuthError(err); errEl.classList.add('show');
@@ -3782,6 +3856,49 @@ async function refreshAdminFlag(){
   return _isAdminCache;
 }
 
+async function renderSidebarProfile(){
+  const card = document.getElementById('sidebarProfile');
+  if(!card) return;
+  const user = CTG.getUser();
+  if(!user){ card.classList.remove('visible'); return; }
+  card.classList.add('visible');
+
+  // Avatar: photo if Google OAuth, else initials gradient
+  const av = document.getElementById('sidebarAv');
+  const meta = user.user_metadata || {};
+  const pic = meta.avatar_url;
+  const fullName = meta.full_name || meta.name || user.email || '';
+
+  // Get richer info from profile RPC (role + entity + display_name)
+  let role = 'user', entityName = null, displayName = null;
+  try {
+    const profile = await CTG.getCurrentProfile();
+    if(profile){
+      role = profile.role || 'user';
+      entityName = profile.entity_name || null;
+      displayName = profile.display_name || profile.full_name || null;
+    }
+  } catch(e){}
+
+  const name = displayName || fullName.split('@')[0] || 'User';
+  const initials = name.split(/\s+/).slice(0,2).map(s => (s[0]||'')).join('').toUpperCase() || 'U';
+
+  if(pic){
+    av.style.backgroundImage = `url('${pic.replace(/'/g, "\\'")}')`;
+    av.textContent = '';
+  } else {
+    av.style.backgroundImage = '';
+    av.textContent = initials;
+  }
+
+  document.getElementById('sidebarName').textContent = name;
+  const badge = document.getElementById('sidebarRoleBadge');
+  badge.className = role === 'admin' ? 'badge-admin' : 'badge-user';
+  badge.textContent = role === 'admin' ? t('users_role_admin') : t('users_role_user');
+  const entEl = document.getElementById('sidebarEntity');
+  entEl.textContent = entityName ? '· 🏢 ' + entityName : '';
+}
+
 let _usersCache = [];
 async function renderUsersTab(){
   const admin = await CTG.isAppAdmin();
@@ -3947,6 +4064,8 @@ async function init(){
     await refreshEntitiesCache();
     // Apply entity lock for non-admins (dropdown is forced to their assigned entity)
     await applyEntityLock();
+    // Update the sidebar user card
+    await renderSidebarProfile();
     if(currentTab==='compare')  renderCompare();
     if(currentTab==='settings') renderSettingsTab();
     if(currentTab==='entities') renderEntitiesTab();
