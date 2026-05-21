@@ -25,8 +25,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=8"></script>
-<script src="assets/js/supabase-client.js?v=8"></script>
+<script src="config.js?v=9"></script>
+<script src="assets/js/supabase-client.js?v=9"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -229,70 +229,89 @@
   /* ============ NAV: LEFT SIDEBAR (Bitrix24-style polish) ============ */
   .app-layout{max-width:1600px;margin:0 auto;display:flex;gap:24px;padding:24px 32px 80px;align-items:flex-start;}
   .tabs{
-    width:248px;flex-shrink:0;position:sticky;top:108px;
+    width:260px;flex-shrink:0;position:sticky;top:108px;
     background:linear-gradient(180deg, rgba(12,20,33,.95), rgba(7,13,23,.92));
     backdrop-filter:blur(24px) saturate(180%);
     border:1px solid var(--border);border-radius:16px;
     box-shadow:0 8px 32px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.04);
-    padding:14px 12px;
+    padding:14px 10px;
+    transition:width .25s ease;
   }
 
-  /* ----- User profile card at the top of the sidebar ----- */
+  /* ----- Collapse toggle ----- */
+  .sidebar-toggle{
+    position:absolute;top:14px;right:-14px;
+    width:28px;height:28px;border-radius:50%;
+    background:#0C1421;color:var(--text-soft);
+    border:1px solid var(--border-strong);
+    cursor:pointer;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 4px 12px rgba(0,0,0,.5);
+    transition:.18s;z-index:5;padding:0;
+  }
+  .sidebar-toggle:hover{color:#fff;background:#131C2D;transform:scale(1.05);}
+  .sidebar-toggle .ic-toggle{width:14px;height:14px;}
+  .tabs.collapsed .sidebar-toggle .ic-toggle{transform:rotate(180deg);}
+
+  /* ----- User profile card ----- */
   .sidebar-profile{
-    display:none;        /* shown by JS when signed in */
-    padding:12px;margin-bottom:14px;
-    background:linear-gradient(135deg, rgba(232,93,60,.10), rgba(91,155,213,.10));
+    display:none;
+    padding:14px;margin-bottom:14px;
+    background:linear-gradient(135deg, rgba(232,93,60,.10), rgba(91,155,213,.08));
     border:1px solid var(--border-strong);border-radius:12px;
-    align-items:center;gap:10px;
+    align-items:center;gap:12px;
   }
   .sidebar-profile.visible{display:flex;}
   .sidebar-profile .av{
-    width:38px;height:38px;border-radius:50%;flex-shrink:0;
+    width:48px;height:48px;border-radius:50%;flex-shrink:0;
     background:linear-gradient(135deg, var(--coral), var(--coral-deep));
     color:#fff;display:flex;align-items:center;justify-content:center;
-    font-weight:800;font-size:14px;letter-spacing:.5px;
+    font-weight:800;font-size:17px;letter-spacing:.3px;
     background-size:cover;background-position:center;
-    border:2px solid rgba(255,255,255,.15);
-    box-shadow:0 2px 8px rgba(0,0,0,.4);
+    border:2px solid rgba(255,255,255,.18);
+    box-shadow:0 3px 10px rgba(0,0,0,.5);
   }
-  .sidebar-profile .meta{min-width:0;flex:1;}
+  .sidebar-profile .meta{min-width:0;flex:1;display:flex;flex-direction:column;gap:2px;}
   .sidebar-profile .name{
-    color:#fff;font-weight:700;font-size:13px;
+    color:#fff;font-weight:700;font-size:13.5px;line-height:1.2;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .sidebar-profile .email{
+    font-size:10.5px;color:var(--muted);line-height:1.2;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   }
   .sidebar-profile .sub{
-    display:flex;gap:6px;align-items:center;margin-top:2px;flex-wrap:wrap;
-    font-size:10.5px;color:var(--text-soft);
+    display:flex;gap:5px;align-items:center;margin-top:4px;flex-wrap:wrap;
+    font-size:10px;color:var(--text-soft);
   }
   .sidebar-profile .badge-admin{
     background:rgba(232,93,60,.20);color:var(--coral-soft);
-    padding:1px 7px;border-radius:8px;font-weight:700;letter-spacing:.5px;
-    border:1px solid rgba(232,93,60,.30);font-size:9.5px;text-transform:uppercase;
+    padding:1px 7px;border-radius:6px;font-weight:800;letter-spacing:.7px;
+    border:1px solid rgba(232,93,60,.30);font-size:9px;text-transform:uppercase;
   }
   .sidebar-profile .badge-user{
     background:rgba(91,155,213,.18);color:var(--sky-soft);
-    padding:1px 7px;border-radius:8px;font-weight:700;letter-spacing:.5px;
-    border:1px solid rgba(91,155,213,.28);font-size:9.5px;text-transform:uppercase;
+    padding:1px 7px;border-radius:6px;font-weight:800;letter-spacing:.7px;
+    border:1px solid rgba(91,155,213,.28);font-size:9px;text-transform:uppercase;
   }
   .sidebar-profile .ent{
     color:var(--text-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-    font-size:10.5px;
+    font-size:10px;
   }
 
-  .tabs-inner{display:flex;flex-direction:column;gap:2px;}
-  .tab-section{display:flex;flex-direction:column;gap:1px;padding-bottom:6px;margin-bottom:10px;}
+  .tabs-inner{display:flex;flex-direction:column;gap:1px;}
+  .tab-section{display:flex;flex-direction:column;gap:1px;padding-bottom:4px;margin-bottom:10px;}
   .tab-section:last-child{margin-bottom:0;padding-bottom:0;}
   .tab-section-label{
-    font-size:10px;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;
-    color:var(--muted);padding:10px 12px 6px;
+    font-size:9.5px;font-weight:800;letter-spacing:1.7px;text-transform:uppercase;
+    color:var(--muted);padding:8px 12px 4px;transition:opacity .2s;
   }
   .tab-section.admin-section{display:none;}
   .tab-section.admin-section.visible{display:flex;}
 
-  /* ----- Sidebar buttons: rounded pill style ----- */
+  /* ----- Sidebar buttons: compact + softer active ----- */
   .tab-btn{
-    background:transparent;color:var(--text-soft);border:none;padding:10px 12px;
-    cursor:pointer;font-size:13px;font-weight:600;border-radius:10px;
+    background:transparent;color:var(--text-soft);border:none;padding:8px 12px;
+    cursor:pointer;font-size:12.5px;font-weight:600;border-radius:9px;
     display:flex;align-items:center;gap:11px;white-space:nowrap;transition:background .15s, color .15s;
     box-shadow:none;text-align:left;width:100%;position:relative;
   }
@@ -300,35 +319,55 @@
     color:#fff;transform:none;
     background:rgba(255,255,255,.05);
   }
+  /* Softer active state — subtle navy/white tint instead of loud coral fill */
   .tab-btn.active{
     color:#fff;
-    background:linear-gradient(90deg, rgba(232,93,60,.25), rgba(232,93,60,.12));
+    background:linear-gradient(90deg, rgba(91,155,213,.16), rgba(91,155,213,.06));
     box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
   }
-  /* Subtle active indicator dot — coral, on the left of active item */
+  .tab-btn.active .ic{ color:var(--coral); }   /* icon stays coral on active for brand cue */
+  /* Coral indicator dot on the left */
   .tab-btn.active::before{
-    content:'';position:absolute;left:-12px;top:50%;transform:translateY(-50%);
-    width:3px;height:18px;background:var(--coral);border-radius:0 2px 2px 0;
-    box-shadow:0 0 8px var(--coral);
+    content:'';position:absolute;left:-10px;top:50%;transform:translateY(-50%);
+    width:3px;height:20px;background:var(--coral);border-radius:0 3px 3px 0;
+    box-shadow:0 0 10px var(--coral);
   }
   .tab-btn .ic{
-    font-size:16px;flex-shrink:0;width:22px;text-align:center;
-    line-height:1;display:inline-flex;align-items:center;justify-content:center;
+    width:18px;height:18px;flex-shrink:0;display:inline-flex;
+    transition:color .15s;
   }
+  .tab-btn .ic svg, .tab-btn svg.ic{width:18px;height:18px;}
   .tab-btn.admin-only{display:none;}
   .tab-btn.admin-only.visible{display:flex;}
+
+  /* ----- Collapsed sidebar (icon-only mode) ----- */
+  .tabs.collapsed{width:64px;padding:14px 6px;}
+  .tabs.collapsed .sidebar-profile{padding:6px;gap:0;justify-content:center;}
+  .tabs.collapsed .sidebar-profile .av{width:40px;height:40px;font-size:14px;}
+  .tabs.collapsed .sidebar-profile .meta{display:none;}
+  .tabs.collapsed .tab-section-label{display:none;}
+  .tabs.collapsed .tab-section{padding-bottom:8px;margin-bottom:6px;border-bottom:1px solid var(--border);}
+  .tabs.collapsed .tab-section:last-child{border-bottom:none;}
+  .tabs.collapsed .tab-btn{justify-content:center;padding:10px 6px;gap:0;}
+  .tabs.collapsed .tab-btn > span:not(.ic){display:none;}
+  .tabs.collapsed .tab-btn.active::before{left:-7px;}
 
   /* Mobile: sidebar becomes a horizontal scrolling strip on top */
   @media (max-width: 900px){
     .app-layout{flex-direction:column;padding:16px;gap:16px;}
-    .tabs{width:auto;position:relative;top:auto;padding:8px;border-radius:14px;}
+    .tabs{width:auto !important;position:relative;top:auto;padding:8px;border-radius:14px;}
+    .tabs.collapsed{width:auto !important;padding:8px;}
+    .sidebar-toggle{display:none;}
     .sidebar-profile{margin-bottom:8px;padding:8px 10px;}
+    .sidebar-profile .av{width:36px;height:36px;font-size:13px;}
+    .sidebar-profile .email{display:none;}
     .tabs-inner{flex-direction:row;overflow-x:auto;gap:2px;}
     .tab-section{flex-direction:row;padding:0 6px 0 0;margin:0 4px 0 0;border-right:1px solid var(--border);}
     .tab-section:last-child{border-right:none;}
     .tab-section-label{display:none;}
-    .tab-btn{padding:9px 12px;font-size:12.5px;border-radius:8px;}
+    .tab-btn{padding:9px 12px;font-size:12.5px;border-radius:8px;justify-content:flex-start;}
     .tab-btn.active::before{display:none;}
+    .tabs.collapsed .tab-btn > span:not(.ic){display:inline;}   /* mobile ignores collapse */
   }
 
   .main-content{flex:1;min-width:0;}
@@ -745,6 +784,71 @@
 </head>
 <body>
 
+<!-- ============ SVG ICON SPRITE (Lucide-style line icons) ============ -->
+<svg style="position:absolute;width:0;height:0;overflow:hidden;" aria-hidden="true" focusable="false">
+  <defs>
+    <!-- Calculator: BEP -->
+    <symbol id="i-calc" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <rect x="4" y="2" width="16" height="20" rx="2"/>
+      <line x1="8" y1="6" x2="16" y2="6"/>
+      <circle cx="8" cy="11" r=".5" fill="currentColor"/><circle cx="12" cy="11" r=".5" fill="currentColor"/><circle cx="16" cy="11" r=".5" fill="currentColor"/>
+      <circle cx="8" cy="15" r=".5" fill="currentColor"/><circle cx="12" cy="15" r=".5" fill="currentColor"/><circle cx="16" cy="15" r=".5" fill="currentColor"/>
+      <circle cx="8" cy="19" r=".5" fill="currentColor"/><circle cx="12" cy="19" r=".5" fill="currentColor"/><circle cx="16" cy="19" r=".5" fill="currentColor"/>
+    </symbol>
+    <!-- Receipt: Cost Setup -->
+    <symbol id="i-receipt" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M4 2v20l3-2 3 2 3-2 3 2 3-2V2H4z"/>
+      <line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="13" y2="15"/>
+    </symbol>
+    <!-- Scale/balance: Compare -->
+    <symbol id="i-scale" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M12 3v18M3 7l4-2 4 2-4 8a4 4 0 008 0M21 7l-4-2-4 2 4 8a4 4 0 01-8 0M7 21h10"/>
+    </symbol>
+    <!-- Trending up: Sensitivity -->
+    <symbol id="i-trend" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <polyline points="3 17 9 11 13 15 21 7"/><polyline points="14 7 21 7 21 14"/>
+    </symbol>
+    <!-- Shopping cart: E-Commerce -->
+    <symbol id="i-cart" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/>
+      <path d="M3 3h2l3 12h11l2-8H6"/>
+    </symbol>
+    <!-- Settings/cog -->
+    <symbol id="i-settings" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6 1.65 1.65 0 0010 3.09V3a2 2 0 114 0v.09A1.65 1.65 0 0015 4.6a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.36.15.66.42.87.75.21.33.31.71.31 1.09v.32"/>
+    </symbol>
+    <!-- Building: Entities -->
+    <symbol id="i-building" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <rect x="4" y="2" width="16" height="20" rx="1"/>
+      <line x1="9" y1="22" x2="9" y2="18"/><line x1="15" y1="22" x2="15" y2="18"/>
+      <line x1="8" y1="6" x2="10" y2="6"/><line x1="14" y1="6" x2="16" y2="6"/>
+      <line x1="8" y1="10" x2="10" y2="10"/><line x1="14" y1="10" x2="16" y2="10"/>
+      <line x1="8" y1="14" x2="10" y2="14"/><line x1="14" y1="14" x2="16" y2="14"/>
+    </symbol>
+    <!-- Users: User Management -->
+    <symbol id="i-users" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+      <circle cx="9" cy="7" r="4"/>
+      <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+    </symbol>
+    <!-- Chevron-left: collapse toggle -->
+    <symbol id="i-chevron-left" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <polyline points="15 18 9 12 15 6"/>
+    </symbol>
+    <!-- Chevron-right: expand toggle -->
+    <symbol id="i-chevron-right" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <polyline points="9 18 15 12 9 6"/>
+    </symbol>
+    <!-- Sign out -->
+    <symbol id="i-signout" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+      <polyline points="16 17 21 12 16 7"/>
+      <line x1="21" y1="12" x2="9" y2="12"/>
+    </symbol>
+  </defs>
+</svg>
+
 <!-- ============ FULL-PAGE LOGIN GATE (shown when not signed in) ============ -->
 <div class="login-gate hidden" id="loginGate">
   <div class="login-card">
@@ -812,13 +916,19 @@
 <div class="app-layout">
 
 <!-- Left sidebar: nav, organized into sections -->
-<nav class="tabs">
+<nav class="tabs" id="sidebarNav">
+
+  <!-- Collapse toggle (top-right of sidebar) -->
+  <button class="sidebar-toggle" id="btnSidebarToggle" type="button" title="Collapse sidebar" aria-label="Collapse sidebar">
+    <svg class="ic-toggle"><use href="#i-chevron-left"/></svg>
+  </button>
 
   <!-- User profile card (shown when signed in) -->
   <div class="sidebar-profile" id="sidebarProfile">
     <div class="av" id="sidebarAv">—</div>
     <div class="meta">
       <div class="name" id="sidebarName">—</div>
+      <div class="email" id="sidebarEmail">—</div>
       <div class="sub">
         <span id="sidebarRoleBadge" class="badge-user">User</span>
         <span class="ent" id="sidebarEntity"></span>
@@ -828,32 +938,32 @@
 
   <div class="tabs-inner">
 
-    <!-- Section 1: Exhibition BEP (the calculator app itself) -->
+    <!-- Section 1: Exhibition BEP -->
     <div class="tab-section">
       <div class="tab-section-label" data-i18n="nav_sec_bep">Exhibition BEP</div>
-      <button class="tab-btn active" data-tab="calc"><span class="ic">📊</span><span data-i18n="tab_calc">Calculator</span></button>
-      <button class="tab-btn"        data-tab="setup"><span class="ic">🧾</span><span data-i18n="tab_setup">Cost Setup</span></button>
-      <button class="tab-btn"        data-tab="compare"><span class="ic">⚖️</span><span data-i18n="tab_compare">Compare Scenarios</span></button>
-      <button class="tab-btn"        data-tab="sensitivity"><span class="ic">📈</span><span data-i18n="tab_sens">Sensitivity Analysis</span></button>
+      <button class="tab-btn active" data-tab="calc"        title="Calculator"><svg class="ic"><use href="#i-calc"/></svg><span data-i18n="tab_calc">Calculator</span></button>
+      <button class="tab-btn"        data-tab="setup"       title="Cost Setup"><svg class="ic"><use href="#i-receipt"/></svg><span data-i18n="tab_setup">Cost Setup</span></button>
+      <button class="tab-btn"        data-tab="compare"     title="Compare Scenarios"><svg class="ic"><use href="#i-scale"/></svg><span data-i18n="tab_compare">Compare Scenarios</span></button>
+      <button class="tab-btn"        data-tab="sensitivity" title="Sensitivity Analysis"><svg class="ic"><use href="#i-trend"/></svg><span data-i18n="tab_sens">Sensitivity Analysis</span></button>
     </div>
 
-    <!-- Section: E-Commerce (Product costing + ROAS) -->
+    <!-- Section: E-Commerce -->
     <div class="tab-section">
       <div class="tab-section-label" data-i18n="nav_sec_ecomm">E-Commerce</div>
-      <button class="tab-btn" data-tab="pcalc"><span class="ic">🛒</span><span data-i18n="tab_pcalc">Product Costing & ROAS</span></button>
+      <button class="tab-btn" data-tab="pcalc" title="Product Costing & ROAS"><svg class="ic"><use href="#i-cart"/></svg><span data-i18n="tab_pcalc">Product Costing & ROAS</span></button>
     </div>
 
-    <!-- Section 2: Personal account (always visible to signed-in users) -->
+    <!-- Section: Account -->
     <div class="tab-section">
       <div class="tab-section-label" data-i18n="nav_sec_account">Account</div>
-      <button class="tab-btn" data-tab="settings"><span class="ic">⚙️</span><span data-i18n="tab_settings">Settings</span></button>
+      <button class="tab-btn" data-tab="settings" title="Settings"><svg class="ic"><use href="#i-settings"/></svg><span data-i18n="tab_settings">Settings</span></button>
     </div>
 
-    <!-- Section 3: Admin tools (entire section hidden for non-admins) -->
+    <!-- Section: Admin (hidden for non-admins) -->
     <div class="tab-section admin-section" id="navAdminSection">
       <div class="tab-section-label" data-i18n="nav_sec_admin">Admin</div>
-      <button class="tab-btn admin-only" data-tab="entities" id="tabBtnEntities"><span class="ic">🏢</span><span data-i18n="tab_entities">Entities</span></button>
-      <button class="tab-btn admin-only" data-tab="users"    id="tabBtnUsers"><span class="ic">👥</span><span data-i18n="tab_users">User Management</span></button>
+      <button class="tab-btn admin-only" data-tab="entities" id="tabBtnEntities" title="Entities"><svg class="ic"><use href="#i-building"/></svg><span data-i18n="tab_entities">Entities</span></button>
+      <button class="tab-btn admin-only" data-tab="users"    id="tabBtnUsers"    title="User Management"><svg class="ic"><use href="#i-users"/></svg><span data-i18n="tab_users">User Management</span></button>
     </div>
 
   </div>
@@ -3892,12 +4002,34 @@ async function renderSidebarProfile(){
   }
 
   document.getElementById('sidebarName').textContent = name;
+  document.getElementById('sidebarEmail').textContent = user.email || '';
   const badge = document.getElementById('sidebarRoleBadge');
   badge.className = role === 'admin' ? 'badge-admin' : 'badge-user';
   badge.textContent = role === 'admin' ? t('users_role_admin') : t('users_role_user');
   const entEl = document.getElementById('sidebarEntity');
   entEl.textContent = entityName ? '· 🏢 ' + entityName : '';
 }
+
+/* ===== Sidebar collapse toggle (persisted in localStorage) ===== */
+(function initSidebarToggle(){
+  const nav = document.getElementById('sidebarNav');
+  const btn = document.getElementById('btnSidebarToggle');
+  if(!nav || !btn) return;
+  const KEY = 'ctg_sidebar_collapsed_v1';
+  function apply(collapsed){
+    nav.classList.toggle('collapsed', !!collapsed);
+    btn.setAttribute('title', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+    btn.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+  }
+  let saved = false;
+  try { saved = localStorage.getItem(KEY) === '1'; } catch(e){}
+  apply(saved);
+  btn.addEventListener('click', ()=>{
+    const next = !nav.classList.contains('collapsed');
+    apply(next);
+    try { localStorage.setItem(KEY, next ? '1' : '0'); } catch(e){}
+  });
+})();
 
 let _usersCache = [];
 async function renderUsersTab(){
