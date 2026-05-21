@@ -25,8 +25,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=4"></script>
-<script src="assets/js/supabase-client.js?v=4"></script>
+<script src="config.js?v=5"></script>
+<script src="assets/js/supabase-client.js?v=5"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -1031,6 +1031,7 @@
         <thead><tr>
           <th style="width:40px;">No</th>
           <th data-i18n="pc_th_name">Product Name</th>
+          <th style="width:140px;" data-i18n="pc_th_platform">Platform</th>
           <th style="width:80px;" data-i18n="pc_th_qty">Units</th>
           <th style="width:110px;" data-i18n="pc_th_selling">Selling Price</th>
           <th style="width:100px;" data-i18n="pc_th_cogs">COGS</th>
@@ -1045,7 +1046,7 @@
         <tbody></tbody>
         <tfoot>
           <tr>
-            <td colspan="2" style="text-align:right;" data-i18n="pc_tf_totals">Totals:</td>
+            <td colspan="3" style="text-align:right;" data-i18n="pc_tf_totals">Totals:</td>
             <td class="num" id="pcProdTotUnits">—</td>
             <td class="num" id="pcProdTotRevenue">—</td>
             <td class="num" colspan="5" id="pcProdTotCosts">—</td>
@@ -1583,7 +1584,7 @@ const I18N = {
     pc_kpi_net_profit:"Net Profit (after ads)",
     pc_products_title:"Product Pricing & Unit Economics", pc_products_badge:"Cost build-up",
     pc_products_legend1:"Selling Price − COGS − Packaging − Shipping − Fees = Contribution per unit",
-    pc_th_name:"Product Name", pc_th_qty:"Units", pc_th_selling:"Selling Price", pc_th_cogs:"COGS",
+    pc_th_name:"Product Name", pc_th_platform:"Platform", pc_th_qty:"Units", pc_th_selling:"Selling Price", pc_th_cogs:"COGS",
     pc_th_pack:"Packaging", pc_th_ship:"Shipping", pc_th_payfee:"Payment %", pc_th_platfee:"Platform %",
     pc_th_contrib:"Contrib./Unit", pc_th_margin:"Margin %",
     pc_tf_totals:"Totals:",
@@ -1741,7 +1742,7 @@ const I18N = {
     pc_kpi_net_profit:"广告后净利润",
     pc_products_title:"产品定价与单位经济", pc_products_badge:"成本构成",
     pc_products_legend1:"售价 − 货物成本 − 包装 − 运费 − 平台费 = 单位贡献",
-    pc_th_name:"产品名称", pc_th_qty:"数量", pc_th_selling:"售价", pc_th_cogs:"货物成本",
+    pc_th_name:"产品名称", pc_th_platform:"平台", pc_th_qty:"数量", pc_th_selling:"售价", pc_th_cogs:"货物成本",
     pc_th_pack:"包装", pc_th_ship:"运费", pc_th_payfee:"支付 %", pc_th_platfee:"平台 %",
     pc_th_contrib:"单位贡献", pc_th_margin:"毛利率 %",
     pc_tf_totals:"合计:",
@@ -2812,10 +2813,29 @@ document.getElementById('btnMigrateDismiss').onclick = ()=>{
    state in localStorage under 'ctg_pc_state_v1'.
 */
 const PC_LS_KEY = 'ctg_pc_state_v1';
+
+// Platform fee presets — picking one auto-fills payment/platform %.
+// Source: typical Malaysian e-comm rates as of 2026. User can pick "custom" to edit freely.
+const PC_PLATFORM_PRESETS = {
+  shopify:    { label_en:'Shopify (own site, Stripe)', label_zh:'Shopify 自营 (Stripe)', payment:2.9, platform:0 },
+  shopify_pay:{ label_en:'Shopify Payments',           label_zh:'Shopify Payments',     payment:2.9, platform:0 },
+  own_fpx:    { label_en:'Own site (FPX local)',       label_zh:'自营站 (FPX 本地)',     payment:2.0, platform:0 },
+  shopee:     { label_en:'Shopee MY',                  label_zh:'Shopee 马来西亚',       payment:1.5, platform:7 },
+  lazada:     { label_en:'Lazada MY',                  label_zh:'Lazada 马来西亚',       payment:1.5, platform:7 },
+  tiktok:     { label_en:'TikTok Shop MY',             label_zh:'TikTok Shop 马来西亚',  payment:1.5, platform:5 },
+  woocommerce:{ label_en:'WooCommerce (own site)',     label_zh:'WooCommerce 自营',      payment:2.9, platform:0 },
+  custom:     { label_en:'Custom (manual %)',          label_zh:'自定义 (手动 %)',       payment:null, platform:null }
+};
+function pcPlatformLabel(key){
+  const p = PC_PLATFORM_PRESETS[key] || PC_PLATFORM_PRESETS.custom;
+  return LANG === 'zh' ? p.label_zh : p.label_en;
+}
+
 const PC_DEFAULT_PRODUCTS = [
-  // qty + 6 cost fields + selling price. Margin / contrib are derived.
-  { name:'Hero Product', qty:200, sellingPrice:79,  cogs:18, packaging:2, shipping:5, paymentFeePct:2.9, platformFeePct:5 },
-  { name:'Upsell Bundle', qty:60,  sellingPrice:149, cogs:35, packaging:3, shipping:7, paymentFeePct:2.9, platformFeePct:5 },
+  // Demonstrate multiple platforms in defaults so users immediately see the dropdown's effect
+  { name:'Hero Product (Shopify)',  platform:'shopify', qty:200, sellingPrice:79,  cogs:18, packaging:2, shipping:5, paymentFeePct:2.9, platformFeePct:0 },
+  { name:'Same SKU on Shopee',      platform:'shopee',  qty:60,  sellingPrice:79,  cogs:18, packaging:2, shipping:5, paymentFeePct:1.5, platformFeePct:7 },
+  { name:'Upsell Bundle (TikTok)',  platform:'tiktok',  qty:40,  sellingPrice:149, cogs:35, packaging:3, shipping:7, paymentFeePct:1.5, platformFeePct:5 },
 ];
 let PC_DEFAULT_CHANNELS;  // built after i18n loads to use translated default names
 function pcDefaultChannels(){
@@ -2888,18 +2908,26 @@ function pcAggregate(){
 
 function pcRenderProducts(){
   const tbody = document.querySelector('#pcProductsTable tbody');
+  const platformOptions = Object.keys(PC_PLATFORM_PRESETS).map(key =>
+    `<option value="${key}">${escapeHtml(pcPlatformLabel(key))}</option>`
+  ).join('');
   tbody.innerHTML = pcState.products.map((p,i) => {
     const c = pcComputeProduct(p);
+    const platform = p.platform || 'custom';
+    const isCustom = platform === 'custom';
+    // When a preset is picked, Pay/Plat % are auto-managed — show them muted/read-only-ish but still editable
+    const feeStyle = isCustom ? '' : 'opacity:.7;';
     return `<tr>
       <td>${i+1}</td>
       <td><input type="text"   value="${escapeHtml(p.name)}"    data-pcp="${i}" data-field="name"></td>
+      <td><select data-pcp="${i}" data-field="platform" style="font-size:11.5px;">${platformOptions.replace('value="'+platform+'"','value="'+platform+'" selected')}</select></td>
       <td><input type="number" min="0" step="1"    value="${p.qty}"           data-pcp="${i}" data-field="qty"></td>
       <td><input type="number" min="0" step="0.01" value="${p.sellingPrice}"  data-pcp="${i}" data-field="sellingPrice"></td>
       <td><input type="number" min="0" step="0.01" value="${p.cogs}"          data-pcp="${i}" data-field="cogs"></td>
       <td><input type="number" min="0" step="0.01" value="${p.packaging}"     data-pcp="${i}" data-field="packaging"></td>
       <td><input type="number" min="0" step="0.01" value="${p.shipping}"      data-pcp="${i}" data-field="shipping"></td>
-      <td><input type="number" min="0" step="0.1"  value="${p.paymentFeePct}" data-pcp="${i}" data-field="paymentFeePct"></td>
-      <td><input type="number" min="0" step="0.1"  value="${p.platformFeePct}" data-pcp="${i}" data-field="platformFeePct"></td>
+      <td><input type="number" min="0" step="0.1"  value="${p.paymentFeePct}"  data-pcp="${i}" data-field="paymentFeePct"  style="${feeStyle}" title="${isCustom?'':'Auto-set by Platform'}"></td>
+      <td><input type="number" min="0" step="0.1"  value="${p.platformFeePct}" data-pcp="${i}" data-field="platformFeePct" style="${feeStyle}" title="${isCustom?'':'Auto-set by Platform'}"></td>
       <td class="num">${sign(c.contrib)}</td>
       <td class="pct">${fmtPct(c.margin)}</td>
       <td class="action"><button data-pcp-del="${i}">✕</button></td>
@@ -2995,11 +3023,11 @@ function pcPatchProductRow(i){
   const c = pcComputeProduct(p);
   const row = document.querySelector(`#pcProductsTable tbody tr:nth-child(${i+1})`);
   if(!row) return;
-  // Find contrib + margin cells (last 2 td.num and .pct before action)
+  // Columns: 0:no, 1:name, 2:platform-select, 3-9:inputs (qty + selling + cogs + pkg + ship + pay + plat),
+  //          10:contrib, 11:margin, 12:action
   const cells = row.querySelectorAll('td');
-  // cells: 0:no, 1:name, 2-8:inputs (qty + selling + cogs + pkg + ship + pay + plat), 9:contrib, 10:margin, 11:action
-  if(cells[9])  cells[9].innerHTML  = sign(c.contrib);
-  if(cells[10]) cells[10].textContent = fmtPct(c.margin);
+  if(cells[10]) cells[10].innerHTML  = sign(c.contrib);
+  if(cells[11]) cells[11].textContent = fmtPct(c.margin);
 }
 function pcPatchChannelRow(i){
   const ch = pcState.channels[i];
@@ -3024,10 +3052,54 @@ document.addEventListener('input', e=>{
   const tgt = e.target;
   if(tgt.dataset.pcp !== undefined){
     const i = +tgt.dataset.pcp, f = tgt.dataset.field;
+    if(f === 'platform'){
+      // Platform preset chosen — record + auto-fill payment/platform % unless 'custom'
+      pcState.products[i].platform = tgt.value;
+      const preset = PC_PLATFORM_PRESETS[tgt.value];
+      if(preset && preset.payment !== null && preset.platform !== null){
+        pcState.products[i].paymentFeePct  = preset.payment;
+        pcState.products[i].platformFeePct = preset.platform;
+        // Update the row's % inputs visually since we mutated them
+        const row = document.querySelector(`#pcProductsTable tbody tr:nth-child(${i+1})`);
+        if(row){
+          const payInput  = row.querySelector(`input[data-field="paymentFeePct"]`);
+          const platInput = row.querySelector(`input[data-field="platformFeePct"]`);
+          if(payInput  && document.activeElement !== payInput)  payInput.value  = preset.payment;
+          if(platInput && document.activeElement !== platInput) platInput.value = preset.platform;
+          // Apply the muted styling for non-custom presets
+          if(payInput)  payInput.style.opacity  = '.7';
+          if(platInput) platInput.style.opacity = '.7';
+        }
+      } else {
+        // Custom — remove muted styling
+        const row = document.querySelector(`#pcProductsTable tbody tr:nth-child(${i+1})`);
+        if(row){
+          const payInput  = row.querySelector(`input[data-field="paymentFeePct"]`);
+          const platInput = row.querySelector(`input[data-field="platformFeePct"]`);
+          if(payInput)  payInput.style.opacity  = '';
+          if(platInput) platInput.style.opacity = '';
+        }
+      }
+      pcPatchProductRow(i);
+      pcRenderSummary();
+      pcState.channels.forEach((_, ci) => pcPatchChannelRow(ci));
+      return;
+    }
     pcState.products[i][f] = (f === 'name') ? tgt.value : (Number(tgt.value)||0);
+    // If user manually edits Pay% or Plat%, switch the platform select to 'custom' so
+    // the auto-fill stops fighting them
+    if((f === 'paymentFeePct' || f === 'platformFeePct') && pcState.products[i].platform !== 'custom'){
+      pcState.products[i].platform = 'custom';
+      const row = document.querySelector(`#pcProductsTable tbody tr:nth-child(${i+1})`);
+      const sel = row && row.querySelector(`select[data-field="platform"]`);
+      if(sel) sel.value = 'custom';
+      const payInput  = row && row.querySelector(`input[data-field="paymentFeePct"]`);
+      const platInput = row && row.querySelector(`input[data-field="platformFeePct"]`);
+      if(payInput)  payInput.style.opacity  = '';
+      if(platInput) platInput.style.opacity = '';
+    }
     pcPatchProductRow(i);
-    pcRenderSummary();   // summary also updates channels' derived metrics + verdict
-    // Also patch channels because blendedMargin changed
+    pcRenderSummary();
     pcState.channels.forEach((_, ci) => pcPatchChannelRow(ci));
     return;
   }
@@ -3052,7 +3124,7 @@ document.addEventListener('click', e=>{
 });
 
 document.getElementById('btnPcAddProduct').onclick = ()=>{
-  pcState.products.push({ name:'New Product', qty:1, sellingPrice:0, cogs:0, packaging:0, shipping:0, paymentFeePct:2.9, platformFeePct:0 });
+  pcState.products.push({ name:'New Product', platform:'shopify', qty:1, sellingPrice:0, cogs:0, packaging:0, shipping:0, paymentFeePct:2.9, platformFeePct:0 });
   pcRender();
 };
 document.getElementById('btnPcAddChannel').onclick = ()=>{
@@ -3079,10 +3151,11 @@ document.getElementById('btnPcExport').onclick = ()=>{
   lines.push('Generated,'+new Date().toLocaleString());
   lines.push('');
   lines.push('PRODUCTS');
-  lines.push('No,Name,Units,Selling Price,COGS,Packaging,Shipping,Payment %,Platform %,Contribution/Unit,Margin %');
+  lines.push('No,Name,Platform,Units,Selling Price,COGS,Packaging,Shipping,Payment %,Platform %,Contribution/Unit,Margin %');
   pcState.products.forEach((p,i)=>{
     const c = pcComputeProduct(p);
-    lines.push(`${i+1},${csv(p.name)},${p.qty},${p.sellingPrice},${p.cogs},${p.packaging},${p.shipping},${p.paymentFeePct}%,${p.platformFeePct}%,${c.contrib.toFixed(2)},${(c.margin*100).toFixed(2)}%`);
+    const platformLabel = (PC_PLATFORM_PRESETS[p.platform||'custom']||PC_PLATFORM_PRESETS.custom).label_en;
+    lines.push(`${i+1},${csv(p.name)},${csv(platformLabel)},${p.qty},${p.sellingPrice},${p.cogs},${p.packaging},${p.shipping},${p.paymentFeePct}%,${p.platformFeePct}%,${c.contrib.toFixed(2)},${(c.margin*100).toFixed(2)}%`);
   });
   lines.push('');
   lines.push('AD CHANNELS');
