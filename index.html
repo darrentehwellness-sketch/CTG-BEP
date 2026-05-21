@@ -25,8 +25,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=10"></script>
-<script src="assets/js/supabase-client.js?v=10"></script>
+<script src="config.js?v=11"></script>
+<script src="assets/js/supabase-client.js?v=11"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -1439,6 +1439,7 @@
             <button class="accent-swatch" type="button" data-accent="sky"     style="background:#5B9BD5;" title="Sky Blue"></button>
             <button class="accent-swatch" type="button" data-accent="emerald" style="background:#10B981;" title="Emerald"></button>
             <button class="accent-swatch" type="button" data-accent="violet"  style="background:#8B5CF6;" title="Violet"></button>
+            <button class="accent-swatch" type="button" data-accent="navy"    style="background:#2A4F7C;" title="CTG Navy"></button>
           </div>
         </div>
         <p class="note" data-i18n="settings_accent_hint">Changes apply immediately and stay on this device.</p>
@@ -4056,7 +4057,10 @@ const ACCENT_COLORS = {
   coral:   { rgb:'232 93 60'  },
   sky:     { rgb:'91 155 213' },
   emerald: { rgb:'16 185 129' },
-  violet:  { rgb:'139 92 246' }
+  violet:  { rgb:'139 92 246' },
+  // CTG navy — using --navy-soft (#2A4F7C) for readable contrast on dark sidebar.
+  // Pure --navy (#1F3A5F) is too dim at 18% alpha to register as an active state.
+  navy:    { rgb:'42 79 124'  }
 };
 const ACCENT_LS_KEY = 'ctg_accent_v1';
 function applyAccent(key){
