@@ -1384,24 +1384,14 @@
       </div>
     </div>
 
-    <!-- Section: Account -->
-    <div class="tab-section">
-      <button class="tab-section-toggle" data-section-id="account" type="button">
-        <span data-i18n="nav_sec_account">Account</span>
-        <svg class="chevron"><use href="#i-chevron-down"/></svg>
-      </button>
-      <div class="tab-section-items">
-        <button class="tab-btn" data-tab="settings" title="Settings"><svg class="ic"><use href="#i-settings"/></svg><span data-i18n="tab_settings">Settings</span></button>
-      </div>
-    </div>
-
-    <!-- Section: Admin (hidden for non-admins) -->
-    <div class="tab-section admin-section" id="navAdminSection">
+    <!-- Section: Admin — Settings is visible to all users, Entities + User Management are admin-only -->
+    <div class="tab-section" id="navAdminSection">
       <button class="tab-section-toggle" data-section-id="admin" type="button">
         <span data-i18n="nav_sec_admin">Admin</span>
         <svg class="chevron"><use href="#i-chevron-down"/></svg>
       </button>
       <div class="tab-section-items">
+        <button class="tab-btn"            data-tab="settings" title="Settings"><svg class="ic"><use href="#i-settings"/></svg><span data-i18n="tab_settings">Settings</span></button>
         <button class="tab-btn admin-only" data-tab="entities" id="tabBtnEntities" title="Entities"><svg class="ic"><use href="#i-building"/></svg><span data-i18n="tab_entities">Entities</span></button>
         <button class="tab-btn admin-only" data-tab="users"    id="tabBtnUsers"    title="User Management"><svg class="ic"><use href="#i-users"/></svg><span data-i18n="tab_users">User Management</span></button>
       </div>
