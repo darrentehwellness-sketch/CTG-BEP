@@ -8,7 +8,7 @@ A step-by-step guide for getting `C:\Users\User\Downloads\ctg-bep-website\` from
 
 ## What you'll end up with
 
-- A public URL like `https://your-github-username.github.io/ctg-bep/` that loads the calculator
+- A public URL like `https://your-github-username.github.io/ctg-finance-calculator/` that loads the calculator
 - Users can sign up with email + password, scenarios sync across devices
 - Updates push live in ~60 seconds (`git push` → site updates)
 
@@ -41,14 +41,14 @@ A step-by-step guide for getting `C:\Users\User\Downloads\ctg-bep-website\` from
 
 1. Click the green **New** button (top-left after signing in) or go to <https://github.com/new>
 2. Fill in:
-   - **Repository name**: `ctg-bep` (or whatever you want — this will be in the URL)
+   - **Repository name**: `ctg-finance-calculator` (or whatever you want — this will be in the URL)
    - **Description**: `CTG Exhibition Break-Even Calculator`
    - **Public** or **Private** — *both work for GitHub Pages on free accounts*. Public is easier (no login required to visit). Pick Public if you're not sure.
    - ❗ **Leave "Add a README file" UNCHECKED**. We already have one.
    - ❗ **Leave .gitignore "None"** and **License "None"**. We already have a .gitignore.
 3. Click **Create repository**.
 
-GitHub shows you a "quick setup" page with a URL like `https://github.com/your-username/ctg-bep.git` — copy it, you'll need it in step 2.
+GitHub shows you a "quick setup" page with a URL like `https://github.com/your-username/ctg-finance-calculator.git` — copy it, you'll need it in step 2.
 
 ---
 
@@ -64,11 +64,11 @@ git add .
 git status                                    # sanity check — should NOT list config.js (gitignored)
 git commit -m "Initial CTG BEP site"
 git branch -M main
-git remote add origin https://github.com/YOUR-USERNAME/ctg-bep.git
+git remote add origin https://github.com/YOUR-USERNAME/ctg-finance-calculator.git
 git push -u origin main
 ```
 
-**Replace `YOUR-USERNAME/ctg-bep`** with the URL GitHub gave you in step 1.
+**Replace `YOUR-USERNAME/ctg-finance-calculator`** with the URL GitHub gave you in step 1.
 
 Git will ask for credentials. Two ways to authenticate:
 
@@ -91,7 +91,7 @@ When the push succeeds, refresh your repo page on GitHub — you'll see all your
    - **Source**: pick **Deploy from a branch**
    - **Branch**: pick `main`, folder `/ (root)`
    - Click **Save**
-4. Refresh after 30 seconds. A green banner appears: **"Your site is live at `https://your-username.github.io/ctg-bep/`"**.
+4. Refresh after 30 seconds. A green banner appears: **"Your site is live at `https://your-username.github.io/ctg-finance-calculator/`"**.
 5. Click the URL — the calculator should load.
 
 If you see the calculator but the header shows **"Offline mode"**: `config.js` wasn't pushed (it's gitignored). Two fixes:
@@ -105,7 +105,7 @@ If you see the calculator but the header shows **"Offline mode"**: `config.js` w
 Sign-up confirmation and password reset emails contain links back to your site. Supabase only redirects to URLs you've whitelisted.
 
 1. Go to <https://supabase.com/dashboard/project/msdfzzvdmmqzwcnxtrfn/auth/url-configuration>
-2. **Site URL** — set to your GitHub Pages URL, e.g. `https://your-username.github.io/ctg-bep/`
+2. **Site URL** — set to your GitHub Pages URL, e.g. `https://your-username.github.io/ctg-finance-calculator/`
 3. **Redirect URLs** — click **Add URL**, paste the same URL. Also add `http://localhost:8000` if you'll ever test locally.
 4. Click **Save**.
 

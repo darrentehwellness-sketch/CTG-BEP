@@ -37,7 +37,7 @@ You'll do three things:
 ### 1. Create your Supabase project
 
 1. Go to **<https://supabase.com>** and sign up (free tier).
-2. Click **New Project**. Pick a name (e.g. `ctg-bep`), a database password (save it somewhere), and a region close to your users (Singapore for Malaysia/SEA).
+2. Click **New Project**. Pick a name (e.g. `ctg-finance-calculator`), a database password (save it somewhere), and a region close to your users (Singapore for Malaysia/SEA).
 3. Wait ~2 minutes for the project to provision.
 4. In the left sidebar, open **SQL Editor → New query**.
 5. Paste the entire contents of `supabase/schema.sql` and click **Run**. You should see `Success. No rows returned`.

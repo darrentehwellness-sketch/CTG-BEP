@@ -115,7 +115,7 @@ Sample email to send to JV partners:
 > Hi [Name],
 >
 > I've added you to CTG's Break-Even Calculator at:
-> https://darrentehwellness-sketch.github.io/ctg-bep/
+> https://darrentehwellness-sketch.github.io/ctg-finance-calculator/
 >
 > Look out for an invitation email from CTG (or `noreply@mail.supabase.io` — check spam) titled "You have been invited." Click the link in that email, set a password, and you'll be in.
 >
