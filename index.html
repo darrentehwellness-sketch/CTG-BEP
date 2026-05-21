@@ -25,8 +25,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=17"></script>
-<script src="assets/js/supabase-client.js?v=17"></script>
+<script src="config.js?v=18"></script>
+<script src="assets/js/supabase-client.js?v=18"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -113,55 +113,51 @@
   ::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:5px;}
   ::-webkit-scrollbar-thumb:hover{background:var(--coral);}
 
-  /* ============ HEADER ============ */
+  /* ============ HEADER (slim, Bitrix24-style) ============ */
   header{
     position:sticky;top:0;z-index:50;color:#fff;padding:0;
-    background:#050A12;
+    background:rgba(5,10,18,.92);backdrop-filter:blur(16px) saturate(180%);
     overflow:hidden;
-    box-shadow:0 6px 30px rgba(0,0,0,.6);
-    border-bottom:1px solid rgba(255,255,255,.05);
-  }
-  header::before, header::after{
-    content:'';position:absolute;border-radius:50%;filter:blur(70px);pointer-events:none;
+    box-shadow:0 4px 18px rgba(0,0,0,.5);
+    border-bottom:1px solid rgba(255,255,255,.06);
   }
   header::before{
-    width:520px;height:520px;background:radial-gradient(circle,rgba(91,155,213,.55) 0%,rgba(91,155,213,0) 70%);
-    left:22%;top:-200px;
+    content:'';position:absolute;border-radius:50%;filter:blur(60px);pointer-events:none;
+    width:340px;height:200px;background:radial-gradient(ellipse,rgba(232,93,60,.35) 0%,rgba(232,93,60,0) 70%);
+    right:-60px;top:-80px;
   }
-  header::after{
-    width:480px;height:480px;background:radial-gradient(circle,rgba(232,93,60,.55) 0%,rgba(232,93,60,0) 70%);
-    right:-120px;top:-120px;
-  }
-  header .grain{
-    position:absolute;inset:0;opacity:.25;mix-blend-mode:overlay;pointer-events:none;
-    background-image:url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .35 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-  }
+  header .grain{display:none;}
   header .head-row{
     position:relative;z-index:2;
-    display:flex;align-items:center;gap:18px;max-width:1600px;margin:0 auto;flex-wrap:wrap;
-    padding:22px 32px;
+    display:flex;align-items:center;gap:14px;max-width:1600px;margin:0 auto;flex-wrap:nowrap;
+    padding:10px 24px;
   }
-  header .brand{display:flex;align-items:center;gap:16px;}
+  header .brand{display:flex;align-items:center;gap:12px;min-width:0;}
   header .ctg-logo{
-    width:60px;height:60px;flex-shrink:0;
+    width:36px;height:36px;flex-shrink:0;
     object-fit:contain;
-    filter:drop-shadow(0 4px 14px rgba(232,93,60,.45)) drop-shadow(0 0 22px rgba(91,155,213,.30));
-    transition:.3s;
+    filter:drop-shadow(0 2px 8px rgba(232,93,60,.4)) drop-shadow(0 0 14px rgba(91,155,213,.25));
+    transition:.25s;
   }
   header .ctg-logo:hover{
-    transform:scale(1.05);
-    filter:drop-shadow(0 6px 18px rgba(232,93,60,.55)) drop-shadow(0 0 28px rgba(91,155,213,.40));
+    transform:scale(1.06);
+    filter:drop-shadow(0 3px 12px rgba(232,93,60,.5)) drop-shadow(0 0 18px rgba(91,155,213,.35));
   }
-  header h1{margin:0;font-size:20px;font-weight:700;letter-spacing:-.3px;color:#fff;text-shadow:0 1px 12px rgba(0,0,0,.4);}
+  header h1{
+    margin:0;font-size:15.5px;font-weight:700;letter-spacing:-.1px;color:#fff;
+    line-height:1.2;
+  }
   header .tagline{
-    margin:3px 0 0;opacity:.75;font-size:11.5px;font-weight:500;
-    text-transform:uppercase;letter-spacing:2.5px;color:#fff;
+    margin:1px 0 0;opacity:.55;font-size:9.5px;font-weight:600;
+    text-transform:uppercase;letter-spacing:1.8px;color:#fff;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   }
-  header .brand-mark{
-    font-size:11px;font-weight:800;letter-spacing:4px;color:var(--coral-soft);
-    text-transform:uppercase;margin-bottom:3px;
+  header .brand-mark{display:none;}    /* "CTG" mark above title — redundant with logo */
+  header .head-actions{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:nowrap;}
+
+  @media (max-width: 700px){
+    header .tagline{display:none;}
   }
-  header .head-actions{margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
 
   .lang-toggle{
     display:inline-flex;background:rgba(255,255,255,.12);border-radius:30px;padding:3px;
@@ -400,6 +396,26 @@
   }
 
   .main-content{flex:1;min-width:0;}
+
+  /* ============ PAGE HEADER (per-tab title + actions) ============ */
+  .page-header{
+    display:flex;align-items:flex-end;justify-content:space-between;gap:16px;
+    margin-bottom:20px;padding-bottom:18px;
+    border-bottom:1px solid var(--border);
+    flex-wrap:wrap;
+  }
+  .page-header-left{min-width:0;flex:1;}
+  .page-header h1{
+    margin:0 0 4px;font-size:22px;font-weight:700;color:#fff;letter-spacing:-.3px;
+  }
+  .page-header p{
+    margin:0;font-size:12.5px;color:var(--text-soft);font-weight:500;
+  }
+  .page-header-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  @media (max-width: 700px){
+    .page-header{padding-bottom:14px;margin-bottom:16px;}
+    .page-header h1{font-size:18px;}
+  }
   .tab-panel{display:none;}
   .tab-panel.active{display:block;animation:fadeIn .3s ease;}
   @keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
@@ -1004,16 +1020,14 @@
   </div>
 </div>
 
-<!-- ============ HEADER ============ -->
+<!-- ============ HEADER (slim) ============ -->
 <header>
-  <div class="grain"></div>
   <div class="head-row">
     <div class="brand">
       <img class="ctg-logo" src="assets/img/ctg_logo.png" alt="CTG Logo"/>
-      <div>
-        <div class="brand-mark">CTG</div>
-        <h1 data-i18n="title">Exhibition Event – Break-Even Calculator</h1>
-        <p class="tagline" data-i18n="tagline">Build budget · Track cost · Calculate BEP</p>
+      <div style="min-width:0;">
+        <h1 data-i18n="title">CTG Finance Hub</h1>
+        <p class="tagline" data-i18n="tagline">Strong Finances. Sharper Decisions. Unstoppable Growth.</p>
       </div>
     </div>
     <div class="head-actions">
@@ -1021,11 +1035,7 @@
         <button id="lang-en" class="active" onclick="setLang('en')">EN</button>
         <button id="lang-zh" onclick="setLang('zh')">中文</button>
       </div>
-      <div class="auth-panel" id="authPanel">
-        <!-- Filled in by renderAuthUI() -->
-      </div>
-      <button class="ghost" id="btnExport">⬇ <span data-i18n="export">Export CSV</span></button>
-      <button class="accent" id="btnPrint">🖨 <span data-i18n="print">Print/PDF</span></button>
+      <div class="auth-panel" id="authPanel"></div>
     </div>
   </div>
 </header>
@@ -1109,6 +1119,18 @@
 
 <!-- Main content -->
 <div class="main-content">
+
+  <!-- Page header (auto-populated from active tab) — Bitrix24-style page title bar -->
+  <div class="page-header" id="pageHeader">
+    <div class="page-header-left">
+      <h1 id="pageHeaderTitle" data-i18n="tab_calc">Calculator</h1>
+      <p id="pageHeaderSubtitle" data-i18n="page_sub_calc">Build budgets and compute break-even in real-time</p>
+    </div>
+    <div class="page-header-actions">
+      <button class="ghost" id="btnExport">⬇ <span data-i18n="export">Export CSV</span></button>
+      <button class="accent" id="btnPrint">🖨 <span data-i18n="print">Print/PDF</span></button>
+    </div>
+  </div>
 
   <!-- Migration banner: shown after sign-in if local scenarios exist -->
   <div class="migrate-banner" id="migrateBanner" style="display:none;">
@@ -1953,6 +1975,15 @@ const I18N = {
     tab_settings:"Settings", tab_users:"User Management",
     nav_sec_bep:"Exhibition BEP", nav_sec_account:"Account", nav_sec_admin:"Admin",
     nav_sec_ecomm:"E-Commerce", tab_pcalc:"Product Costing & ROAS",
+    // Page header subtitles per tab
+    page_sub_calc:"Build budgets and compute break-even in real-time",
+    page_sub_setup:"Manage products and cost line items",
+    page_sub_compare:"Side-by-side comparison of saved scenarios",
+    page_sub_sens:"How changes in sales target and fixed cost affect the break-even point",
+    page_sub_pcalc:"Cost build-up and ROAS analysis for e-commerce",
+    page_sub_settings:"Profile, password, appearance",
+    page_sub_entities:"Manage JV partner companies",
+    page_sub_users:"Add, edit, and assign users to entities",
     pc_note:"Auto-saved on this device · Independent from Exhibition BEP",
     pc_kpi_margin:"Blended Gross Margin", pc_kpi_margin_sub:"After COGS, fulfilment, fees",
     pc_kpi_be_roas:"Break-Even ROAS",
@@ -2130,6 +2161,14 @@ const I18N = {
     tab_settings:"设置", tab_users:"用户管理",
     nav_sec_bep:"损益平衡计算器", nav_sec_account:"账户", nav_sec_admin:"管理员",
     nav_sec_ecomm:"电商", tab_pcalc:"产品成本 & ROAS",
+    page_sub_calc:"实时构建预算并计算损益平衡点",
+    page_sub_setup:"管理产品与成本项目",
+    page_sub_compare:"并排对比已保存的方案",
+    page_sub_sens:"销售目标与固定成本变动对损益平衡的影响",
+    page_sub_pcalc:"电商成本构成与 ROAS 分析",
+    page_sub_settings:"个人资料、密码、外观",
+    page_sub_entities:"管理合资公司",
+    page_sub_users:"新增、编辑用户及分配公司",
     pc_note:"已自动储存在本机 · 与展会 BEP 独立",
     pc_kpi_margin:"综合毛利率", pc_kpi_margin_sub:"扣除成本、运营、平台费",
     pc_kpi_be_roas:"盈亏平衡 ROAS",
@@ -3216,6 +3255,27 @@ function renderSensitivity(){
 
 /* ============ TABS ============ */
 let currentTab = 'calc';
+
+// Map tab id → (title i18n key, subtitle i18n key) for the page-header
+const PAGE_HEADER_MAP = {
+  calc:        { title: 'tab_calc',     sub: 'page_sub_calc' },
+  setup:       { title: 'tab_setup',    sub: 'page_sub_setup' },
+  compare:     { title: 'tab_compare',  sub: 'page_sub_compare' },
+  sensitivity: { title: 'tab_sens',     sub: 'page_sub_sens' },
+  pcalc:       { title: 'tab_pcalc',    sub: 'page_sub_pcalc' },
+  settings:    { title: 'tab_settings', sub: 'page_sub_settings' },
+  entities:    { title: 'tab_entities', sub: 'page_sub_entities' },
+  users:       { title: 'tab_users',    sub: 'page_sub_users' }
+};
+function updatePageHeader(tabId){
+  const m = PAGE_HEADER_MAP[tabId];
+  if(!m) return;
+  const titleEl = document.getElementById('pageHeaderTitle');
+  const subEl   = document.getElementById('pageHeaderSubtitle');
+  if(titleEl){ titleEl.setAttribute('data-i18n', m.title); titleEl.textContent = t(m.title); }
+  if(subEl){   subEl.setAttribute('data-i18n', m.sub);     subEl.textContent   = t(m.sub); }
+}
+
 document.querySelectorAll('.tab-btn').forEach(b=>{
   b.onclick = ()=>{
     document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active'));
@@ -3224,6 +3284,7 @@ document.querySelectorAll('.tab-btn').forEach(b=>{
     const id = b.dataset.tab;
     document.getElementById('tab-'+id).classList.add('active');
     currentTab = id;
+    updatePageHeader(id);
     if(id==='compare') renderCompare();
     if(id==='sensitivity') renderSensitivity();
     if(id==='settings') renderSettingsTab();
