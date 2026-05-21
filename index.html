@@ -25,8 +25,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=16"></script>
-<script src="assets/js/supabase-client.js?v=16"></script>
+<script src="config.js?v=17"></script>
+<script src="assets/js/supabase-client.js?v=17"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -2322,38 +2322,68 @@ function setLang(lang){
   CTG.saveLang(lang);
 }
 
-/* ============ GLOBAL NUMERIC INPUT SANITIZER ============
-   Two rules across every <input type="number"> in the app:
-   1. Cap at 7 figures (9,999,999) — prevents silly values like 100000000
-      that break visual alignment and make no business sense for MYR amounts.
-   2. Blank values reset to 0 on blur, then re-fire 'input' so dependent
-      calculations refresh.
-   Respects tighter min/max attributes already on the element (e.g. max=99
-   for percentage inputs).
+/* ============ GLOBAL INPUT SANITIZER ============
+   - <input type="number">: cap at 7 figures (9,999,999), blank → 0 on blur
+   - <input type="text"> inside calculator tables: blank → fallback name on blur
+   - State loaders also normalize bad legacy values (e.g. 1e+92 saved before
+     the cap existed). See clampNum / normalize fns below.
 */
-(function initNumberSanitizer(){
-  const HARD_CAP = 9999999;
+const HARD_CAP_NUM = 9999999;
+function clampNum(v, max){
+  const cap = (typeof max === 'number') ? max : HARD_CAP_NUM;
+  let n = Number(v);
+  if(!isFinite(n) || isNaN(n)) return 0;
+  if(n < 0) n = 0;
+  if(n > cap) n = cap;
+  return n;
+}
+
+(function initInputSanitizer(){
+  // Number cap on input
   document.addEventListener('input', e=>{
     const t = e.target;
     if(!t.matches || !t.matches('input[type="number"]')) return;
-    if(t.value === '') return;                          // allow blank while typing
+    if(t.value === '') return;
     const n = parseFloat(t.value);
     if(isNaN(n)) return;
     const elMin = parseFloat(t.getAttribute('min'));
     const elMax = parseFloat(t.getAttribute('max'));
     const minV = !isNaN(elMin) ? elMin : 0;
-    const maxV = !isNaN(elMax) ? Math.min(elMax, HARD_CAP) : HARD_CAP;
+    const maxV = !isNaN(elMax) ? Math.min(elMax, HARD_CAP_NUM) : HARD_CAP_NUM;
     let clamped = n;
     if(clamped < minV) clamped = minV;
     if(clamped > maxV) clamped = maxV;
     if(clamped !== n) t.value = String(clamped);
-  }, true);   // capture phase — runs BEFORE other input handlers
+  }, true);
+
+  // Number blank → 0 on blur
   document.addEventListener('blur', e=>{
     const t = e.target;
-    if(!t.matches || !t.matches('input[type="number"]')) return;
-    if(t.value === '' || t.value === null || isNaN(parseFloat(t.value))){
-      t.value = '0';
-      t.dispatchEvent(new Event('input', { bubbles: true }));
+    if(!t.matches) return;
+    if(t.matches('input[type="number"]')){
+      if(t.value === '' || t.value === null || isNaN(parseFloat(t.value))){
+        t.value = '0';
+        t.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      return;
+    }
+    // Text fallbacks for calculator table inputs
+    if(t.matches('input[type="text"]')){
+      if(t.value && t.value.trim()) return;
+      // Only act on inputs inside the calculator data tables — leave user forms alone
+      const tables = [
+        { sel: '#productTable',     fallback: 'Product' },
+        { sel: '#costTable',        fallback: 'Cost item' },
+        { sel: '#pcProductsTable',  fallback: 'Product' },
+        { sel: '#pcChannelsTable',  fallback: 'Channel' }
+      ];
+      for(const { sel, fallback } of tables){
+        if(t.closest(sel)){
+          t.value = fallback;
+          t.dispatchEvent(new Event('input', { bubbles: true }));
+          return;
+        }
+      }
     }
   }, true);
 })();
@@ -2395,6 +2425,30 @@ let state = {
   products: deepCopy(DEFAULT_PRODUCTS),
   costs: deepCopy(DEFAULT_COSTS),
 };
+
+// Clean up legacy state values that may contain scientific notation or
+// out-of-range numbers / blank text from before the sanitizer existed.
+function normalizeBepState(s){
+  if(!s || typeof s !== 'object') return s;
+  s.salesTarget = clampNum(s.salesTarget);
+  s.actualSales = clampNum(s.actualSales);
+  if(Array.isArray(s.products)){
+    s.products.forEach((p,i) => {
+      p.name = (p.name && String(p.name).trim()) || ('Product_' + (i+1));
+      p.qty = clampNum(p.qty);
+      p.purchase = clampNum(p.purchase);
+      p.selling = clampNum(p.selling);
+    });
+  }
+  if(Array.isArray(s.costs)){
+    s.costs.forEach((c,i) => {
+      c.item = (c.item && String(c.item).trim()) || ('Cost item ' + (i+1));
+      c.qty = clampNum(c.qty);
+      c.unit = clampNum(c.unit);
+    });
+  }
+  return s;
+}
 let scenarios = []; // loaded from CTG.listScenarios() — shape: {id, name, color, data, created_at, updated_at}
 let selectedScenarios = new Set();
 const SCENARIO_COLORS = ['#E85D3C','#1F3A5F','#5B9BD5','#0E2438','#C04A2E','#3D7AB0','#10b981','#F08570'];
@@ -3326,10 +3380,35 @@ function pcDefaultChannels(){
   ];
 }
 
+function normalizePcState(s){
+  if(!s || typeof s !== 'object') return s;
+  if(Array.isArray(s.products)){
+    s.products.forEach((p,i) => {
+      p.name = (p.name && String(p.name).trim()) || ('Product_' + (i+1));
+      p.qty           = clampNum(p.qty);
+      p.sellingPrice  = clampNum(p.sellingPrice);
+      p.cogs          = clampNum(p.cogs);
+      p.packaging     = clampNum(p.packaging);
+      p.shipping      = clampNum(p.shipping);
+      p.paymentFeePct = clampNum(p.paymentFeePct, 100);
+      p.platformFeePct= clampNum(p.platformFeePct, 100);
+    });
+  }
+  if(Array.isArray(s.channels)){
+    s.channels.forEach((c,i) => {
+      c.name   = (c.name && String(c.name).trim()) || ('Channel ' + (i+1));
+      c.spend  = clampNum(c.spend);
+      c.orders = clampNum(c.orders);
+      c.aov    = clampNum(c.aov);
+    });
+  }
+  return s;
+}
+
 let pcState = (function loadInit(){
   try{
     const raw = localStorage.getItem(PC_LS_KEY);
-    if(raw) return JSON.parse(raw);
+    if(raw) return normalizePcState(JSON.parse(raw));
   }catch(e){}
   return { products: deepCopy(PC_DEFAULT_PRODUCTS), channels: null /* lazy-init */ };
 })();
@@ -4500,7 +4579,7 @@ async function init(){
   // restore working state + language
   const savedState = CTG.loadWorkingState();
   if(savedState){
-    state = savedState;
+    state = normalizeBepState(savedState);
     document.getElementById('salesTarget').value = state.salesTarget;
     document.getElementById('actualSales').value = state.actualSales;
   }
