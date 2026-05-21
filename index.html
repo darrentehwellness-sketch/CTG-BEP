@@ -1019,17 +1019,50 @@
         <div style="margin-bottom:24px;padding:14px 18px;background:rgba(91,155,213,.08);border:1px solid rgba(91,155,213,.20);border-radius:10px;">
           <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-bottom:4px;" data-i18n="settings_account">Account</div>
           <div style="color:#fff;font-weight:600;font-size:14px;" id="settingsEmail">—</div>
+          <div style="font-size:12px;color:var(--text-soft);margin-top:6px;" id="settingsRoleEntity">—</div>
         </div>
 
-        <!-- Change display name -->
-        <h3 style="font-size:14px;color:var(--sky-soft);margin:18px 0 12px;font-weight:700;" data-i18n="settings_name_title">Display name</h3>
-        <form id="formChangeName" autocomplete="off">
-          <div class="input-group">
-            <label data-i18n="settings_name_label">Your name</label>
-            <input type="text" id="inputDisplayName" placeholder="Darren Teh"/>
+        <!-- Profile form -->
+        <h3 style="font-size:14px;color:var(--sky-soft);margin:18px 0 12px;font-weight:700;" data-i18n="settings_profile_title">Profile</h3>
+        <p class="note" data-i18n="settings_profile_hint">Fill in your details so your admin and team can identify you.</p>
+
+        <form id="formProfile" autocomplete="off" style="margin-top:14px;">
+          <div class="grid-2">
+            <div class="input-group">
+              <label data-i18n="prof_full_name">Full name *</label>
+              <input type="text" id="profFullName" placeholder="Darren Teh"/>
+            </div>
+            <div class="input-group">
+              <label data-i18n="prof_display_name">Display name (short)</label>
+              <input type="text" id="profDisplayName" placeholder="Darren"/>
+            </div>
           </div>
-          <div class="auth-error" data-name-error></div>
-          <button type="submit" class="accent" data-i18n="settings_name_save">Save name</button>
+          <div class="grid-2">
+            <div class="input-group">
+              <label data-i18n="prof_job_title">Job title</label>
+              <input type="text" id="profJobTitle" placeholder="Operations Director"/>
+            </div>
+            <div class="input-group">
+              <label data-i18n="prof_department">Department</label>
+              <input type="text" id="profDepartment" placeholder="Operations"/>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="input-group">
+              <label data-i18n="prof_phone">Office phone</label>
+              <input type="tel" id="profPhone" placeholder="+60 3-1234 5678"/>
+            </div>
+            <div class="input-group">
+              <label data-i18n="prof_mobile">Mobile</label>
+              <input type="tel" id="profMobile" placeholder="+60 12-345 6789"/>
+            </div>
+          </div>
+          <div class="input-group">
+            <label data-i18n="prof_bio">Bio / Notes</label>
+            <input type="text" id="profBio" placeholder="What you do at CTG / your JV company"/>
+          </div>
+          <div class="auth-error" data-profile-error></div>
+          <button type="submit" class="accent" data-i18n="prof_save">Save profile</button>
         </form>
 
         <!-- Change password -->
@@ -1382,6 +1415,14 @@ const I18N = {
     settings_title:"Settings", settings_account:"Account", settings_signin_first:"Please sign in to manage your account settings.",
     settings_name_title:"Display name", settings_name_label:"Your name", settings_name_save:"Save name", settings_name_saved:"Name updated.",
     settings_pwd_title:"Change password", settings_pwd_save:"Update password", settings_pwd_saved:"Password updated.",
+    settings_profile_title:"Profile",
+    settings_profile_hint:"Fill in your details so your admin and team can identify you.",
+    prof_full_name:"Full name *", prof_display_name:"Display name (short)",
+    prof_job_title:"Job title", prof_department:"Department",
+    prof_phone:"Office phone", prof_mobile:"Mobile",
+    prof_bio:"Bio / Notes",
+    prof_save:"Save profile", prof_saved:"Profile saved.",
+    prof_full_name_required:"Full name is required.",
     settings_current_pwd:"Current password", settings_current_pwd_wrong:"Current password is incorrect.",
     settings_pwd_same:"New password must be different from your current password.",
     users_title:"User Management", users_badge:"Admin only", users_denied:"Access denied. This panel is admin-only.",
@@ -1506,6 +1547,14 @@ const I18N = {
     settings_title:"设置", settings_account:"账户", settings_signin_first:"请先登录以管理账户设置。",
     settings_name_title:"显示名称", settings_name_label:"您的姓名", settings_name_save:"保存姓名", settings_name_saved:"姓名已更新。",
     settings_pwd_title:"修改密码", settings_pwd_save:"更新密码", settings_pwd_saved:"密码已更新。",
+    settings_profile_title:"个人资料",
+    settings_profile_hint:"请填写您的资料，方便管理员与团队识别。",
+    prof_full_name:"全名 *", prof_display_name:"显示名称（简称）",
+    prof_job_title:"职位", prof_department:"部门",
+    prof_phone:"办公电话", prof_mobile:"手机",
+    prof_bio:"简介 / 备注",
+    prof_save:"保存资料", prof_saved:"资料已保存。",
+    prof_full_name_required:"必须填写全名。",
     settings_current_pwd:"当前密码", settings_current_pwd_wrong:"当前密码不正确。",
     settings_pwd_same:"新密码不能与当前密码相同。",
     users_title:"用户管理", users_badge:"仅限管理员", users_denied:"访问被拒绝。仅限管理员使用。",
@@ -2277,10 +2326,15 @@ function renderCompare(){
   view.innerHTML = `<div class="compare-grid" style="grid-template-columns:repeat(${sel.length},1fr);">
     ${sel.map(s=>{
       const c = compute(s.data);
-      const entity = s.entity_id ? _entitiesCache.find(e=>e.id===s.entity_id) : null;
-      const entityChip = entity ? `<div style="font-size:11px;color:var(--sky-soft);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin:-8px 0 12px;padding:4px 10px;background:rgba(91,155,213,.12);border-radius:6px;display:inline-block;">🏢 ${escapeHtml(entity.name)}</div>` : '';
+      // Entity name: prefer the one already on the scenario (admin RPC returns entity_name),
+      // fall back to the cached entities lookup.
+      const entityName = s.entity_name || (s.entity_id ? (_entitiesCache.find(e=>e.id===s.entity_id) || {}).name : null);
+      const entityChip = entityName ? `<div style="font-size:11px;color:var(--sky-soft);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin:-8px 0 12px;padding:4px 10px;background:rgba(91,155,213,.12);border-radius:6px;display:inline-block;">🏢 ${escapeHtml(entityName)}</div>` : '';
+      // Owner chip — only shown when admin_list_scenarios returned owner info
+      const ownerChip = s.owner_email ? `<div style="font-size:11px;color:var(--coral-soft);font-weight:600;margin:-4px 0 12px;padding:4px 10px;background:rgba(232,93,60,.10);border-radius:6px;display:inline-block;border:1px solid rgba(232,93,60,.20);">👤 ${escapeHtml(s.owner_name || s.owner_email)}</div>` : '';
       return `<div class="compare-card" style="border-top:4px solid ${s.color};">
         <h4><span class="dot" style="background:${s.color};"></span>${escapeHtml(s.name)}</h4>
+        ${ownerChip}
         ${entityChip}
         <div class="compare-row"><span class="lab">${t('sales_target')}</span><span class="val">MYR ${fmt(c.sales)}</span></div>
         <div class="compare-row"><span class="lab">${t('kpi_fixed')}</span><span class="val">${fmt(c.totalFixed)}</span></div>
@@ -2537,7 +2591,7 @@ document.getElementById('btnMigrateDismiss').onclick = ()=>{
 };
 
 /* ============ SETTINGS TAB ============ */
-function renderSettingsTab(){
+async function renderSettingsTab(){
   const user = CTG.getUser();
   const signedIn  = document.getElementById('settingsSignedIn');
   const signedOut = document.getElementById('settingsSignedOut');
@@ -2548,21 +2602,50 @@ function renderSettingsTab(){
   }
   signedOut.style.display = 'none';
   signedIn.style.display = 'block';
+
   document.getElementById('settingsEmail').textContent = user.email || '';
-  const meta = user.user_metadata || {};
-  document.getElementById('inputDisplayName').value = meta.full_name || meta.name || '';
+
+  // Fetch current profile from DB and populate form
+  let profile;
+  try { profile = await CTG.getCurrentProfile(); } catch (e) { profile = null; }
+  profile = profile || {};
+
+  // Role + entity caption under the email
+  const roleLabel = profile.role === 'admin' ? t('users_role_admin') : t('users_role_user');
+  const entityLabel = profile.entity_name ? (' · 🏢 ' + profile.entity_name) : '';
+  document.getElementById('settingsRoleEntity').textContent = roleLabel + entityLabel;
+
+  // Populate profile form fields
+  document.getElementById('profFullName').value    = profile.full_name    || '';
+  document.getElementById('profDisplayName').value = profile.display_name || '';
+  document.getElementById('profJobTitle').value    = profile.job_title    || '';
+  document.getElementById('profDepartment').value  = profile.department   || '';
+  document.getElementById('profPhone').value       = profile.phone        || '';
+  document.getElementById('profMobile').value      = profile.mobile       || '';
+  document.getElementById('profBio').value         = profile.bio          || '';
 }
 
-document.getElementById('formChangeName').addEventListener('submit', async e=>{
+document.getElementById('formProfile').addEventListener('submit', async e=>{
   e.preventDefault();
-  const name = document.getElementById('inputDisplayName').value.trim();
-  const errEl = document.querySelector('[data-name-error]');
-  const btn = e.currentTarget.querySelector('button[type="submit"]');
+  const full_name    = document.getElementById('profFullName').value.trim();
+  const display_name = document.getElementById('profDisplayName').value.trim();
+  const job_title    = document.getElementById('profJobTitle').value.trim();
+  const department   = document.getElementById('profDepartment').value.trim();
+  const phone        = document.getElementById('profPhone').value.trim();
+  const mobile       = document.getElementById('profMobile').value.trim();
+  const bio          = document.getElementById('profBio').value.trim();
+  const errEl = document.querySelector('[data-profile-error]');
   errEl.classList.remove('show');
+
+  if(!full_name){ errEl.textContent = t('prof_full_name_required'); errEl.classList.add('show'); return; }
+
+  const btn = e.currentTarget.querySelector('button[type="submit"]');
   btn.disabled = true;
   try {
-    await CTG.updateDisplayName(name);
-    showToast(t('settings_name_saved'), 'success');
+    await CTG.updateMyProfile({ full_name, display_name, job_title, department, phone, mobile, bio });
+    // Also mirror full_name → auth.users.user_metadata.full_name so the header avatar tracks it
+    try { await CTG.updateDisplayName(display_name || full_name); } catch (e) {}
+    showToast(t('prof_saved'), 'success');
     renderAuthUI();    // header avatar/name may have changed
   } catch (err) {
     console.error(err);

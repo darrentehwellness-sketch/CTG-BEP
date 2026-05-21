@@ -177,6 +177,30 @@
     if (error) throw error;
   }
 
+  // Any signed-in user updates their own profile row.
+  async function updateMyProfile(fields) {
+    _ensureSb();
+    const { error } = await sb.rpc('update_my_profile', {
+      p_full_name:    fields.full_name    ?? null,
+      p_job_title:    fields.job_title    ?? null,
+      p_department:   fields.department   ?? null,
+      p_phone:        fields.phone        ?? null,
+      p_mobile:       fields.mobile       ?? null,
+      p_bio:          fields.bio          ?? null,
+      p_display_name: fields.display_name ?? null
+    });
+    if (error) throw error;
+    _profileCache = null; // invalidate so next read pulls fresh data
+  }
+
+  // Admin-only: list all scenarios across all users (joined with owner + entity).
+  async function adminListScenarios() {
+    _ensureSb();
+    const { data, error } = await sb.rpc('admin_list_scenarios');
+    if (error) throw error;
+    return data || [];
+  }
+
   // ---------- entities (company profiles) ----------
   // All authenticated users can read (for dropdown); writes are admin-only via RLS.
   const ENTITY_FIELDS = 'id,name,legal_name,registration_number,tax_number,address_line1,address_line2,city,state,postcode,country,contact_person,contact_email,contact_phone,notes,is_active,created_at,updated_at';
@@ -221,6 +245,14 @@
 
   async function listScenarios() {
     if (sb && currentUser) {
+      // If the signed-in user is an admin, return ALL scenarios across users with owner info.
+      // Otherwise return only the user's own (RLS enforces this server-side anyway).
+      const profile = await getCurrentProfile();
+      if (profile && profile.role === 'admin') {
+        const { data, error } = await sb.rpc('admin_list_scenarios');
+        if (error) { console.error(error); return []; }
+        return data || [];
+      }
       const { data, error } = await sb
         .from('scenarios')
         .select('id,name,color,data,entity_id,created_at,updated_at')
@@ -302,8 +334,10 @@
     updateDisplayName,
     isAppAdmin,
     adminListUsers,
+    adminListScenarios,
     getCurrentProfile,
     adminSetUserProfile,
+    updateMyProfile,
     listEntities,
     createEntity,
     updateEntity,
