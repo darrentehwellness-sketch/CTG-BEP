@@ -114,12 +114,12 @@ Sample email to send to JV partners:
 
 > Hi [Name],
 >
-> I've added you to CTG's Break-Even Calculator at:
-> https://darrentehwellness-sketch.github.io/ctg-finance-calculator/
+> I've added you to CTG Finance Hub at:
+> https://ctg-financehub.com/
 >
 > Look out for an invitation email from CTG (or `noreply@mail.supabase.io` — check spam) titled "You have been invited." Click the link in that email, set a password, and you'll be in.
 >
-> The tool lets you build expo budgets, track fixed/variable/product costs, and calculate the break-even point. Your scenarios are private to you and synced across your devices.
+> The hub gives you a break-even calculator, product costing & ROAS analysis, and budget planning. Your scenarios are private to you and synced across your devices.
 >
 > Let me know if the invite doesn't arrive within an hour and I'll resend.
 
