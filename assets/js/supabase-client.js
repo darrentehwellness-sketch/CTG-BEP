@@ -162,8 +162,22 @@
     if (_profileCache && _profileCache._uid === currentUser.id) return _profileCache;
     const { data, error } = await sb.rpc('current_user_profile');
     if (error) { console.error(error); return null; }
-    const row = (data && data[0]) || { role: 'user', entity_id: null, entity_name: null };
-    _profileCache = { _uid: currentUser.id, role: row.role, entity_id: row.entity_id, entity_name: row.entity_name };
+    const row = (data && data[0]) || {};
+    // Cache ALL fields returned by current_user_profile() — not just role/entity.
+    // Otherwise the Settings tab can't pre-fill the saved profile values.
+    _profileCache = {
+      _uid: currentUser.id,
+      role:         row.role         || 'user',
+      entity_id:    row.entity_id    || null,
+      entity_name:  row.entity_name  || null,
+      full_name:    row.full_name    || '',
+      display_name: row.display_name || '',
+      job_title:    row.job_title    || '',
+      department:   row.department   || '',
+      phone:        row.phone        || '',
+      mobile:       row.mobile       || '',
+      bio:          row.bio          || ''
+    };
     return _profileCache;
   }
 
