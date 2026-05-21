@@ -2357,7 +2357,10 @@ async function renderEntitiesTab(){
   const admin = await CTG.isAppAdmin();
   document.getElementById('entitiesAdmin').style.display  = admin ? 'block' : 'none';
   document.getElementById('entitiesDenied').style.display = admin ? 'none'  : 'block';
-  document.getElementById('entityFormCard').style.display = 'none';
+  // NB: do NOT touch entityFormCard display here. Its open/closed state is owned
+  // by openEntityForm / Cancel button only. If we hid it here, re-runs of this
+  // function (e.g. from TOKEN_REFRESHED on tab refocus) would wipe a half-typed
+  // form out from under the user.
   if(!admin) return;
 
   await refreshEntitiesCache();
@@ -2415,8 +2418,28 @@ function openEntityForm(entity){
 }
 
 document.getElementById('btnNewEntity').onclick     = ()=>openEntityForm(null);
-document.getElementById('btnCancelEntity').onclick  = ()=>{ document.getElementById('entityFormCard').style.display = 'none'; };
+document.getElementById('btnCancelEntity').onclick  = ()=>{
+  // Warn if the form has any non-empty user input so an accidental click doesn't wipe work
+  const form = document.getElementById('formEntity');
+  const dirty = Array.from(form.querySelectorAll('input')).some(inp =>
+    inp.type === 'checkbox' ? false : (inp.value && inp.value.trim() && inp.id !== 'entCountry')
+  );
+  if(dirty && !confirm('Discard changes?')) return;
+  document.getElementById('entityFormCard').style.display = 'none';
+  form.reset();
+  document.getElementById('entityId').value = '';
+};
 document.getElementById('btnRefreshEntities').onclick = renderEntitiesTab;
+
+// Warn on browser close/reload while form is open and dirty (browser shows native dialog)
+window.addEventListener('beforeunload', e => {
+  const card = document.getElementById('entityFormCard');
+  if(!card || card.style.display === 'none') return;
+  const dirty = Array.from(document.getElementById('formEntity').querySelectorAll('input')).some(inp =>
+    inp.type === 'checkbox' ? false : (inp.value && inp.value.trim() && inp.id !== 'entCountry')
+  );
+  if(dirty){ e.preventDefault(); e.returnValue = ''; }
+});
 
 document.getElementById('formEntity').addEventListener('submit', async e=>{
   e.preventDefault();
@@ -2544,6 +2567,13 @@ async function init(){
   CTG.onAuth(async ({ event, user }) => {
     renderAuthUI();
     updateStorageNote();
+
+    // TOKEN_REFRESHED fires whenever Supabase silently rotates the access token
+    // (every ~50 min, or after each browser-tab refocus). The session is the same
+    // user, no data has changed — so we skip the heavy data re-fetches that would
+    // otherwise re-render tab panels and wipe in-progress forms.
+    if(event === 'TOKEN_REFRESHED') return;
+
     // Password reset link → "set new password" form.
     if(event === 'PASSWORD_RECOVERY'){
       window.__authInviteMode = false;
