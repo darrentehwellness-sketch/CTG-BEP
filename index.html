@@ -488,7 +488,7 @@
   canvas{max-width:100%;}
 
   /* ============ TOAST ============ */
-  .toast-stack{position:fixed;right:24px;bottom:24px;z-index:200;display:flex;flex-direction:column;gap:10px;}
+  .toast-stack{position:fixed;right:24px;bottom:24px;z-index:500;display:flex;flex-direction:column;gap:10px;}
   .toast{
     min-width:280px;max-width:380px;background:#0C1421;border:1px solid var(--border-strong);
     padding:14px 18px;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.6);
@@ -586,7 +586,8 @@
   .login-footer b{color:var(--coral-soft);letter-spacing:2.5px;font-weight:800;}
 
   /* ============ AUTH MODAL ============ */
-  .auth-modal{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;padding:20px;}
+  /* z-index above the login gate (300) so Forgot Password / Recovery forms appear on top of it */
+  .auth-modal{position:fixed;inset:0;z-index:400;display:none;align-items:center;justify-content:center;padding:20px;}
   .auth-modal.open{display:flex;animation:fadeIn .2s ease;}
   .auth-backdrop{position:absolute;inset:0;background:rgba(5,10,18,.78);backdrop-filter:blur(6px);}
   .auth-card{
