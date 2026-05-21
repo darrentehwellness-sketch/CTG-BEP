@@ -883,6 +883,50 @@
   .migrate-banner .msg{flex:1;font-size:13px;color:var(--text);}
   .migrate-banner .msg b{color:var(--sky-soft);}
 
+  /* ============ PRODUCT COSTING — MARGIN FLAGS ============ */
+  .pc-flag{display:inline-block;font-size:14px;line-height:1;vertical-align:middle;margin-right:2px;}
+  .pc-flag-red   { color:#ef4444;text-shadow:0 0 8px rgba(239,68,68,.6); }
+  .pc-flag-amber { color:#f59e0b;text-shadow:0 0 8px rgba(245,158,11,.6); }
+  .pc-flag-green { color:#10b981;text-shadow:0 0 8px rgba(16,185,129,.6); }
+  .pc-flag-grey  { color:#64748b; }
+  .pc-margin-cell{
+    display:inline-flex;align-items:center;gap:6px;font-weight:700;
+    padding:3px 8px;border-radius:6px;font-size:12.5px;
+  }
+  .pc-margin-cell.red   { background:rgba(239,68,68,.10);  color:#fca5a5; border:1px solid rgba(239,68,68,.30); }
+  .pc-margin-cell.amber { background:rgba(245,158,11,.10); color:#fcd34d; border:1px solid rgba(245,158,11,.30); }
+  .pc-margin-cell.green { background:rgba(16,185,129,.10); color:#6ee7b7; border:1px solid rgba(16,185,129,.30); }
+  .pc-margin-cell.grey  { background:rgba(100,116,139,.10);color:#cbd5e1; border:1px solid rgba(100,116,139,.30); }
+  .pc-sku-btn{
+    background:rgba(91,155,213,.10);border:1px dashed rgba(91,155,213,.45);color:var(--sky-soft);
+    width:24px;height:24px;border-radius:6px;cursor:pointer;font-size:12px;padding:0;
+    display:inline-flex;align-items:center;justify-content:center;margin-left:6px;line-height:1;
+  }
+  .pc-sku-btn:hover{background:rgba(91,155,213,.20);transform:none;box-shadow:none;}
+  .pc-sku-cell{display:flex;align-items:center;gap:4px;}
+  .pc-sku-cell input{flex:1;min-width:0;}
+
+  /* ============ GENERIC MODAL (Package SKU dialog) ============ */
+  .modal{position:fixed;inset:0;z-index:450;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .modal-bg{position:absolute;inset:0;background:rgba(5,10,18,.78);backdrop-filter:blur(6px);}
+  .modal-card{
+    position:relative;width:100%;
+    background:linear-gradient(180deg,#131C2D,#0C1421);
+    border:1px solid var(--border-strong);border-radius:14px;
+    box-shadow:0 30px 80px rgba(0,0,0,.7);color:var(--text);
+    max-height:90vh;display:flex;flex-direction:column;
+  }
+  .modal-head{
+    padding:18px 22px;border-bottom:1px solid var(--border);
+    display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+  }
+  .modal-head h3{margin:0;font-size:16px;color:#fff;font-weight:700;}
+  .modal-body{padding:18px 22px;overflow-y:auto;flex:1 1 auto;}
+  .modal-foot{
+    padding:14px 22px;border-top:1px solid var(--border);
+    display:flex;align-items:center;justify-content:flex-end;gap:10px;
+  }
+
   /* ============ PRINT ============ */
   @media print{
     header,.tabs,.toolbar,.add-row,.action,button,.toast-stack,.migrate-banner{display:none !important;}
@@ -1070,14 +1114,14 @@
       </div>
     </div>
 
-    <!-- Section: E-Commerce -->
+    <!-- Section: Product Calculator -->
     <div class="tab-section">
       <button class="tab-section-toggle" data-section-id="ecomm" type="button">
-        <span data-i18n="nav_sec_ecomm">E-Commerce</span>
+        <span data-i18n="nav_sec_ecomm">Product Calculator</span>
         <svg class="chevron"><use href="#i-chevron-down"/></svg>
       </button>
       <div class="tab-section-items">
-        <button class="tab-btn" data-tab="pcalc" title="Product Costing & ROAS"><svg class="ic"><use href="#i-cart"/></svg><span data-i18n="tab_pcalc">Product Costing & ROAS</span></button>
+        <button class="tab-btn" data-tab="pcalc" title="Product Costing Calculator"><svg class="ic"><use href="#i-cart"/></svg><span data-i18n="tab_pcalc">Product Costing Calculator</span></button>
       </div>
     </div>
 
@@ -1318,7 +1362,7 @@
   </div>
 
   <!-- ============================================================== -->
-  <!-- TAB: PRODUCT COSTING & ROAS (e-commerce) -->
+  <!-- TAB: PRODUCT COSTING CALCULATOR -->
   <!-- ============================================================== -->
   <div class="tab-panel" id="tab-pcalc">
 
@@ -1328,64 +1372,80 @@
       <button class="success" id="btnPcSave">⭐ <span data-i18n="pc_save_btn">Save as Scenario</span></button>
       <button class="accent" id="btnPcExport">⬇ <span data-i18n="export">Export CSV</span></button>
       <div style="flex:1"></div>
-      <span class="note" data-i18n="pc_note">Auto-saved on this device · Independent from Exhibition BEP</span>
+      <span class="note" data-i18n="pc_note">Auto-saved on this device · Sign in to keep scenarios in the cloud</span>
     </div>
 
     <!-- KPI strip -->
     <div class="grid-4" style="margin-bottom:20px;">
-      <div class="kpi"><div class="label"><span class="dot"></span><span data-i18n="pc_kpi_margin">Blended Gross Margin</span></div><div class="value" id="pcKpiMargin">—</div><div class="sub" data-i18n="pc_kpi_margin_sub">After COGS, fulfilment, fees</div></div>
-      <div class="kpi warn"><div class="label"><span class="dot"></span><span data-i18n="pc_kpi_be_roas">Break-Even ROAS</span></div><div class="value" id="pcKpiBeRoas">—</div><div class="sub">1 ÷ Margin %</div></div>
-      <div class="kpi success"><div class="label"><span class="dot"></span><span data-i18n="pc_kpi_blended_roas">Blended ROAS (actual)</span></div><div class="value" id="pcKpiBlendedRoas">—</div><div class="sub" data-i18n="pc_kpi_blended_sub">Σ Revenue ÷ Σ Ad Spend</div></div>
-      <div class="kpi danger"><div class="label"><span class="dot"></span><span data-i18n="pc_kpi_net_profit">Net Profit (after ads)</span></div><div class="value" id="pcKpiNetProfit">—</div><div class="sub" id="pcKpiNetProfitSub">—</div></div>
+      <div class="kpi"><div class="label"><span class="dot"></span><span data-i18n="pc_kpi_revenue">Total Revenue</span></div><div class="value" id="pcKpiRevenue">—</div><div class="sub" data-i18n="pc_kpi_revenue_sub">Σ Selling × Units</div></div>
+      <div class="kpi warn"><div class="label"><span class="dot"></span><span data-i18n="pc_kpi_cost">Total Landed Cost</span></div><div class="value" id="pcKpiCost">—</div><div class="sub" data-i18n="pc_kpi_cost_sub">SKU + Duties + Freight + Storage + Pack</div></div>
+      <div class="kpi success"><div class="label"><span class="dot"></span><span data-i18n="pc_kpi_contrib">Net Contribution</span></div><div class="value" id="pcKpiContrib">—</div><div class="sub" data-i18n="pc_kpi_contrib_sub">After platform + gateway fees</div></div>
+      <div class="kpi danger"><div class="label"><span class="dot"></span><span data-i18n="pc_kpi_margin">Avg Margin %</span></div><div class="value" id="pcKpiMargin">—</div><div class="sub" id="pcKpiMarginSub" data-i18n="pc_kpi_margin_sub">Weighted by revenue</div></div>
     </div>
 
-    <!-- Profitability verdict banner -->
-    <div class="card" id="pcVerdictCard" style="padding:18px 22px;margin-bottom:20px;">
-      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-        <div id="pcVerdictIcon" style="font-size:32px;line-height:1;">⚖️</div>
-        <div style="flex:1;min-width:200px;">
-          <div id="pcVerdictTitle" style="font-size:16px;font-weight:700;color:#fff;margin-bottom:4px;">—</div>
-          <div id="pcVerdictDesc" style="font-size:13px;color:var(--text-soft);">—</div>
+    <!-- Section 1: Fee Configuration -->
+    <div class="card">
+      <h2><span class="ic">①</span><span data-i18n="pc_fee_title">Fee Configuration</span><span class="badge" data-i18n="pc_fee_badge">Platform + Payment Gateway</span></h2>
+      <p class="note" data-i18n="pc_fee_help">Select the marketplace and the payment gateway you use. Combined fee % is applied to every product below.</p>
+      <div class="grid-3" style="margin-top:14px;">
+        <div class="input-group">
+          <label data-i18n="pc_fee_platform_label">Platform (merchant/commission fee)</label>
+          <select id="pcFeePlatform" style="width:100%;padding:11px 14px;border:1px solid var(--border-strong);border-radius:8px;background:rgba(7,13,23,.6);color:var(--text);font:inherit;"></select>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+            <span class="note" data-i18n="pc_fee_pct_label">Fee %:</span>
+            <input type="number" id="pcFeePlatformPct" min="0" max="100" step="0.1" value="0" style="width:90px;"/>
+          </div>
         </div>
-        <div style="text-align:right;">
-          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">ROAS vs BE</div>
-          <div id="pcVerdictDelta" style="font-size:20px;font-weight:800;">—</div>
+        <div class="input-group">
+          <label data-i18n="pc_fee_gateway_label">Payment gateway fee</label>
+          <select id="pcFeeGateway" style="width:100%;padding:11px 14px;border:1px solid var(--border-strong);border-radius:8px;background:rgba(7,13,23,.6);color:var(--text);font:inherit;"></select>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+            <span class="note" data-i18n="pc_fee_pct_label">Fee %:</span>
+            <input type="number" id="pcFeeGatewayPct" min="0" max="100" step="0.1" value="2.9" style="width:90px;"/>
+          </div>
+        </div>
+        <div class="kpi" style="margin:0;">
+          <div class="label"><span class="dot"></span><span data-i18n="pc_fee_combined_label">Combined fee %</span></div>
+          <div class="value" id="pcFeeCombined">—</div>
+          <div class="sub" data-i18n="pc_fee_combined_sub">Applied to every product</div>
         </div>
       </div>
     </div>
 
-    <!-- Section 1: Product Pricing -->
+    <!-- Section 2: Product Cost Build-Up -->
     <div class="card">
-      <h2><span class="ic">①</span><span data-i18n="pc_products_title">Product Pricing & Unit Economics</span><span class="badge" data-i18n="pc_products_badge">Cost build-up</span></h2>
+      <h2><span class="ic">②</span><span data-i18n="pc_products_title">Product Cost Build-Up</span><span class="badge" data-i18n="pc_products_badge">Landed cost → margin flag</span></h2>
       <div class="legend">
-        <span data-i18n="pc_products_legend1">Selling Price − COGS − Packaging − Shipping − Fees = Contribution per unit</span>
+        <span data-i18n="pc_products_legend1">SKU + Duties + Inbound Freight + Warehousing + Packaging = Landed Cost · Benchmark % drives the suggested price</span>
       </div>
       <div class="table-wrap">
       <table id="pcProductsTable">
         <thead><tr>
-          <th style="width:40px;">No</th>
+          <th style="width:36px;">No</th>
           <th data-i18n="pc_th_name">Product Name</th>
-          <th style="width:140px;" data-i18n="pc_th_platform">Platform</th>
-          <th style="width:80px;" data-i18n="pc_th_qty">Units</th>
+          <th style="width:70px;" data-i18n="pc_th_units">Units</th>
+          <th style="width:130px;" data-i18n="pc_th_sku">Package SKU Cost</th>
+          <th style="width:80px;" data-i18n="pc_th_duties">Duties %</th>
+          <th style="width:100px;" data-i18n="pc_th_freight">Inbound Freight</th>
+          <th style="width:100px;" data-i18n="pc_th_warehouse">Warehousing</th>
+          <th style="width:100px;" data-i18n="pc_th_pack_mat">Packaging Mat.</th>
+          <th style="width:100px;" data-i18n="pc_th_landed">Landed/Unit</th>
+          <th style="width:90px;" data-i18n="pc_th_benchmark">Benchmark %</th>
+          <th style="width:110px;" data-i18n="pc_th_suggested">Suggested Price</th>
           <th style="width:110px;" data-i18n="pc_th_selling">Selling Price</th>
-          <th style="width:100px;" data-i18n="pc_th_cogs">COGS</th>
-          <th style="width:90px;" data-i18n="pc_th_pack">Packaging</th>
-          <th style="width:130px;" data-i18n="pc_th_courier">Courier</th>
-          <th style="width:90px;" data-i18n="pc_th_ship">Shipping</th>
-          <th style="width:90px;" data-i18n="pc_th_payfee">Payment %</th>
-          <th style="width:90px;" data-i18n="pc_th_platfee">Platform %</th>
-          <th style="width:100px;" data-i18n="pc_th_contrib">Contrib./Unit</th>
-          <th style="width:80px;" data-i18n="pc_th_margin">Margin %</th>
-          <th style="width:42px;"></th>
+          <th style="width:115px;" data-i18n="pc_th_margin">Margin % / Flag</th>
+          <th style="width:36px;"></th>
         </tr></thead>
         <tbody></tbody>
         <tfoot>
           <tr>
-            <td colspan="3" style="text-align:right;" data-i18n="pc_tf_totals">Totals:</td>
+            <td colspan="2" style="text-align:right;" data-i18n="pc_tf_totals">Totals:</td>
             <td class="num" id="pcProdTotUnits">—</td>
+            <td class="num" colspan="5" id="pcProdTotLanded">—</td>
+            <td class="num" id="pcProdAvgLanded">—</td>
+            <td></td>
+            <td></td>
             <td class="num" id="pcProdTotRevenue">—</td>
-            <td class="num" colspan="6" id="pcProdTotCosts">—</td>
-            <td class="num" id="pcProdTotContrib">—</td>
             <td class="pct" id="pcProdAvgMargin">—</td>
             <td></td>
           </tr>
@@ -1393,93 +1453,75 @@
       </table>
       </div>
       <div class="add-row"><button id="btnPcAddProduct">+ <span data-i18n="pc_add_product">Add Product</span></button></div>
-    </div>
 
-    <!-- Section 2: Ad Channels -->
-    <div class="card">
-      <h2><span class="ic">②</span><span data-i18n="pc_channels_title">Ad Channels & ROAS</span><span class="badge" data-i18n="pc_channels_badge">Meta · ManyChat · +</span></h2>
-      <div class="legend">
-        <span data-i18n="pc_channels_legend1">Revenue = Orders × AOV · ROAS = Revenue ÷ Spend · CPA = Spend ÷ Orders</span>
+      <!-- Flag legend -->
+      <div style="margin-top:14px;padding:12px 16px;background:rgba(7,13,23,.4);border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;font-size:12.5px;">
+        <span style="color:var(--text-soft);font-weight:700;letter-spacing:.4px;text-transform:uppercase;font-size:11px;" data-i18n="pc_flag_legend">Margin flag bands:</span>
+        <span><span class="pc-flag pc-flag-red">●</span> <span data-i18n="pc_flag_red">Below 70%</span></span>
+        <span><span class="pc-flag pc-flag-amber">●</span> <span data-i18n="pc_flag_amber">70 – 74.99%</span></span>
+        <span><span class="pc-flag pc-flag-green">●</span> <span data-i18n="pc_flag_green">75% and above</span></span>
       </div>
-      <div class="table-wrap">
-      <table id="pcChannelsTable">
-        <thead><tr>
-          <th style="width:40px;">No</th>
-          <th data-i18n="pc_th_channel">Channel</th>
-          <th style="width:120px;" data-i18n="pc_th_spend">Ad Spend</th>
-          <th style="width:90px;" data-i18n="pc_th_orders">Orders</th>
-          <th style="width:110px;" data-i18n="pc_th_aov">AOV</th>
-          <th style="width:120px;" data-i18n="pc_th_revenue">Revenue</th>
-          <th style="width:90px;" data-i18n="pc_th_roas">ROAS</th>
-          <th style="width:90px;" data-i18n="pc_th_cpa">CPA</th>
-          <th style="width:120px;" data-i18n="pc_th_net">Net (after Ad)</th>
-          <th style="width:42px;"></th>
-        </tr></thead>
-        <tbody></tbody>
-        <tfoot>
-          <tr>
-            <td colspan="2" style="text-align:right;" data-i18n="pc_tf_totals">Totals:</td>
-            <td class="num" id="pcChTotSpend">—</td>
-            <td class="num" id="pcChTotOrders">—</td>
-            <td class="num" id="pcChAvgAov">—</td>
-            <td class="num" id="pcChTotRevenue">—</td>
-            <td class="num" id="pcChBlendedRoas">—</td>
-            <td class="num" id="pcChAvgCpa">—</td>
-            <td class="num" id="pcChTotNet">—</td>
-            <td></td>
-          </tr>
-        </tfoot>
-      </table>
-      </div>
-      <div class="add-row"><button id="btnPcAddChannel">+ <span data-i18n="pc_add_channel">Add Channel</span></button></div>
-      <details>
+
+      <details style="margin-top:14px;">
         <summary>📖 <span data-i18n="pc_show_logic">Show calculation logic</span></summary>
         <div class="formula" data-i18n="pc_logic">
-          1. <b>Contribution per unit</b> = Selling Price × (1 − Payment% − Platform%) − COGS − Packaging − Shipping<br/>
-          2. <b>Blended Margin %</b> = Σ(Contribution × Units) ÷ Σ(Revenue)<br/>
-          3. <b>Break-Even ROAS</b> = 1 ÷ Margin % &nbsp;<i>(e.g. 40% margin → 2.5× BE ROAS)</i><br/>
-          4. <b>Channel ROAS</b> = (Orders × AOV) ÷ Ad Spend<br/>
-          5. <b>Channel Net</b> = (Revenue × Margin %) − Ad Spend<br/>
-          6. <b>Verdict</b>: Profitable if Blended ROAS &gt; Break-Even ROAS
+          1. <b>Landed Unit Cost</b> = Package SKU Cost + (SKU × Duties%) + Inbound Freight + Warehousing + Packaging<br/>
+          2. <b>Net Revenue/Unit</b> = Selling Price × (1 − Combined Fee%)<br/>
+          3. <b>Contribution/Unit</b> = Net Revenue/Unit − Landed Unit Cost<br/>
+          4. <b>Margin %</b> = Contribution/Unit ÷ Selling Price<br/>
+          5. <b>Suggested Price</b> = Landed Unit Cost ÷ ((1 − Combined Fee%) − Benchmark%)<br/>
+          6. <b>Flag</b>: 0–69.9% Red · 70–74.99% Amber · 75–100% Green
         </div>
       </details>
     </div>
 
-    <!-- Section 3: Target ROAS Calculator -->
+    <!-- Section 3: Saved Scenarios (DB-backed) -->
     <div class="card">
-      <h2><span class="ic">③</span><span data-i18n="pc_target_title">Target ROAS Calculator</span><span class="badge" data-i18n="pc_target_badge">What ROAS do I need?</span></h2>
-      <p class="note" data-i18n="pc_target_help">Set a target net profit % and see the minimum ROAS your ads need to deliver. Uses your current Blended Margin from Section ①.</p>
-      <div class="grid-3" style="margin-top:14px;">
-        <div class="input-group">
-          <label data-i18n="pc_target_label">Target net profit (% of revenue)</label>
-          <input type="number" id="pcTargetProfitPct" min="0" max="99" step="0.5" value="20"/>
-        </div>
-        <div class="kpi" style="margin:0;">
-          <div class="label"><span class="dot"></span><span data-i18n="pc_target_required">Required ROAS</span></div>
-          <div class="value" id="pcTargetRequiredRoas">—</div>
-          <div class="sub" id="pcTargetRequiredSub">—</div>
-        </div>
-        <div class="kpi success" style="margin:0;">
-          <div class="label"><span class="dot"></span><span data-i18n="pc_target_status">Status vs current</span></div>
-          <div class="value" id="pcTargetStatus" style="font-size:18px;">—</div>
-          <div class="sub" id="pcTargetStatusSub">—</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Section 4: Channel Comparison Chart -->
-    <div class="card">
-      <h2><span class="ic">④</span><span data-i18n="pc_chart_title">Channel Comparison</span><span class="badge" data-i18n="pc_chart_badge">Spend · Revenue · Net</span></h2>
-      <div class="chart-box" style="margin-top:8px;border:none;padding:0;background:transparent;box-shadow:none;">
-        <canvas id="pcChannelChart" height="90"></canvas>
-      </div>
-    </div>
-
-    <!-- Section 5: Saved Scenarios (DB-backed) -->
-    <div class="card">
-      <h2><span class="ic">⑤</span><span data-i18n="pc_saved_title">Saved Scenarios</span></h2>
+      <h2><span class="ic">③</span><span data-i18n="pc_saved_title">Saved Scenarios</span></h2>
       <div id="pcSavedList" style="display:flex;flex-direction:column;gap:8px;">
         <p class="note" data-i18n="pc_saved_empty">No saved costings yet. Click Save to keep this configuration.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Package SKU Calculation modal -->
+  <div id="pcSkuModal" class="modal" style="display:none;">
+    <div class="modal-bg" data-pc-sku-close></div>
+    <div class="modal-card" style="max-width:680px;">
+      <div class="modal-head">
+        <div>
+          <h3 style="margin:0;" data-i18n="pc_sku_modal_title">Package SKU Calculation</h3>
+          <p class="note" style="margin:4px 0 0 0;" id="pcSkuModalSub">—</p>
+        </div>
+        <button class="ghost" data-pc-sku-close aria-label="close">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="note" data-i18n="pc_sku_help">Break the package down into its component SKUs (e.g., bottle + cap + box + leaflet). The total auto-fills the Package SKU Cost column.</p>
+        <div class="table-wrap">
+          <table id="pcSkuTable">
+            <thead><tr>
+              <th style="width:30px;">No</th>
+              <th data-i18n="pc_sku_th_name">Component</th>
+              <th style="width:80px;" data-i18n="pc_sku_th_qty">Qty / Pkg</th>
+              <th style="width:110px;" data-i18n="pc_sku_th_cost">Unit Cost</th>
+              <th style="width:110px;" data-i18n="pc_sku_th_sub">Subtotal</th>
+              <th style="width:36px;"></th>
+            </tr></thead>
+            <tbody></tbody>
+            <tfoot>
+              <tr>
+                <td colspan="4" style="text-align:right;font-weight:700;" data-i18n="pc_sku_total">Package SKU Cost:</td>
+                <td class="num" id="pcSkuTotal" style="font-weight:800;color:var(--accent);">—</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <div class="add-row" style="margin-top:8px;"><button id="btnPcSkuAdd">+ <span data-i18n="pc_sku_add">Add Component</span></button></div>
+      </div>
+      <div class="modal-foot">
+        <button class="ghost" data-pc-sku-close data-i18n="auth_close">Close</button>
+        <button class="accent" id="btnPcSkuApply" data-i18n="pc_sku_apply">Apply to Product</button>
       </div>
     </div>
   </div>
@@ -1964,48 +2006,54 @@ const I18N = {
     tab_calc:"Calculator", tab_setup:"Cost Setup", tab_compare:"Compare Scenarios", tab_sens:"Sensitivity Analysis",
     tab_settings:"Settings", tab_users:"User Management",
     nav_sec_bep:"Exhibition BEP", nav_sec_account:"Account", nav_sec_admin:"Admin",
-    nav_sec_ecomm:"E-Commerce", tab_pcalc:"Product Costing & ROAS",
+    nav_sec_ecomm:"Product Calculator", tab_pcalc:"Product Costing Calculator",
     // Page header subtitles per tab
     page_sub_calc:"Build budgets and compute break-even in real-time",
     page_sub_setup:"Manage products and cost line items",
     page_sub_compare:"Side-by-side comparison of saved scenarios",
     page_sub_sens:"How changes in sales target and fixed cost affect the break-even point",
-    page_sub_pcalc:"Cost build-up and ROAS analysis for e-commerce",
+    page_sub_pcalc:"Landed cost build-up, benchmark margin & best selling price",
     page_sub_settings:"Profile, password, appearance",
     page_sub_entities:"Manage JV partner companies",
     page_sub_users:"Add, edit, and assign users to entities",
-    pc_note:"Auto-saved on this device · Independent from Exhibition BEP",
-    pc_kpi_margin:"Blended Gross Margin", pc_kpi_margin_sub:"After COGS, fulfilment, fees",
-    pc_kpi_be_roas:"Break-Even ROAS",
-    pc_kpi_blended_roas:"Blended ROAS (actual)", pc_kpi_blended_sub:"Σ Revenue ÷ Σ Ad Spend",
-    pc_kpi_net_profit:"Net Profit (after ads)",
-    pc_products_title:"Product Pricing & Unit Economics", pc_products_badge:"Cost build-up",
-    pc_products_legend1:"Selling Price − COGS − Packaging − Shipping − Fees = Contribution per unit",
-    pc_th_name:"Product Name", pc_th_platform:"Platform", pc_th_qty:"Units", pc_th_selling:"Selling Price", pc_th_cogs:"COGS",
-    pc_th_pack:"Packaging", pc_th_courier:"Courier", pc_th_ship:"Shipping", pc_th_payfee:"Payment %", pc_th_platfee:"Platform %",
-    pc_th_contrib:"Contrib./Unit", pc_th_margin:"Margin %",
+    pc_note:"Auto-saved on this device · Sign in to keep scenarios in the cloud",
+    // KPI strip
+    pc_kpi_revenue:"Total Revenue", pc_kpi_revenue_sub:"Σ Selling × Units",
+    pc_kpi_cost:"Total Landed Cost", pc_kpi_cost_sub:"SKU + Duties + Freight + Storage + Pack",
+    pc_kpi_contrib:"Net Contribution", pc_kpi_contrib_sub:"After platform + gateway fees",
+    pc_kpi_margin:"Avg Margin %", pc_kpi_margin_sub:"Weighted by revenue",
+    // Fee config panel
+    pc_fee_title:"Fee Configuration", pc_fee_badge:"Platform + Payment Gateway",
+    pc_fee_help:"Select the marketplace and the payment gateway you use. Combined fee % is applied to every product below.",
+    pc_fee_platform_label:"Platform (merchant/commission fee)",
+    pc_fee_gateway_label:"Payment gateway fee",
+    pc_fee_pct_label:"Fee %:",
+    pc_fee_combined_label:"Combined fee %",
+    pc_fee_combined_sub:"Applied to every product",
+    // Product table
+    pc_products_title:"Product Cost Build-Up", pc_products_badge:"Landed cost → margin flag",
+    pc_products_legend1:"SKU + Duties + Inbound Freight + Warehousing + Packaging = Landed Cost · Benchmark % drives the suggested price",
+    pc_th_name:"Product Name", pc_th_units:"Units",
+    pc_th_sku:"Package SKU Cost", pc_th_duties:"Duties %",
+    pc_th_freight:"Inbound Freight", pc_th_warehouse:"Warehousing", pc_th_pack_mat:"Packaging Mat.",
+    pc_th_landed:"Landed/Unit", pc_th_benchmark:"Benchmark %", pc_th_suggested:"Suggested Price",
+    pc_th_selling:"Selling Price", pc_th_margin:"Margin % / Flag",
     pc_tf_totals:"Totals:",
-    pc_add_product:"Add Product", pc_add_channel:"Add Channel",
-    pc_channels_title:"Ad Channels & ROAS", pc_channels_badge:"Meta · ManyChat · +",
-    pc_channels_legend1:"Revenue = Orders × AOV · ROAS = Revenue ÷ Spend · CPA = Spend ÷ Orders",
-    pc_th_channel:"Channel", pc_th_spend:"Ad Spend", pc_th_orders:"Orders", pc_th_aov:"AOV",
-    pc_th_revenue:"Revenue", pc_th_roas:"ROAS", pc_th_cpa:"CPA", pc_th_net:"Net (after Ad)",
+    pc_add_product:"Add Product",
+    pc_flag_legend:"Margin flag bands:",
+    pc_flag_red:"Below 70%", pc_flag_amber:"70 – 74.99%", pc_flag_green:"75% and above",
     pc_show_logic:"Show calculation logic",
-    pc_logic:"1. <b>Contribution per unit</b> = Selling Price × (1 − Payment% − Platform%) − COGS − Packaging − Shipping<br/>2. <b>Blended Margin %</b> = Σ(Contribution × Units) ÷ Σ(Revenue)<br/>3. <b>Break-Even ROAS</b> = 1 ÷ Margin %<br/>4. <b>Channel ROAS</b> = (Orders × AOV) ÷ Ad Spend<br/>5. <b>Channel Net</b> = (Revenue × Margin %) − Ad Spend<br/>6. <b>Verdict</b>: Profitable if Blended ROAS &gt; Break-Even ROAS",
-    pc_verdict_profitable:"Profitable", pc_verdict_break:"Break-Even", pc_verdict_loss:"Loss-making",
-    pc_verdict_desc_profit:"Your blended ROAS is above the break-even line. Each dollar of ad spend brings back more than its cost.",
-    pc_verdict_desc_break:"You're roughly at break-even on ads. Small changes in cost or conversion could swing it either way.",
-    pc_verdict_desc_loss:"Your blended ROAS is below the break-even line. Reduce CPA, lift AOV, or improve product margin.",
-    pc_verdict_desc_nodata:"Add products + ad channels to see your profitability verdict.",
-    pc_default_meta:"Meta Ads", pc_default_manychat:"ManyChat",
-    pc_target_title:"Target ROAS Calculator", pc_target_badge:"What ROAS do I need?",
-    pc_target_help:"Set a target net profit % and see the minimum ROAS your ads need to deliver. Uses your current Blended Margin from Section ①.",
-    pc_target_label:"Target net profit (% of revenue)",
-    pc_target_required:"Required ROAS", pc_target_status:"Status vs current",
-    pc_target_unreachable:"Unreachable (target > margin)",
-    pc_target_above:"Above target by", pc_target_below:"Below target by",
-    pc_chart_title:"Channel Comparison", pc_chart_badge:"Spend · Revenue · Net",
-    pc_chart_spend:"Ad Spend", pc_chart_revenue:"Revenue", pc_chart_net:"Net (after ad)",
+    pc_logic:"1. <b>Landed Unit Cost</b> = Package SKU Cost + (SKU × Duties%) + Inbound Freight + Warehousing + Packaging<br/>2. <b>Net Revenue/Unit</b> = Selling Price × (1 − Combined Fee%)<br/>3. <b>Contribution/Unit</b> = Net Revenue/Unit − Landed Unit Cost<br/>4. <b>Margin %</b> = Contribution/Unit ÷ Selling Price<br/>5. <b>Suggested Price</b> = Landed Unit Cost ÷ ((1 − Combined Fee%) − Benchmark%)<br/>6. <b>Flag</b>: 0–69.9% Red · 70–74.99% Amber · 75–100% Green",
+    // Package SKU modal
+    pc_sku_btn_title:"Open Package SKU Calculation",
+    pc_sku_modal_title:"Package SKU Calculation",
+    pc_sku_help:"Break the package down into its component SKUs (e.g., bottle + cap + box + leaflet). The total auto-fills the Package SKU Cost column.",
+    pc_sku_th_name:"Component", pc_sku_th_qty:"Qty / Pkg", pc_sku_th_cost:"Unit Cost", pc_sku_th_sub:"Subtotal",
+    pc_sku_total:"Package SKU Cost:",
+    pc_sku_add:"Add Component",
+    pc_sku_apply:"Apply to Product",
+    pc_sku_empty:"Click + Add Component to start building the package.",
+    // Saved scenarios
     pc_save_btn:"Save as Scenario", pc_saved_title:"Saved Scenarios",
     pc_saved_empty:"No saved costings yet. Click Save to keep this configuration.",
     pc_save_prompt:"Name this scenario:", pc_saved_ok:"Scenario saved.",
@@ -2405,7 +2453,7 @@ function clampNum(v, max){
         { sel: '#productTable',     fallback: 'Product' },
         { sel: '#costTable',        fallback: 'Cost item' },
         { sel: '#pcProductsTable',  fallback: 'Product' },
-        { sel: '#pcChannelsTable',  fallback: 'Channel' }
+        { sel: '#pcSkuTable',       fallback: 'Component' }
       ];
       for(const { sel, fallback } of tables){
         if(t.closest(sel)){
@@ -3363,547 +3411,537 @@ document.getElementById('btnMigrateDismiss').onclick = ()=>{
 };
 
 /* ============================================================
-   PRODUCT COSTING & ROAS CALCULATOR (e-commerce)
+   PRODUCT COSTING CALCULATOR
    ============================================================
    Independent from the Exhibition BEP calculator. Stores its
-   state in localStorage under 'ctg_pc_state_v1'.
+   state in localStorage under 'ctg_pc_state_v2'.
+
+   State shape:
+     pcState = {
+       feeConfig: { platformKey, platformPct, gatewayKey, gatewayPct },
+       products:  [{
+         name, units,
+         skuCost, skuComponents:[{name,qty,cost}]|null,
+         dutiesPct, inboundFreight, warehousing, packagingMaterials,
+         benchmarkPct, sellingPrice
+       }]
+     }
 */
-const PC_LS_KEY = 'ctg_pc_state_v1';
+const PC_LS_KEY = 'ctg_pc_state_v2';
 
-// Platform fee presets — picking one auto-fills payment/platform %.
-// Typical Malaysian e-comm rates as of 2026. User can pick "custom" to edit freely.
+// ----- Platform (merchant/commission) presets ---------------------------
+// Picking one auto-fills the platform fee %. "custom" leaves it editable.
 const PC_PLATFORM_PRESETS = {
-  shopify:    { label_en:'Shopify (Stripe)',           label_zh:'Shopify (Stripe)',     payment:2.9, platform:0 },
-  shopify_pay:{ label_en:'Shopify Payments',           label_zh:'Shopify Payments',     payment:2.9, platform:0 },
-  woocommerce:{ label_en:'WooCommerce (own site)',     label_zh:'WooCommerce 自营',      payment:2.9, platform:0 },
-  own_fpx:    { label_en:'Own site (FPX local)',       label_zh:'自营站 (FPX 本地)',     payment:2.0, platform:0 },
-  whatsapp:   { label_en:'WhatsApp Business',          label_zh:'WhatsApp 商业',         payment:2.9, platform:0 },
-  shopee:     { label_en:'Shopee MY',                  label_zh:'Shopee 马来西亚',       payment:1.5, platform:7 },
-  lazada:     { label_en:'Lazada MY',                  label_zh:'Lazada 马来西亚',       payment:1.5, platform:7 },
-  tiktok:     { label_en:'TikTok Shop MY',             label_zh:'TikTok Shop 马来西亚',  payment:1.5, platform:5 },
-  carousell:  { label_en:'Carousell',                  label_zh:'Carousell',            payment:2.9, platform:3 },
-  carousellpro:{ label_en:'Carousell Pro',             label_zh:'Carousell Pro',        payment:2.9, platform:5 },
-  mudah:      { label_en:'Mudah.my',                   label_zh:'Mudah.my',             payment:2.5, platform:3 },
-  grabmart:   { label_en:'GrabMart',                   label_zh:'GrabMart',             payment:2.5, platform:5 },
-  foodpanda:  { label_en:'FoodPanda Mart',             label_zh:'FoodPanda Mart',       payment:2.5, platform:7 },
-  instagram:  { label_en:'Instagram Shop',             label_zh:'Instagram 商店',        payment:2.9, platform:0 },
-  facebook:   { label_en:'Facebook Marketplace',       label_zh:'Facebook Marketplace', payment:2.9, platform:0 },
-  atome:      { label_en:'Atome (BNPL)',               label_zh:'Atome (先买后付)',     payment:5.0, platform:0 },
-  custom:     { label_en:'Custom (manual %)',          label_zh:'自定义 (手动 %)',       payment:null, platform:null }
+  own:         { label:'Own Website (no commission)', pct:0 },
+  shopify:     { label:'Shopify',                     pct:0 },
+  woocommerce: { label:'WooCommerce (own site)',      pct:0 },
+  whatsapp:    { label:'WhatsApp Business',           pct:0 },
+  instagram:   { label:'Instagram Shop',              pct:0 },
+  facebook:    { label:'Facebook Marketplace',        pct:0 },
+  shopee:      { label:'Shopee MY',                   pct:7 },
+  lazada:      { label:'Lazada MY',                   pct:7 },
+  tiktok:      { label:'TikTok Shop MY',              pct:5 },
+  carousell:   { label:'Carousell',                   pct:3 },
+  carousellpro:{ label:'Carousell Pro',               pct:5 },
+  mudah:       { label:'Mudah.my',                    pct:3 },
+  grabmart:    { label:'GrabMart',                    pct:5 },
+  foodpanda:   { label:'FoodPanda Mart',              pct:7 },
+  zalora:      { label:'Zalora MY',                   pct:25 },
+  amazon:      { label:'Amazon SG',                   pct:15 },
+  custom:      { label:'Custom (manual %)',           pct:null }
 };
-function pcPlatformLabel(key){
-  const p = PC_PLATFORM_PRESETS[key] || PC_PLATFORM_PRESETS.custom;
-  return LANG === 'zh' ? p.label_zh : p.label_en;
-}
 
-// Courier presets — picking one auto-fills the per-unit Shipping cost.
-// Typical Malaysian rates for parcels <2kg, peninsular delivery, 2026.
-const PC_COURIER_PRESETS = {
-  jnt:       { label_en:'J&T Express',         label_zh:'J&T 极兔',          ship:5 },
-  poslaju:   { label_en:'Pos Laju',            label_zh:'Pos Laju',          ship:8 },
-  ninjavan:  { label_en:'Ninja Van',           label_zh:'Ninja Van',         ship:6 },
-  dhl:       { label_en:'DHL eCommerce',       label_zh:'DHL eCommerce',     ship:7 },
-  lalamove:  { label_en:'Lalamove same-day',   label_zh:'Lalamove 当日达',    ship:12 },
-  grabexp:   { label_en:'Grab Express',        label_zh:'Grab Express',      ship:10 },
-  shopeexp:  { label_en:'Shopee Express',      label_zh:'Shopee Express',    ship:5 },
-  skynet:    { label_en:'Skynet',              label_zh:'Skynet',            ship:8 },
-  gdex:      { label_en:'GDex',                label_zh:'GDex',              ship:7 },
-  citylink:  { label_en:'City-Link Express',   label_zh:'City-Link Express', ship:8 },
-  aramex:    { label_en:'Aramex',              label_zh:'Aramex',            ship:9 },
-  pickup:    { label_en:'Self pickup',         label_zh:'自取',              ship:0 },
-  custom:    { label_en:'Custom (manual)',     label_zh:'自定义',            ship:null }
+// ----- Payment gateway presets ------------------------------------------
+const PC_GATEWAY_PRESETS = {
+  stripe:    { label:'Stripe',                  pct:2.9 },
+  fpx:       { label:'FPX (Malaysia local)',    pct:2.0 },
+  ipay88:    { label:'iPay88',                  pct:2.5 },
+  eghl:      { label:'eGHL',                    pct:2.9 },
+  molpay:    { label:'Razer Merchant (MOLPay)', pct:2.5 },
+  paypal:    { label:'PayPal',                  pct:3.9 },
+  billplz:   { label:'Billplz',                 pct:2.5 },
+  toyyibpay: { label:'ToyyibPay',               pct:2.0 },
+  atome:     { label:'Atome (BNPL)',            pct:5.0 },
+  shopback:  { label:'ShopBack PayLater',       pct:5.0 },
+  cod:       { label:'Cash on Delivery (0%)',   pct:0 },
+  bank:      { label:'Direct bank transfer',    pct:0 },
+  custom:    { label:'Custom (manual %)',       pct:null }
 };
-function pcCourierLabel(key){
-  const c = PC_COURIER_PRESETS[key] || PC_COURIER_PRESETS.custom;
-  return LANG === 'zh' ? c.label_zh : c.label_en;
-}
 
+// Default product (sensible Malaysian e-comm sample)
 const PC_DEFAULT_PRODUCTS = [
-  // Demonstrate multiple platforms + couriers in defaults
-  { name:'Hero Product (Shopify)',  platform:'shopify', courier:'jnt',     qty:200, sellingPrice:79,  cogs:18, packaging:2, shipping:5, paymentFeePct:2.9, platformFeePct:0 },
-  { name:'Same SKU on Shopee',      platform:'shopee',  courier:'shopeexp',qty:60,  sellingPrice:79,  cogs:18, packaging:2, shipping:5, paymentFeePct:1.5, platformFeePct:7 },
-  { name:'Upsell Bundle (TikTok)',  platform:'tiktok',  courier:'jnt',     qty:40,  sellingPrice:149, cogs:35, packaging:3, shipping:5, paymentFeePct:1.5, platformFeePct:5 },
+  {
+    name:'Sample Product',
+    units:100,
+    skuCost:18,
+    skuComponents:null,
+    dutiesPct:5,
+    inboundFreight:2,
+    warehousing:1.5,
+    packagingMaterials:2,
+    benchmarkPct:72,
+    sellingPrice:89
+  }
 ];
-let PC_DEFAULT_CHANNELS;  // built after i18n loads to use translated default names
-function pcDefaultChannels(){
-  return [
-    { name: t('pc_default_meta'),     spend: 5000, orders: 150, aov: 95 },
-    { name: t('pc_default_manychat'), spend: 250,  orders: 40,  aov: 75 },
-  ];
+function pcDefaultFeeConfig(){
+  return { platformKey:'shopify', platformPct:0, gatewayKey:'stripe', gatewayPct:2.9 };
 }
 
+// Normalize a state object — sanitize numbers, fill in missing fields,
+// migrate from the old v1 (channels/cogs/etc.) shape if found.
 function normalizePcState(s){
-  if(!s || typeof s !== 'object') return s;
-  if(Array.isArray(s.products)){
-    s.products.forEach((p,i) => {
-      p.name = (p.name && String(p.name).trim()) || ('Product_' + (i+1));
-      p.qty           = clampNum(p.qty);
-      p.sellingPrice  = clampNum(p.sellingPrice);
-      p.cogs          = clampNum(p.cogs);
-      p.packaging     = clampNum(p.packaging);
-      p.shipping      = clampNum(p.shipping);
-      p.paymentFeePct = clampNum(p.paymentFeePct, 100);
-      p.platformFeePct= clampNum(p.platformFeePct, 100);
-    });
+  if(!s || typeof s !== 'object') return null;
+  // Old v1 shape detection (had `channels` array OR `cogs` field on products)
+  const looksOld = Array.isArray(s.channels) ||
+                   (Array.isArray(s.products) && s.products.some(p => p && ('cogs' in p || 'sellingPrice' in p && !('skuCost' in p))));
+  if(looksOld){
+    // Best-effort migration: pull what we can, drop the rest.
+    const newProducts = (Array.isArray(s.products) ? s.products : []).map((p,i) => ({
+      name: (p.name && String(p.name).trim()) || ('Product ' + (i+1)),
+      units: clampNum(p.qty || p.units),
+      skuCost: clampNum(p.cogs || p.skuCost),
+      skuComponents: null,
+      dutiesPct: clampNum(p.dutiesPct, 100),
+      inboundFreight: clampNum(p.shipping || p.inboundFreight),
+      warehousing: clampNum(p.warehousing),
+      packagingMaterials: clampNum(p.packaging || p.packagingMaterials),
+      benchmarkPct: clampNum(p.benchmarkPct || 70, 100),
+      sellingPrice: clampNum(p.sellingPrice)
+    }));
+    return { feeConfig: pcDefaultFeeConfig(), products: newProducts.length ? newProducts : deepCopy(PC_DEFAULT_PRODUCTS) };
   }
-  if(Array.isArray(s.channels)){
-    s.channels.forEach((c,i) => {
-      c.name   = (c.name && String(c.name).trim()) || ('Channel ' + (i+1));
-      c.spend  = clampNum(c.spend);
-      c.orders = clampNum(c.orders);
-      c.aov    = clampNum(c.aov);
-    });
-  }
+  // v2 shape — sanitize in place
+  if(!s.feeConfig || typeof s.feeConfig !== 'object') s.feeConfig = pcDefaultFeeConfig();
+  s.feeConfig.platformKey = s.feeConfig.platformKey || 'shopify';
+  s.feeConfig.gatewayKey  = s.feeConfig.gatewayKey  || 'stripe';
+  s.feeConfig.platformPct = clampNum(s.feeConfig.platformPct, 100);
+  s.feeConfig.gatewayPct  = clampNum(s.feeConfig.gatewayPct, 100);
+  if(!Array.isArray(s.products)) s.products = [];
+  s.products.forEach((p,i) => {
+    p.name = (p.name && String(p.name).trim()) || ('Product ' + (i+1));
+    p.units              = clampNum(p.units);
+    p.skuCost            = clampNum(p.skuCost);
+    p.dutiesPct          = clampNum(p.dutiesPct, 100);
+    p.inboundFreight     = clampNum(p.inboundFreight);
+    p.warehousing        = clampNum(p.warehousing);
+    p.packagingMaterials = clampNum(p.packagingMaterials);
+    p.benchmarkPct       = clampNum(p.benchmarkPct, 100);
+    p.sellingPrice       = clampNum(p.sellingPrice);
+    if(Array.isArray(p.skuComponents)){
+      p.skuComponents = p.skuComponents.map((c,j) => ({
+        name: (c.name && String(c.name).trim()) || ('Component ' + (j+1)),
+        qty:  clampNum(c.qty),
+        cost: clampNum(c.cost)
+      }));
+    } else {
+      p.skuComponents = null;
+    }
+  });
   return s;
 }
 
 let pcState = (function loadInit(){
-  try{
+  // Try v2 first
+  try {
     const raw = localStorage.getItem(PC_LS_KEY);
-    if(raw) return normalizePcState(JSON.parse(raw));
-  }catch(e){}
-  return { products: deepCopy(PC_DEFAULT_PRODUCTS), channels: null /* lazy-init */ };
+    if(raw){
+      const n = normalizePcState(JSON.parse(raw));
+      if(n) return n;
+    }
+  } catch(e){}
+  // Fall back to migrating v1 if present
+  try {
+    const old = localStorage.getItem('ctg_pc_state_v1');
+    if(old){
+      const n = normalizePcState(JSON.parse(old));
+      if(n) return n;
+    }
+  } catch(e){}
+  return { feeConfig: pcDefaultFeeConfig(), products: deepCopy(PC_DEFAULT_PRODUCTS) };
 })();
 function pcSaveState(){ try{ localStorage.setItem(PC_LS_KEY, JSON.stringify(pcState)); }catch(e){} }
 
-function pcComputeProduct(p){
-  const feesPct = ((Number(p.paymentFeePct)||0) + (Number(p.platformFeePct)||0)) / 100;
-  const sp      = Number(p.sellingPrice)||0;
-  const varCost = (Number(p.cogs)||0) + (Number(p.packaging)||0) + (Number(p.shipping)||0);
-  const netRev  = sp * (1 - feesPct);
-  const contrib = netRev - varCost;
-  const margin  = sp > 0 ? contrib / sp : 0;
-  return { netRev, varCost, contrib, margin };
+/* ===== Calculation core ===== */
+function pcCombinedFeePct(){
+  return clampNum(pcState.feeConfig.platformPct, 100) + clampNum(pcState.feeConfig.gatewayPct, 100);
 }
-function pcComputeChannel(c){
-  const spend  = Number(c.spend)  || 0;
-  const orders = Number(c.orders) || 0;
-  const aov    = Number(c.aov)    || 0;
-  const revenue = orders * aov;
-  const roas    = spend > 0 ? revenue / spend : 0;
-  const cpa     = orders > 0 ? spend / orders : 0;
-  return { revenue, roas, cpa };
+function pcComputeProduct(p){
+  const skuCost   = Number(p.skuCost)            || 0;
+  const duties    = skuCost * (Number(p.dutiesPct)||0) / 100;
+  const inbound   = Number(p.inboundFreight)     || 0;
+  const warehouse = Number(p.warehousing)        || 0;
+  const packMat   = Number(p.packagingMaterials) || 0;
+  const landed    = skuCost + duties + inbound + warehouse + packMat;
+  const fee       = pcCombinedFeePct() / 100;       // 0..1
+  const sp        = Number(p.sellingPrice)       || 0;
+  const benchmark = (Number(p.benchmarkPct)||0) / 100;
+  // Suggested price: solve sellingPrice × (1−fee) − landed = sellingPrice × benchmark
+  const denom = (1 - fee) - benchmark;
+  const suggestedPrice = (landed > 0 && denom > 0) ? landed / denom : 0;
+  const netRev  = sp * (1 - fee);
+  const contrib = netRev - landed;
+  const margin  = sp > 0 ? contrib / sp : 0;
+  return { duties, landed, fee, suggestedPrice, netRev, contrib, margin };
+}
+function pcMarginFlag(marginPct){
+  // marginPct is a percentage (0–100), not a fraction
+  if(marginPct < 0.01)      return { cls:'grey',  icon:'●', text:'—' };
+  if(marginPct < 70)        return { cls:'red',   icon:'🔴', text:marginPct.toFixed(1)+'%' };
+  if(marginPct < 75)        return { cls:'amber', icon:'🟠', text:marginPct.toFixed(1)+'%' };
+  if(marginPct <= 100)      return { cls:'green', icon:'🟢', text:marginPct.toFixed(1)+'%' };
+  return { cls:'green', icon:'🟢', text:marginPct.toFixed(1)+'%' };
 }
 
 function pcAggregate(){
-  // Products
-  let totalRevenue = 0, totalCosts = 0, totalContrib = 0, totalUnits = 0;
+  let totalUnits=0, totalRevenue=0, totalLanded=0, totalNetRev=0, totalContrib=0;
   pcState.products.forEach(p => {
     const c = pcComputeProduct(p);
-    const qty = Number(p.qty)||0;
-    totalUnits   += qty;
-    totalRevenue += qty * (Number(p.sellingPrice)||0);
-    totalCosts   += qty * c.varCost;
-    totalContrib += qty * c.contrib;
+    const u = Number(p.units)||0;
+    totalUnits   += u;
+    totalRevenue += u * (Number(p.sellingPrice)||0);
+    totalLanded  += u * c.landed;
+    totalNetRev  += u * c.netRev;
+    totalContrib += u * c.contrib;
   });
   const blendedMargin = totalRevenue > 0 ? totalContrib / totalRevenue : 0;
-  const beRoas = blendedMargin > 0 ? 1 / blendedMargin : 0;
-  // Channels
-  let totalSpend = 0, totalOrders = 0, totalChannelRevenue = 0, totalNet = 0;
-  pcState.channels.forEach(ch => {
-    const c = pcComputeChannel(ch);
-    totalSpend          += Number(ch.spend)||0;
-    totalOrders         += Number(ch.orders)||0;
-    totalChannelRevenue += c.revenue;
-    totalNet            += (c.revenue * blendedMargin) - (Number(ch.spend)||0);
-  });
-  const blendedRoas = totalSpend > 0 ? totalChannelRevenue / totalSpend : 0;
-  const avgCpa      = totalOrders > 0 ? totalSpend / totalOrders : 0;
-  const avgAov      = totalOrders > 0 ? totalChannelRevenue / totalOrders : 0;
-  // Net profit = revenue × margin − spend
-  const netProfit   = (totalChannelRevenue * blendedMargin) - totalSpend;
-  return {
-    totalUnits, totalRevenue, totalCosts, totalContrib, blendedMargin, beRoas,
-    totalSpend, totalOrders, totalChannelRevenue, totalNet, blendedRoas, avgCpa, avgAov, netProfit
-  };
+  const avgLanded = pcState.products.length > 0 ? totalLanded / Math.max(1, totalUnits || pcState.products.length) : 0;
+  return { totalUnits, totalRevenue, totalLanded, totalNetRev, totalContrib, blendedMargin, avgLanded };
+}
+
+/* ===== Rendering ===== */
+function pcRenderFeeConfig(){
+  const sel1 = document.getElementById('pcFeePlatform');
+  const sel2 = document.getElementById('pcFeeGateway');
+  if(sel1 && !sel1.dataset.built){
+    sel1.innerHTML = Object.keys(PC_PLATFORM_PRESETS).map(k =>
+      `<option value="${k}">${escapeHtml(PC_PLATFORM_PRESETS[k].label)}</option>`).join('');
+    sel1.dataset.built = '1';
+  }
+  if(sel2 && !sel2.dataset.built){
+    sel2.innerHTML = Object.keys(PC_GATEWAY_PRESETS).map(k =>
+      `<option value="${k}">${escapeHtml(PC_GATEWAY_PRESETS[k].label)}</option>`).join('');
+    sel2.dataset.built = '1';
+  }
+  if(sel1) sel1.value = pcState.feeConfig.platformKey || 'shopify';
+  if(sel2) sel2.value = pcState.feeConfig.gatewayKey  || 'stripe';
+  const plat = document.getElementById('pcFeePlatformPct');
+  const gw   = document.getElementById('pcFeeGatewayPct');
+  if(plat && document.activeElement !== plat) plat.value = pcState.feeConfig.platformPct;
+  if(gw   && document.activeElement !== gw)   gw.value   = pcState.feeConfig.gatewayPct;
+  const isCustomP = pcState.feeConfig.platformKey === 'custom';
+  const isCustomG = pcState.feeConfig.gatewayKey  === 'custom';
+  if(plat) plat.style.opacity = isCustomP ? '' : '.7';
+  if(gw)   gw.style.opacity   = isCustomG ? '' : '.7';
+  const combined = document.getElementById('pcFeeCombined');
+  if(combined) combined.textContent = pcCombinedFeePct().toFixed(2) + '%';
 }
 
 function pcRenderProducts(){
   const tbody = document.querySelector('#pcProductsTable tbody');
-  const platformOptions = Object.keys(PC_PLATFORM_PRESETS).map(key =>
-    `<option value="${key}">${escapeHtml(pcPlatformLabel(key))}</option>`
-  ).join('');
-  const courierOptions = Object.keys(PC_COURIER_PRESETS).map(key =>
-    `<option value="${key}">${escapeHtml(pcCourierLabel(key))}</option>`
-  ).join('');
+  if(!tbody) return;
   tbody.innerHTML = pcState.products.map((p,i) => {
     const c = pcComputeProduct(p);
-    const platform = p.platform || 'custom';
-    const courier  = p.courier  || 'custom';
-    const platformCustom = platform === 'custom';
-    const courierCustom  = courier  === 'custom';
-    const feeStyle  = platformCustom ? '' : 'opacity:.7;';
-    const shipStyle = courierCustom  ? '' : 'opacity:.7;';
+    const marginPct = c.margin * 100;
+    const flag = pcMarginFlag(marginPct);
+    const skuBtnTitle = (p.skuComponents && p.skuComponents.length) ? 'Package SKU: '+p.skuComponents.length+' components' : 'Open Package SKU calculator';
     return `<tr>
       <td>${i+1}</td>
-      <td><input type="text"   value="${escapeHtml(p.name)}"    data-pcp="${i}" data-field="name"></td>
-      <td><select data-pcp="${i}" data-field="platform" style="font-size:11.5px;">${platformOptions.replace('value="'+platform+'"','value="'+platform+'" selected')}</select></td>
-      <td><input type="number" min="0" step="1"    value="${p.qty}"           data-pcp="${i}" data-field="qty"></td>
-      <td><input type="number" min="0" step="0.01" value="${p.sellingPrice}"  data-pcp="${i}" data-field="sellingPrice"></td>
-      <td><input type="number" min="0" step="0.01" value="${p.cogs}"          data-pcp="${i}" data-field="cogs"></td>
-      <td><input type="number" min="0" step="0.01" value="${p.packaging}"     data-pcp="${i}" data-field="packaging"></td>
-      <td><select data-pcp="${i}" data-field="courier" style="font-size:11.5px;">${courierOptions.replace('value="'+courier+'"','value="'+courier+'" selected')}</select></td>
-      <td><input type="number" min="0" step="0.01" value="${p.shipping}"      data-pcp="${i}" data-field="shipping" style="${shipStyle}" title="${courierCustom?'':'Auto-set by Courier'}"></td>
-      <td><input type="number" min="0" step="0.1"  value="${p.paymentFeePct}"  data-pcp="${i}" data-field="paymentFeePct"  style="${feeStyle}"  title="${platformCustom?'':'Auto-set by Platform'}"></td>
-      <td><input type="number" min="0" step="0.1"  value="${p.platformFeePct}" data-pcp="${i}" data-field="platformFeePct" style="${feeStyle}"  title="${platformCustom?'':'Auto-set by Platform'}"></td>
-      <td class="num">${sign(c.contrib)}</td>
-      <td class="pct">${fmtPct(c.margin)}</td>
+      <td><input type="text" value="${escapeHtml(p.name)}" data-pcp="${i}" data-field="name"></td>
+      <td><input type="number" min="0" step="1"    value="${p.units}"          data-pcp="${i}" data-field="units"></td>
+      <td><div class="pc-sku-cell">
+            <input type="number" min="0" step="0.01" value="${p.skuCost}" data-pcp="${i}" data-field="skuCost">
+            <button class="pc-sku-btn" data-pc-sku-open="${i}" title="${skuBtnTitle}" type="button">📦</button>
+          </div></td>
+      <td><input type="number" min="0" step="0.1"  value="${p.dutiesPct}"      data-pcp="${i}" data-field="dutiesPct"></td>
+      <td><input type="number" min="0" step="0.01" value="${p.inboundFreight}" data-pcp="${i}" data-field="inboundFreight"></td>
+      <td><input type="number" min="0" step="0.01" value="${p.warehousing}"    data-pcp="${i}" data-field="warehousing"></td>
+      <td><input type="number" min="0" step="0.01" value="${p.packagingMaterials}" data-pcp="${i}" data-field="packagingMaterials"></td>
+      <td class="num" data-pcp-out="${i}-landed">${fmt(c.landed)}</td>
+      <td><input type="number" min="0" max="100" step="0.1" value="${p.benchmarkPct}" data-pcp="${i}" data-field="benchmarkPct"></td>
+      <td class="num" data-pcp-out="${i}-suggested">${c.suggestedPrice > 0 ? fmt(c.suggestedPrice) : '—'}</td>
+      <td><input type="number" min="0" step="0.01" value="${p.sellingPrice}"   data-pcp="${i}" data-field="sellingPrice"></td>
+      <td data-pcp-out="${i}-margin"><span class="pc-margin-cell ${flag.cls}">${flag.icon} ${flag.text}</span></td>
       <td class="action"><button data-pcp-del="${i}">✕</button></td>
-    </tr>`;
-  }).join('');
-}
-function pcRenderChannels(){
-  const tbody = document.querySelector('#pcChannelsTable tbody');
-  const { blendedMargin } = pcAggregate();
-  tbody.innerHTML = pcState.channels.map((ch,i) => {
-    const c = pcComputeChannel(ch);
-    const net = (c.revenue * blendedMargin) - (Number(ch.spend)||0);
-    const roasCls = blendedMargin > 0 && c.roas > 0
-      ? (c.roas >= (1/blendedMargin) ? 'pos' : 'neg') : '';
-    return `<tr>
-      <td>${i+1}</td>
-      <td><input type="text"   value="${escapeHtml(ch.name)}" data-pcc="${i}" data-field="name"></td>
-      <td><input type="number" min="0" step="0.01" value="${ch.spend}"  data-pcc="${i}" data-field="spend"></td>
-      <td><input type="number" min="0" step="1"    value="${ch.orders}" data-pcc="${i}" data-field="orders"></td>
-      <td><input type="number" min="0" step="0.01" value="${ch.aov}"    data-pcc="${i}" data-field="aov"></td>
-      <td class="num">${fmt(c.revenue)}</td>
-      <td class="num"><span class="${roasCls}">${c.roas ? c.roas.toFixed(2)+'×' : '—'}</span></td>
-      <td class="num">${c.cpa ? fmt(c.cpa) : '—'}</td>
-      <td class="num">${sign(net)}</td>
-      <td class="action"><button data-pcc-del="${i}">✕</button></td>
     </tr>`;
   }).join('');
 }
 function pcRenderSummary(){
   const a = pcAggregate();
-  // Product table footer
-  document.getElementById('pcProdTotUnits').textContent    = a.totalUnits;
-  document.getElementById('pcProdTotRevenue').textContent  = fmt(a.totalRevenue);
-  document.getElementById('pcProdTotCosts').textContent    = fmt(a.totalCosts);
-  document.getElementById('pcProdTotContrib').innerHTML    = sign(a.totalContrib);
-  document.getElementById('pcProdAvgMargin').textContent   = fmtPct(a.blendedMargin);
-  // Channels table footer
-  document.getElementById('pcChTotSpend').textContent      = fmt(a.totalSpend);
-  document.getElementById('pcChTotOrders').textContent     = a.totalOrders;
-  document.getElementById('pcChAvgAov').textContent        = a.avgAov ? fmt(a.avgAov) : '—';
-  document.getElementById('pcChTotRevenue').textContent    = fmt(a.totalChannelRevenue);
-  document.getElementById('pcChBlendedRoas').textContent   = a.blendedRoas ? a.blendedRoas.toFixed(2)+'×' : '—';
-  document.getElementById('pcChAvgCpa').textContent        = a.avgCpa ? fmt(a.avgCpa) : '—';
-  document.getElementById('pcChTotNet').innerHTML          = sign(a.totalNet);
+  const setText = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
   // KPI strip
-  document.getElementById('pcKpiMargin').textContent       = fmtPct(a.blendedMargin);
-  document.getElementById('pcKpiBeRoas').textContent       = a.beRoas ? a.beRoas.toFixed(2)+'×' : '—';
-  document.getElementById('pcKpiBlendedRoas').textContent  = a.blendedRoas ? a.blendedRoas.toFixed(2)+'×' : '—';
-  document.getElementById('pcKpiNetProfit').textContent    = fmt(a.netProfit);
-  document.getElementById('pcKpiNetProfitSub').textContent =
-    a.totalChannelRevenue > 0
-      ? ((a.netProfit / a.totalChannelRevenue * 100).toFixed(1) + '% of revenue')
-      : '—';
-  // Verdict banner
-  const icon = document.getElementById('pcVerdictIcon');
-  const title = document.getElementById('pcVerdictTitle');
-  const desc = document.getElementById('pcVerdictDesc');
-  const delta = document.getElementById('pcVerdictDelta');
-  if(a.totalSpend === 0 || a.blendedMargin <= 0){
-    icon.textContent = '⚖️';
-    title.textContent = '—';
-    desc.textContent = t('pc_verdict_desc_nodata');
-    delta.textContent = '—';
-    delta.style.color = 'var(--muted)';
-  } else {
-    const gap = a.blendedRoas - a.beRoas;
-    const gapTxt = (gap >= 0 ? '+' : '') + gap.toFixed(2) + '×';
-    delta.textContent = gapTxt;
-    if(a.blendedRoas >= a.beRoas * 1.05){
-      icon.textContent = '✅';
-      title.textContent = t('pc_verdict_profitable');
-      desc.textContent = t('pc_verdict_desc_profit');
-      delta.style.color = 'var(--success)';
-    } else if(a.blendedRoas >= a.beRoas * 0.95){
-      icon.textContent = '⚖️';
-      title.textContent = t('pc_verdict_break');
-      desc.textContent = t('pc_verdict_desc_break');
-      delta.style.color = 'var(--coral-soft)';
-    } else {
-      icon.textContent = '⚠️';
-      title.textContent = t('pc_verdict_loss');
-      desc.textContent = t('pc_verdict_desc_loss');
-      delta.style.color = '#fca5a5';
-    }
-  }
-  // Target ROAS panel (Section 3)
-  pcRenderTargetRoas(a);
-  // Channel chart (Section 4)
-  pcRenderChannelChart();
+  setText('pcKpiRevenue', fmt(a.totalRevenue));
+  setText('pcKpiCost',    fmt(a.totalLanded));
+  const contribEl = document.getElementById('pcKpiContrib');
+  if(contribEl) contribEl.innerHTML = sign(a.totalContrib);
+  setText('pcKpiMargin',  fmtPct(a.blendedMargin));
+  // Product table footer
+  setText('pcProdTotUnits',  a.totalUnits);
+  setText('pcProdTotLanded', fmt(a.totalLanded));
+  setText('pcProdAvgLanded', a.totalUnits > 0 ? fmt(a.totalLanded / a.totalUnits) : '—');
+  setText('pcProdTotRevenue',fmt(a.totalRevenue));
+  setText('pcProdAvgMargin', fmtPct(a.blendedMargin));
   pcSaveState();
 }
-
-/* ===== Target ROAS calculator ===== */
-function pcRenderTargetRoas(a){
-  const tgtInput = document.getElementById('pcTargetProfitPct');
-  if(!tgtInput) return;
-  const tgt = Math.max(0, Math.min(99, Number(tgtInput.value)||0)) / 100;
-  const requiredEl = document.getElementById('pcTargetRequiredRoas');
-  const requiredSub = document.getElementById('pcTargetRequiredSub');
-  const statusEl = document.getElementById('pcTargetStatus');
-  const statusSub = document.getElementById('pcTargetStatusSub');
-  // ROAS needed = 1 / (margin% - target%)
-  if(a.blendedMargin <= 0){
-    requiredEl.textContent = '—';
-    requiredSub.textContent = '—';
-    statusEl.textContent = '—';
-    statusSub.textContent = '—';
-    return;
-  }
-  if(tgt >= a.blendedMargin){
-    requiredEl.textContent = '∞';
-    requiredSub.textContent = t('pc_target_unreachable');
-    statusEl.textContent = '⚠️';
-    statusSub.textContent = t('pc_target_unreachable');
-    return;
-  }
-  const required = 1 / (a.blendedMargin - tgt);
-  requiredEl.textContent = required.toFixed(2) + '×';
-  requiredSub.textContent = 'RM 1 spend → RM ' + required.toFixed(2) + ' revenue';
-  if(a.blendedRoas <= 0){
-    statusEl.textContent = '—';
-    statusSub.textContent = '—';
-  } else if(a.blendedRoas >= required){
-    const gap = ((a.blendedRoas - required) / required * 100).toFixed(1);
-    statusEl.textContent = '✓ ' + t('pc_target_above') + ' ' + gap + '%';
-    statusSub.textContent = a.blendedRoas.toFixed(2) + '× vs ' + required.toFixed(2) + '× needed';
-  } else {
-    const gap = ((required - a.blendedRoas) / required * 100).toFixed(1);
-    statusEl.textContent = '✗ ' + t('pc_target_below') + ' ' + gap + '%';
-    statusSub.textContent = a.blendedRoas.toFixed(2) + '× vs ' + required.toFixed(2) + '× needed';
-  }
-}
-// Live-update when user changes target
-document.addEventListener('input', e=>{
-  if(e.target && e.target.id === 'pcTargetProfitPct'){
-    pcRenderTargetRoas(pcAggregate());
-  }
-});
-
-/* ===== Channel comparison chart ===== */
-let pcChannelChart;
-function pcRenderChannelChart(){
-  const ctx = document.getElementById('pcChannelChart');
-  if(!ctx || typeof Chart === 'undefined') return;
-  const { blendedMargin } = pcAggregate();
-  const labels = pcState.channels.map(c => c.name || '?');
-  const spends = pcState.channels.map(c => Number(c.spend)||0);
-  const revenues = pcState.channels.map(c => (Number(c.orders)||0) * (Number(c.aov)||0));
-  const nets    = pcState.channels.map((c,i) => revenues[i] * blendedMargin - spends[i]);
-  if(pcChannelChart) pcChannelChart.destroy();
-  pcChannelChart = new Chart(ctx, {
-    type:'bar',
-    data:{ labels, datasets:[
-      { label: t('pc_chart_spend'),   data: spends,   backgroundColor:'rgba(232,93,60,.7)',  borderColor:'#E85D3C', borderWidth:1 },
-      { label: t('pc_chart_revenue'), data: revenues, backgroundColor:'rgba(91,155,213,.7)', borderColor:'#5B9BD5', borderWidth:1 },
-      { label: t('pc_chart_net'),     data: nets,     backgroundColor:'rgba(16,185,129,.7)', borderColor:'#10b981', borderWidth:1 }
-    ]},
-    options:{
-      responsive:true, maintainAspectRatio:true,
-      plugins:{ legend:{ position:'top' },
-        tooltip:{ callbacks:{ label: c => c.dataset.label+': MYR '+fmt(c.parsed.y) } } },
-      scales:{ y:{ ticks:{ callback: v => 'MYR '+(v/1000).toFixed(1)+'k' } } }
-    }
-  });
+function pcRender(){
+  pcRenderFeeConfig();
+  pcRenderProducts();
+  pcRenderSummary();
 }
 
-function pcRender(){ pcRenderProducts(); pcRenderChannels(); pcRenderSummary(); }
-
-// Patch individual cells without rebuilding tbody (preserves input focus)
+// Patch a single row's computed cells (preserves input focus)
 function pcPatchProductRow(i){
   const p = pcState.products[i];
+  if(!p) return;
   const c = pcComputeProduct(p);
-  const row = document.querySelector(`#pcProductsTable tbody tr:nth-child(${i+1})`);
-  if(!row) return;
-  // Columns: 0:no, 1:name, 2:platform, 3:qty, 4:selling, 5:cogs, 6:pkg, 7:courier,
-  //          8:ship, 9:pay%, 10:plat%, 11:contrib, 12:margin, 13:action
-  const cells = row.querySelectorAll('td');
-  if(cells[11]) cells[11].innerHTML  = sign(c.contrib);
-  if(cells[12]) cells[12].textContent = fmtPct(c.margin);
+  const flag = pcMarginFlag(c.margin * 100);
+  const landed    = document.querySelector(`[data-pcp-out="${i}-landed"]`);
+  const suggested = document.querySelector(`[data-pcp-out="${i}-suggested"]`);
+  const margin    = document.querySelector(`[data-pcp-out="${i}-margin"]`);
+  if(landed)    landed.textContent    = fmt(c.landed);
+  if(suggested) suggested.textContent = c.suggestedPrice > 0 ? fmt(c.suggestedPrice) : '—';
+  if(margin)    margin.innerHTML      = `<span class="pc-margin-cell ${flag.cls}">${flag.icon} ${flag.text}</span>`;
 }
-function pcPatchChannelRow(i){
-  const ch = pcState.channels[i];
-  const c = pcComputeChannel(ch);
-  const { blendedMargin } = pcAggregate();
-  const net = (c.revenue * blendedMargin) - (Number(ch.spend)||0);
-  const row = document.querySelector(`#pcChannelsTable tbody tr:nth-child(${i+1})`);
-  if(!row) return;
-  const cells = row.querySelectorAll('td');
-  // cells: 0:no, 1-4:inputs (name+spend+orders+aov), 5:revenue, 6:roas, 7:cpa, 8:net, 9:action
-  if(cells[5]) cells[5].textContent = fmt(c.revenue);
-  if(cells[6]) {
-    const roasCls = blendedMargin > 0 && c.roas > 0 ? (c.roas >= (1/blendedMargin) ? 'pos' : 'neg') : '';
-    cells[6].innerHTML = '<span class="' + roasCls + '">' + (c.roas ? c.roas.toFixed(2)+'×' : '—') + '</span>';
-  }
-  if(cells[7]) cells[7].textContent = c.cpa ? fmt(c.cpa) : '—';
-  if(cells[8]) cells[8].innerHTML = sign(net);
-}
+function pcPatchAllRows(){ pcState.products.forEach((_,i) => pcPatchProductRow(i)); }
 
-// Input handlers — patch in place to avoid focus loss
-document.addEventListener('input', e=>{
+/* ===== Input handlers ===== */
+document.addEventListener('input', e => {
   const tgt = e.target;
-  if(tgt.dataset.pcp !== undefined){
-    const i = +tgt.dataset.pcp, f = tgt.dataset.field;
-    if(f === 'courier'){
-      // Courier preset chosen — record + auto-fill shipping cost unless 'custom'
-      pcState.products[i].courier = tgt.value;
-      const preset = PC_COURIER_PRESETS[tgt.value];
-      const row = document.querySelector(`#pcProductsTable tbody tr:nth-child(${i+1})`);
-      const shipInput = row && row.querySelector(`input[data-field="shipping"]`);
-      if(preset && preset.ship !== null){
-        pcState.products[i].shipping = preset.ship;
-        if(shipInput && document.activeElement !== shipInput) shipInput.value = preset.ship;
-        if(shipInput) shipInput.style.opacity = '.7';
-      } else if(shipInput){
-        shipInput.style.opacity = '';
-      }
-      pcPatchProductRow(i);
-      pcRenderSummary();
-      pcState.channels.forEach((_, ci) => pcPatchChannelRow(ci));
-      return;
-    }
-    if(f === 'platform'){
-      // Platform preset chosen — record + auto-fill payment/platform % unless 'custom'
-      pcState.products[i].platform = tgt.value;
-      const preset = PC_PLATFORM_PRESETS[tgt.value];
-      if(preset && preset.payment !== null && preset.platform !== null){
-        pcState.products[i].paymentFeePct  = preset.payment;
-        pcState.products[i].platformFeePct = preset.platform;
-        // Update the row's % inputs visually since we mutated them
-        const row = document.querySelector(`#pcProductsTable tbody tr:nth-child(${i+1})`);
-        if(row){
-          const payInput  = row.querySelector(`input[data-field="paymentFeePct"]`);
-          const platInput = row.querySelector(`input[data-field="platformFeePct"]`);
-          if(payInput  && document.activeElement !== payInput)  payInput.value  = preset.payment;
-          if(platInput && document.activeElement !== platInput) platInput.value = preset.platform;
-          // Apply the muted styling for non-custom presets
-          if(payInput)  payInput.style.opacity  = '.7';
-          if(platInput) platInput.style.opacity = '.7';
-        }
-      } else {
-        // Custom — remove muted styling
-        const row = document.querySelector(`#pcProductsTable tbody tr:nth-child(${i+1})`);
-        if(row){
-          const payInput  = row.querySelector(`input[data-field="paymentFeePct"]`);
-          const platInput = row.querySelector(`input[data-field="platformFeePct"]`);
-          if(payInput)  payInput.style.opacity  = '';
-          if(platInput) platInput.style.opacity = '';
-        }
-      }
-      pcPatchProductRow(i);
-      pcRenderSummary();
-      pcState.channels.forEach((_, ci) => pcPatchChannelRow(ci));
-      return;
-    }
-    pcState.products[i][f] = (f === 'name') ? tgt.value : (Number(tgt.value)||0);
-    // If user manually edits Pay% or Plat%, switch the platform select to 'custom'
-    if((f === 'paymentFeePct' || f === 'platformFeePct') && pcState.products[i].platform !== 'custom'){
-      pcState.products[i].platform = 'custom';
-      const row = document.querySelector(`#pcProductsTable tbody tr:nth-child(${i+1})`);
-      const sel = row && row.querySelector(`select[data-field="platform"]`);
-      if(sel) sel.value = 'custom';
-      const payInput  = row && row.querySelector(`input[data-field="paymentFeePct"]`);
-      const platInput = row && row.querySelector(`input[data-field="platformFeePct"]`);
-      if(payInput)  payInput.style.opacity  = '';
-      if(platInput) platInput.style.opacity = '';
-    }
-    // If user manually edits Shipping, switch courier select to 'custom'
-    if(f === 'shipping' && pcState.products[i].courier !== 'custom'){
-      pcState.products[i].courier = 'custom';
-      const row = document.querySelector(`#pcProductsTable tbody tr:nth-child(${i+1})`);
-      const sel = row && row.querySelector(`select[data-field="courier"]`);
-      if(sel) sel.value = 'custom';
-      if(tgt) tgt.style.opacity = '';
+  // ---- Fee Configuration ----
+  if(tgt.id === 'pcFeePlatform'){
+    const key = tgt.value;
+    pcState.feeConfig.platformKey = key;
+    const preset = PC_PLATFORM_PRESETS[key];
+    if(preset && preset.pct !== null) pcState.feeConfig.platformPct = preset.pct;
+    pcRenderFeeConfig();
+    pcPatchAllRows();
+    pcRenderSummary();
+    return;
+  }
+  if(tgt.id === 'pcFeeGateway'){
+    const key = tgt.value;
+    pcState.feeConfig.gatewayKey = key;
+    const preset = PC_GATEWAY_PRESETS[key];
+    if(preset && preset.pct !== null) pcState.feeConfig.gatewayPct = preset.pct;
+    pcRenderFeeConfig();
+    pcPatchAllRows();
+    pcRenderSummary();
+    return;
+  }
+  if(tgt.id === 'pcFeePlatformPct'){
+    pcState.feeConfig.platformPct = clampNum(tgt.value, 100);
+    pcState.feeConfig.platformKey = 'custom';
+    const sel = document.getElementById('pcFeePlatform');
+    if(sel) sel.value = 'custom';
+    const combined = document.getElementById('pcFeeCombined');
+    if(combined) combined.textContent = pcCombinedFeePct().toFixed(2) + '%';
+    pcPatchAllRows();
+    pcRenderSummary();
+    return;
+  }
+  if(tgt.id === 'pcFeeGatewayPct'){
+    pcState.feeConfig.gatewayPct = clampNum(tgt.value, 100);
+    pcState.feeConfig.gatewayKey = 'custom';
+    const sel = document.getElementById('pcFeeGateway');
+    if(sel) sel.value = 'custom';
+    const combined = document.getElementById('pcFeeCombined');
+    if(combined) combined.textContent = pcCombinedFeePct().toFixed(2) + '%';
+    pcPatchAllRows();
+    pcRenderSummary();
+    return;
+  }
+  // ---- Product row inputs ----
+  if(tgt.dataset.pcp !== undefined && tgt.dataset.field){
+    const i = +tgt.dataset.pcp;
+    const f = tgt.dataset.field;
+    const p = pcState.products[i];
+    if(!p) return;
+    if(f === 'name'){
+      p[f] = tgt.value;
+    } else if(f === 'dutiesPct' || f === 'benchmarkPct'){
+      p[f] = clampNum(tgt.value, 100);
+    } else {
+      p[f] = clampNum(tgt.value);
     }
     pcPatchProductRow(i);
     pcRenderSummary();
-    pcState.channels.forEach((_, ci) => pcPatchChannelRow(ci));
-    return;
-  }
-  if(tgt.dataset.pcc !== undefined){
-    const i = +tgt.dataset.pcc, f = tgt.dataset.field;
-    pcState.channels[i][f] = (f === 'name') ? tgt.value : (Number(tgt.value)||0);
-    pcPatchChannelRow(i);
-    pcRenderSummary();
     return;
   }
 });
 
-document.addEventListener('click', e=>{
+/* ===== Click handlers — delete + SKU modal launchers ===== */
+document.addEventListener('click', e => {
   if(e.target.dataset.pcpDel !== undefined){
     const i = +e.target.dataset.pcpDel;
-    if(confirm(t('confirm_del_p'))){ pcState.products.splice(i,1); pcRender(); }
+    if(confirm(t('confirm_del_p'))){
+      pcState.products.splice(i,1);
+      pcRender();
+    }
+    return;
   }
-  if(e.target.dataset.pccDel !== undefined){
-    const i = +e.target.dataset.pccDel;
-    if(confirm(t('confirm_del_c'))){ pcState.channels.splice(i,1); pcRender(); }
+  if(e.target.dataset.pcSkuOpen !== undefined){
+    const i = +e.target.dataset.pcSkuOpen;
+    pcOpenSkuModal(i);
+    return;
   }
 });
 
-document.getElementById('btnPcAddProduct').onclick = ()=>{
-  pcState.products.push({ name:'New Product', platform:'shopify', courier:'jnt', qty:1, sellingPrice:0, cogs:0, packaging:0, shipping:5, paymentFeePct:2.9, platformFeePct:0 });
+/* ===== Buttons: Add / Reset / Clear / Export ===== */
+document.getElementById('btnPcAddProduct').onclick = () => {
+  pcState.products.push({
+    name:'New Product', units:1,
+    skuCost:0, skuComponents:null,
+    dutiesPct:0, inboundFreight:0, warehousing:0, packagingMaterials:0,
+    benchmarkPct:70, sellingPrice:0
+  });
   pcRender();
 };
-document.getElementById('btnPcAddChannel').onclick = ()=>{
-  pcState.channels.push({ name:'New Channel', spend:0, orders:0, aov:0 });
-  pcRender();
-};
-document.getElementById('btnPcReset').onclick = ()=>{
+document.getElementById('btnPcReset').onclick = () => {
   if(confirm(t('confirm_reset'))){
-    pcState = { products: deepCopy(PC_DEFAULT_PRODUCTS), channels: pcDefaultChannels() };
+    pcState = { feeConfig: pcDefaultFeeConfig(), products: deepCopy(PC_DEFAULT_PRODUCTS) };
     pcRender();
   }
 };
-document.getElementById('btnPcClear').onclick = ()=>{
+document.getElementById('btnPcClear').onclick = () => {
   if(confirm(t('confirm_clear'))){
-    pcState = { products: [], channels: [] };
+    pcState = { feeConfig: pcDefaultFeeConfig(), products: [] };
     pcRender();
   }
 };
-document.getElementById('btnPcExport').onclick = ()=>{
+document.getElementById('btnPcExport').onclick = () => {
   const a = pcAggregate();
+  const csv = s => { s = String(s ?? ''); return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
   const lines = [];
-  const csv = s=>{s=String(s??'');return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
-  lines.push('CTG Product Costing & ROAS Calculator');
-  lines.push('Generated,'+new Date().toLocaleString());
+  lines.push('CTG Product Costing Calculator');
+  lines.push('Generated,' + new Date().toLocaleString());
+  lines.push('');
+  lines.push('FEE CONFIGURATION');
+  lines.push('Platform,' + csv(PC_PLATFORM_PRESETS[pcState.feeConfig.platformKey]?.label || pcState.feeConfig.platformKey) + ',' + pcState.feeConfig.platformPct + '%');
+  lines.push('Payment Gateway,' + csv(PC_GATEWAY_PRESETS[pcState.feeConfig.gatewayKey]?.label || pcState.feeConfig.gatewayKey) + ',' + pcState.feeConfig.gatewayPct + '%');
+  lines.push('Combined Fee %,' + pcCombinedFeePct().toFixed(2) + '%');
   lines.push('');
   lines.push('PRODUCTS');
-  lines.push('No,Name,Platform,Units,Selling Price,COGS,Packaging,Courier,Shipping,Payment %,Platform %,Contribution/Unit,Margin %');
-  pcState.products.forEach((p,i)=>{
+  lines.push('No,Name,Units,Package SKU Cost,Duties %,Inbound Freight,Warehousing,Packaging Mat.,Landed/Unit,Benchmark %,Suggested Price,Selling Price,Margin %,Flag');
+  pcState.products.forEach((p,i) => {
     const c = pcComputeProduct(p);
-    const platformLabel = (PC_PLATFORM_PRESETS[p.platform||'custom']||PC_PLATFORM_PRESETS.custom).label_en;
-    const courierLabel  = (PC_COURIER_PRESETS[p.courier||'custom']||PC_COURIER_PRESETS.custom).label_en;
-    lines.push(`${i+1},${csv(p.name)},${csv(platformLabel)},${p.qty},${p.sellingPrice},${p.cogs},${p.packaging},${csv(courierLabel)},${p.shipping},${p.paymentFeePct}%,${p.platformFeePct}%,${c.contrib.toFixed(2)},${(c.margin*100).toFixed(2)}%`);
-  });
-  lines.push('');
-  lines.push('AD CHANNELS');
-  lines.push('No,Channel,Spend,Orders,AOV,Revenue,ROAS,CPA');
-  pcState.channels.forEach((ch,i)=>{
-    const c = pcComputeChannel(ch);
-    lines.push(`${i+1},${csv(ch.name)},${ch.spend},${ch.orders},${ch.aov},${c.revenue.toFixed(2)},${c.roas?c.roas.toFixed(2)+'x':'-'},${c.cpa?c.cpa.toFixed(2):'-'}`);
+    const marginPct = c.margin * 100;
+    const flagTxt = marginPct < 70 ? 'RED' : (marginPct < 75 ? 'AMBER' : 'GREEN');
+    lines.push(`${i+1},${csv(p.name)},${p.units},${p.skuCost},${p.dutiesPct}%,${p.inboundFreight},${p.warehousing},${p.packagingMaterials},${c.landed.toFixed(2)},${p.benchmarkPct}%,${c.suggestedPrice.toFixed(2)},${p.sellingPrice},${marginPct.toFixed(2)}%,${flagTxt}`);
+    if(p.skuComponents && p.skuComponents.length){
+      lines.push('  SKU components for "'+csv(p.name)+'":,Component,Qty,Unit Cost,Subtotal');
+      p.skuComponents.forEach((cmp,j) => {
+        const sub = (Number(cmp.qty)||0) * (Number(cmp.cost)||0);
+        lines.push(`  ,${csv(cmp.name)},${cmp.qty},${cmp.cost},${sub.toFixed(2)}`);
+      });
+    }
   });
   lines.push('');
   lines.push('SUMMARY');
+  lines.push(`Total Units,${a.totalUnits}`);
+  lines.push(`Total Revenue,${a.totalRevenue.toFixed(2)}`);
+  lines.push(`Total Landed Cost,${a.totalLanded.toFixed(2)}`);
+  lines.push(`Total Net Contribution,${a.totalContrib.toFixed(2)}`);
   lines.push(`Blended Margin,${(a.blendedMargin*100).toFixed(2)}%`);
-  lines.push(`Break-Even ROAS,${a.beRoas?a.beRoas.toFixed(2)+'x':'-'}`);
-  lines.push(`Blended ROAS,${a.blendedRoas?a.blendedRoas.toFixed(2)+'x':'-'}`);
-  lines.push(`Net Profit (after ads),${a.netProfit.toFixed(2)}`);
-  const blob = new Blob(["﻿"+lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  const blob = new Blob(["﻿"+lines.join('\n')], { type:'text/csv;charset=utf-8' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
-  link.download = 'CTG_ProductCosting_ROAS_'+new Date().toISOString().slice(0,10)+'.csv';
+  link.download = 'CTG_ProductCosting_' + new Date().toISOString().slice(0,10) + '.csv';
   link.click();
 };
 
-// Lazy-init channels with translated default names
-function pcEnsureChannels(){
-  if(!pcState.channels) pcState.channels = pcDefaultChannels();
+/* ============================================================
+   PACKAGE SKU CALCULATION MODAL
+   ============================================================ */
+let _pcSkuActiveIdx = null;
+let _pcSkuDraft = []; // working copy of components inside the modal
+
+function pcOpenSkuModal(productIdx){
+  const p = pcState.products[productIdx];
+  if(!p) return;
+  _pcSkuActiveIdx = productIdx;
+  _pcSkuDraft = Array.isArray(p.skuComponents) && p.skuComponents.length
+    ? deepCopy(p.skuComponents)
+    : [{ name:'Component 1', qty:1, cost:0 }];
+  document.getElementById('pcSkuModalSub').textContent =
+    'Product: ' + (p.name || ('Product ' + (productIdx+1)));
+  pcSkuRender();
+  document.getElementById('pcSkuModal').style.display = 'flex';
 }
+function pcCloseSkuModal(){
+  document.getElementById('pcSkuModal').style.display = 'none';
+  _pcSkuActiveIdx = null;
+  _pcSkuDraft = [];
+}
+function pcSkuRender(){
+  const tbody = document.querySelector('#pcSkuTable tbody');
+  if(!tbody) return;
+  if(_pcSkuDraft.length === 0){
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;">${t('pc_sku_empty')}</td></tr>`;
+  } else {
+    tbody.innerHTML = _pcSkuDraft.map((c,i) => {
+      const sub = (Number(c.qty)||0) * (Number(c.cost)||0);
+      return `<tr>
+        <td>${i+1}</td>
+        <td><input type="text"   value="${escapeHtml(c.name)}" data-pcsku="${i}" data-field="name"></td>
+        <td><input type="number" min="0" step="1"    value="${c.qty}"  data-pcsku="${i}" data-field="qty"></td>
+        <td><input type="number" min="0" step="0.01" value="${c.cost}" data-pcsku="${i}" data-field="cost"></td>
+        <td class="num" data-pcsku-sub="${i}">${fmt(sub)}</td>
+        <td class="action"><button data-pcsku-del="${i}">✕</button></td>
+      </tr>`;
+    }).join('');
+  }
+  const total = _pcSkuDraft.reduce((s,c) => s + (Number(c.qty)||0) * (Number(c.cost)||0), 0);
+  document.getElementById('pcSkuTotal').textContent = fmt(total);
+}
+function pcSkuPatchRow(i){
+  const c = _pcSkuDraft[i];
+  if(!c) return;
+  const sub = (Number(c.qty)||0) * (Number(c.cost)||0);
+  const subEl = document.querySelector(`[data-pcsku-sub="${i}"]`);
+  if(subEl) subEl.textContent = fmt(sub);
+  const total = _pcSkuDraft.reduce((s,c) => s + (Number(c.qty)||0) * (Number(c.cost)||0), 0);
+  document.getElementById('pcSkuTotal').textContent = fmt(total);
+}
+
+// SKU modal close buttons
+document.addEventListener('click', e => {
+  if(e.target.hasAttribute && e.target.hasAttribute('data-pc-sku-close')){
+    pcCloseSkuModal();
+    return;
+  }
+  if(e.target.dataset.pcskuDel !== undefined){
+    _pcSkuDraft.splice(+e.target.dataset.pcskuDel, 1);
+    pcSkuRender();
+    return;
+  }
+});
+// SKU modal field edits
+document.addEventListener('input', e => {
+  const tgt = e.target;
+  if(tgt.dataset.pcsku !== undefined && tgt.dataset.field){
+    const i = +tgt.dataset.pcsku;
+    const f = tgt.dataset.field;
+    if(!_pcSkuDraft[i]) return;
+    if(f === 'name') _pcSkuDraft[i][f] = tgt.value;
+    else             _pcSkuDraft[i][f] = clampNum(tgt.value);
+    pcSkuPatchRow(i);
+  }
+});
+// Add component button
+document.getElementById('btnPcSkuAdd').onclick = () => {
+  _pcSkuDraft.push({ name:'Component ' + (_pcSkuDraft.length+1), qty:1, cost:0 });
+  pcSkuRender();
+};
+// Apply: write total + components back to the product
+document.getElementById('btnPcSkuApply').onclick = () => {
+  if(_pcSkuActiveIdx === null) { pcCloseSkuModal(); return; }
+  const p = pcState.products[_pcSkuActiveIdx];
+  if(p){
+    p.skuComponents = deepCopy(_pcSkuDraft);
+    p.skuCost = _pcSkuDraft.reduce((s,c) => s + (Number(c.qty)||0) * (Number(c.cost)||0), 0);
+  }
+  pcCloseSkuModal();
+  pcRender();
+};
 
 /* ===== Saved scenarios (DB-backed) ===== */
 let _pcSavedCache = [];
@@ -3934,13 +3972,13 @@ async function pcRefreshSaved(){
   }).join('');
 }
 
-document.getElementById('btnPcSave').onclick = async ()=>{
+document.getElementById('btnPcSave').onclick = async () => {
   if(!CTG.isSignedIn()){ alert(t('settings_signin_first')); return; }
   const name = prompt(t('pc_save_prompt'), 'My Costing ' + new Date().toLocaleDateString());
   if(!name) return;
   const colors = ['#E85D3C','#5B9BD5','#10b981','#F08570','#3D7AB0','#1F3A5F'];
   const color = colors[_pcSavedCache.length % colors.length];
-  try{
+  try {
     await CTG.pcSaveSavedScenario({ name: name.trim(), color, entity_id: null, data: deepCopy(pcState) });
     showToast(t('pc_saved_ok'), 'success');
     await pcRefreshSaved();
@@ -3950,26 +3988,32 @@ document.getElementById('btnPcSave').onclick = async ()=>{
   }
 };
 
-document.addEventListener('click', async e=>{
+document.addEventListener('click', async e => {
   if(e.target.dataset.pcSavedLoad){
     const id = e.target.dataset.pcSavedLoad;
     const s = _pcSavedCache.find(x => x.id === id);
     if(s && s.data){
-      pcState = deepCopy(s.data);
-      pcEnsureChannels();
-      pcRender();
-      showToast('Loaded: ' + s.name, 'success');
+      const n = normalizePcState(deepCopy(s.data));
+      if(n){
+        pcState = n;
+        pcRender();
+        showToast('Loaded: ' + s.name, 'success');
+      }
     }
   }
   if(e.target.dataset.pcSavedDel){
     const id = e.target.dataset.pcSavedDel;
     if(!confirm(t('pc_confirm_del'))) return;
-    try{
+    try {
       await CTG.pcDeleteSavedScenario(id);
       await pcRefreshSaved();
     } catch (err) { console.error(err); showToast(t('err_save'), 'error'); }
   }
 });
+
+// Compatibility shim — used elsewhere in legacy paths to lazy-init channels.
+// New shape has no `channels`, but other code may call this on save/load.
+function pcEnsureChannels(){ /* no-op in v2 */ }
 
 /* ============ SETTINGS TAB ============ */
 async function renderSettingsTab(){
