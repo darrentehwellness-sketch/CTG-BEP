@@ -25,8 +25,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=11"></script>
-<script src="assets/js/supabase-client.js?v=11"></script>
+<script src="config.js?v=12"></script>
+<script src="assets/js/supabase-client.js?v=12"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -304,10 +304,34 @@
   .tabs-inner{display:flex;flex-direction:column;gap:1px;}
   .tab-section{display:flex;flex-direction:column;gap:1px;padding-bottom:4px;margin-bottom:10px;}
   .tab-section:last-child{margin-bottom:0;padding-bottom:0;}
-  .tab-section-label{
+
+  /* Clickable section header (expand/collapse) */
+  .tab-section-toggle{
+    background:transparent;border:none;cursor:pointer;
     font-size:9.5px;font-weight:800;letter-spacing:1.7px;text-transform:uppercase;
-    color:var(--muted);padding:8px 12px 4px;transition:opacity .2s;
+    color:var(--muted);padding:8px 12px 4px;
+    display:flex;align-items:center;justify-content:space-between;
+    width:100%;text-align:left;box-shadow:none;
+    transition:color .15s;
   }
+  .tab-section-toggle:hover{color:var(--text-soft);transform:none;background:transparent;}
+  .tab-section-toggle .chevron{
+    width:11px;height:11px;flex-shrink:0;
+    opacity:.5;transition:transform .25s ease, opacity .15s;
+  }
+  .tab-section-toggle:hover .chevron{opacity:.85;}
+  .tab-section.section-collapsed .tab-section-toggle .chevron{transform:rotate(-90deg);}
+
+  /* Child items: animated collapse via max-height + opacity */
+  .tab-section-items{
+    display:flex;flex-direction:column;gap:1px;
+    max-height:600px;opacity:1;overflow:hidden;
+    transition:max-height .25s ease, opacity .2s, margin-top .2s;
+  }
+  .tab-section.section-collapsed > .tab-section-items{
+    max-height:0;opacity:0;margin-top:-4px;pointer-events:none;
+  }
+
   .tab-section.admin-section{display:none;}
   .tab-section.admin-section.visible{display:flex;}
 
@@ -347,7 +371,8 @@
   .tabs.collapsed .sidebar-profile{padding:6px;gap:0;justify-content:center;}
   .tabs.collapsed .sidebar-profile .av{width:40px;height:40px;font-size:14px;}
   .tabs.collapsed .sidebar-profile .meta{display:none;}
-  .tabs.collapsed .tab-section-label{display:none;}
+  .tabs.collapsed .tab-section-toggle{display:none;}
+  .tabs.collapsed .tab-section-items{max-height:none !important;opacity:1 !important;margin-top:0 !important;pointer-events:auto !important;}
   .tabs.collapsed .tab-section{padding-bottom:8px;margin-bottom:6px;border-bottom:1px solid var(--border);}
   .tabs.collapsed .tab-section:last-child{border-bottom:none;}
   .tabs.collapsed .tab-btn{justify-content:center;padding:10px 6px;gap:0;}
@@ -366,10 +391,12 @@
     .tabs-inner{flex-direction:row;overflow-x:auto;gap:2px;}
     .tab-section{flex-direction:row;padding:0 6px 0 0;margin:0 4px 0 0;border-right:1px solid var(--border);}
     .tab-section:last-child{border-right:none;}
-    .tab-section-label{display:none;}
+    .tab-section-toggle{display:none;}  /* hide section headers in horizontal mobile mode */
+    .tab-section-items{flex-direction:row;gap:2px;max-height:none !important;opacity:1 !important;margin-top:0 !important;overflow:visible !important;}
+    .tab-section.section-collapsed > .tab-section-items{max-height:none !important;opacity:1 !important;margin-top:0 !important;pointer-events:auto !important;}
     .tab-btn{padding:9px 12px;font-size:12.5px;border-radius:8px;justify-content:flex-start;}
     .tab-btn.active::before{display:none;}
-    .tabs.collapsed .tab-btn > span:not(.ic){display:inline;}   /* mobile ignores collapse */
+    .tabs.collapsed .tab-btn > span:not(.ic){display:inline;}
   }
 
   .main-content{flex:1;min-width:0;}
@@ -858,6 +885,10 @@
     <symbol id="i-chevron-left" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
       <polyline points="15 18 9 12 15 6"/>
     </symbol>
+    <!-- Chevron-down: section expand/collapse -->
+    <symbol id="i-chevron-down" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <polyline points="6 9 12 15 18 9"/>
+    </symbol>
     <!-- Chevron-right: expand toggle -->
     <symbol id="i-chevron-right" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
       <polyline points="9 18 15 12 9 6"/>
@@ -962,30 +993,50 @@
 
     <!-- Section 1: Exhibition BEP -->
     <div class="tab-section">
-      <div class="tab-section-label" data-i18n="nav_sec_bep">Exhibition BEP</div>
-      <button class="tab-btn active" data-tab="calc"        title="Calculator"><svg class="ic"><use href="#i-calc"/></svg><span data-i18n="tab_calc">Calculator</span></button>
-      <button class="tab-btn"        data-tab="setup"       title="Cost Setup"><svg class="ic"><use href="#i-receipt"/></svg><span data-i18n="tab_setup">Cost Setup</span></button>
-      <button class="tab-btn"        data-tab="compare"     title="Compare Scenarios"><svg class="ic"><use href="#i-scale"/></svg><span data-i18n="tab_compare">Compare Scenarios</span></button>
-      <button class="tab-btn"        data-tab="sensitivity" title="Sensitivity Analysis"><svg class="ic"><use href="#i-trend"/></svg><span data-i18n="tab_sens">Sensitivity Analysis</span></button>
+      <button class="tab-section-toggle" data-section-id="bep" type="button">
+        <span data-i18n="nav_sec_bep">Exhibition BEP</span>
+        <svg class="chevron"><use href="#i-chevron-down"/></svg>
+      </button>
+      <div class="tab-section-items">
+        <button class="tab-btn active" data-tab="calc"        title="Calculator"><svg class="ic"><use href="#i-calc"/></svg><span data-i18n="tab_calc">Calculator</span></button>
+        <button class="tab-btn"        data-tab="setup"       title="Cost Setup"><svg class="ic"><use href="#i-receipt"/></svg><span data-i18n="tab_setup">Cost Setup</span></button>
+        <button class="tab-btn"        data-tab="compare"     title="Compare Scenarios"><svg class="ic"><use href="#i-scale"/></svg><span data-i18n="tab_compare">Compare Scenarios</span></button>
+        <button class="tab-btn"        data-tab="sensitivity" title="Sensitivity Analysis"><svg class="ic"><use href="#i-trend"/></svg><span data-i18n="tab_sens">Sensitivity Analysis</span></button>
+      </div>
     </div>
 
     <!-- Section: E-Commerce -->
     <div class="tab-section">
-      <div class="tab-section-label" data-i18n="nav_sec_ecomm">E-Commerce</div>
-      <button class="tab-btn" data-tab="pcalc" title="Product Costing & ROAS"><svg class="ic"><use href="#i-cart"/></svg><span data-i18n="tab_pcalc">Product Costing & ROAS</span></button>
+      <button class="tab-section-toggle" data-section-id="ecomm" type="button">
+        <span data-i18n="nav_sec_ecomm">E-Commerce</span>
+        <svg class="chevron"><use href="#i-chevron-down"/></svg>
+      </button>
+      <div class="tab-section-items">
+        <button class="tab-btn" data-tab="pcalc" title="Product Costing & ROAS"><svg class="ic"><use href="#i-cart"/></svg><span data-i18n="tab_pcalc">Product Costing & ROAS</span></button>
+      </div>
     </div>
 
     <!-- Section: Account -->
     <div class="tab-section">
-      <div class="tab-section-label" data-i18n="nav_sec_account">Account</div>
-      <button class="tab-btn" data-tab="settings" title="Settings"><svg class="ic"><use href="#i-settings"/></svg><span data-i18n="tab_settings">Settings</span></button>
+      <button class="tab-section-toggle" data-section-id="account" type="button">
+        <span data-i18n="nav_sec_account">Account</span>
+        <svg class="chevron"><use href="#i-chevron-down"/></svg>
+      </button>
+      <div class="tab-section-items">
+        <button class="tab-btn" data-tab="settings" title="Settings"><svg class="ic"><use href="#i-settings"/></svg><span data-i18n="tab_settings">Settings</span></button>
+      </div>
     </div>
 
     <!-- Section: Admin (hidden for non-admins) -->
     <div class="tab-section admin-section" id="navAdminSection">
-      <div class="tab-section-label" data-i18n="nav_sec_admin">Admin</div>
-      <button class="tab-btn admin-only" data-tab="entities" id="tabBtnEntities" title="Entities"><svg class="ic"><use href="#i-building"/></svg><span data-i18n="tab_entities">Entities</span></button>
-      <button class="tab-btn admin-only" data-tab="users"    id="tabBtnUsers"    title="User Management"><svg class="ic"><use href="#i-users"/></svg><span data-i18n="tab_users">User Management</span></button>
+      <button class="tab-section-toggle" data-section-id="admin" type="button">
+        <span data-i18n="nav_sec_admin">Admin</span>
+        <svg class="chevron"><use href="#i-chevron-down"/></svg>
+      </button>
+      <div class="tab-section-items">
+        <button class="tab-btn admin-only" data-tab="entities" id="tabBtnEntities" title="Entities"><svg class="ic"><use href="#i-building"/></svg><span data-i18n="tab_entities">Entities</span></button>
+        <button class="tab-btn admin-only" data-tab="users"    id="tabBtnUsers"    title="User Management"><svg class="ic"><use href="#i-users"/></svg><span data-i18n="tab_users">User Management</span></button>
+      </div>
     </div>
 
   </div>
@@ -4082,6 +4133,54 @@ document.addEventListener('click', e=>{
   const sw = e.target.closest('.accent-swatch');
   if(sw) applyAccent(sw.dataset.accent);
 });
+
+/* ===== Section expand/collapse (persisted in localStorage) ===== */
+(function initSectionToggles(){
+  const KEY = 'ctg_sections_v1';
+  let state = {};
+  try { state = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(e){}
+
+  function apply(id, expanded){
+    const btn = document.querySelector(`.tab-section-toggle[data-section-id="${id}"]`);
+    if(!btn) return;
+    const sec = btn.closest('.tab-section');
+    sec.classList.toggle('section-collapsed', !expanded);
+    btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+  }
+  // Initialize all sections from saved state (default expanded)
+  document.querySelectorAll('.tab-section-toggle').forEach(btn => {
+    const id = btn.dataset.sectionId;
+    const expanded = state[id] !== false;
+    apply(id, expanded);
+  });
+  // Toggle on click
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('.tab-section-toggle');
+    if(!btn) return;
+    const id = btn.dataset.sectionId;
+    const sec = btn.closest('.tab-section');
+    const wasCollapsed = sec.classList.contains('section-collapsed');
+    const next = wasCollapsed; // toggle: was collapsed → now expanded
+    apply(id, next);
+    state[id] = next;
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e){}
+  });
+  // When user switches to a tab inside a collapsed section, auto-expand that section
+  // so they can see where they are.
+  document.addEventListener('click', e => {
+    const tabBtn = e.target.closest('.tab-btn[data-tab]');
+    if(!tabBtn) return;
+    const sec = tabBtn.closest('.tab-section');
+    if(sec && sec.classList.contains('section-collapsed')){
+      const id = sec.querySelector('.tab-section-toggle')?.dataset.sectionId;
+      if(id){
+        apply(id, true);
+        state[id] = true;
+        try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e){}
+      }
+    }
+  });
+})();
 
 /* ===== Sidebar collapse toggle (persisted in localStorage) ===== */
 (function initSidebarToggle(){
