@@ -34,28 +34,61 @@
   }
 
   // ---------- pub/sub for auth changes ----------
+  // Listeners are called with one argument: the event payload object
+  // ({ event, user, mode, prevUid, newUid }).
   const listeners = new Set();
-  function emit(event, payload) { listeners.forEach(fn => { try { fn(event, payload); } catch (e) { console.error(e); } }); }
+  function emit(payload) {
+    listeners.forEach(fn => { try { fn(payload); } catch (e) { console.error(e); } });
+  }
 
   // ---------- auth ----------
   let currentUser = null;
 
-  async function init() {
-    if (!sb) { emit('auth', { user: null, mode: 'offline' }); return { user: null }; }
-    const { data } = await sb.auth.getSession();
-    currentUser = data.session ? data.session.user : null;
-    emit('auth', { event: 'INITIAL_SESSION', user: currentUser, mode: currentUser ? 'cloud' : 'anonymous' });
+  // Buffer auth events that fire before any listener attaches. Critical for
+  // PASSWORD_RECOVERY: Supabase emits this event synchronously during the SDK's
+  // URL-hash parse on page load, which happens before our app's init() has had
+  // a chance to subscribe via CTG.onAuth(). Without buffering, the recovery
+  // modal would never open and the user would think the reset link is broken.
+  const _bufferedEvents = [];
+  let _replayedToListeners = false;
+
+  if (sb) {
+    // Register the onAuthStateChange callback IMMEDIATELY at module load — not
+    // inside init() — so events that fire during URL-hash parsing are caught.
     sb.auth.onAuthStateChange((event, session) => {
       const prevUid = currentUser ? currentUser.id : null;
       currentUser = session ? session.user : null;
-      const newUid  = currentUser ? currentUser.id : null;
+      const newUid = currentUser ? currentUser.id : null;
       if (newUid && newUid !== prevUid) lsWrite(LS_LAST_UID, newUid);
-      emit('auth', { event, user: currentUser, mode: currentUser ? 'cloud' : 'anonymous', prevUid, newUid });
+      const payload = { event, user: currentUser, mode: currentUser ? 'cloud' : 'anonymous', prevUid, newUid };
+      if (listeners.size === 0) _bufferedEvents.push(payload);
+      else emit(payload);
     });
+  }
+
+  async function init() {
+    if (!sb) {
+      emit({ event: 'INITIAL_SESSION', user: null, mode: 'offline' });
+      return { user: null };
+    }
+    const { data } = await sb.auth.getSession();
+    currentUser = data.session ? data.session.user : null;
+    // Don't double-emit INITIAL_SESSION here if onAuthStateChange already did.
+    // The SDK fires INITIAL_SESSION via onAuthStateChange on first call;
+    // we buffered it above so onAuth() replay will deliver it.
     return { user: currentUser };
   }
 
-  function onAuth(fn) { listeners.add(fn); return () => listeners.delete(fn); }
+  function onAuth(fn) {
+    listeners.add(fn);
+    // Replay any auth events that fired before any listener was attached.
+    if (!_replayedToListeners && _bufferedEvents.length > 0) {
+      _replayedToListeners = true;
+      const queue = _bufferedEvents.splice(0);
+      queue.forEach(payload => { try { fn(payload); } catch (e) { console.error(e); } });
+    }
+    return () => listeners.delete(fn);
+  }
 
   function getUser() { return currentUser; }
   function isSignedIn() { return !!currentUser; }
