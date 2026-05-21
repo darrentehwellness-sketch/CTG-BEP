@@ -203,10 +203,12 @@
     background-size:cover;background-position:center;
     border:2px solid rgba(255,255,255,.2);
   }
+  /* position:fixed (not absolute) so the dropdown escapes the header's overflow:hidden.
+     Top/right are set dynamically in JS when the menu opens. */
   .user-menu{
-    position:absolute;right:0;top:calc(100% + 6px);min-width:220px;
+    position:fixed;min-width:240px;
     background:#0C1421;border:1px solid var(--border-strong);border-radius:12px;
-    box-shadow:0 20px 50px rgba(0,0,0,.6);padding:10px;z-index:60;
+    box-shadow:0 20px 50px rgba(0,0,0,.6);padding:10px;z-index:120;
     display:none;
   }
   .user-menu.open{display:block;}
@@ -1802,8 +1804,25 @@ function renderAuthUI(){
     </div>`;
   const wrap = panel.querySelector('.user-wrap');
   const menu = document.getElementById('userMenu');
-  document.getElementById('btnUserMenu').onclick = (e)=>{ e.stopPropagation(); menu.classList.toggle('open'); };
-  document.addEventListener('click', (e)=>{ if(!wrap.contains(e.target)) menu.classList.remove('open'); });
+  const chip = document.getElementById('btnUserMenu');
+  function positionMenu(){
+    // Anchor the dropdown under the user chip. position:fixed coords are relative to the viewport.
+    const r = chip.getBoundingClientRect();
+    menu.style.top   = (r.bottom + 6) + 'px';
+    menu.style.right = Math.max(12, window.innerWidth - r.right) + 'px';
+  }
+  chip.onclick = (e)=>{
+    e.stopPropagation();
+    const willOpen = !menu.classList.contains('open');
+    if (willOpen) positionMenu();
+    menu.classList.toggle('open');
+  };
+  document.addEventListener('click', (e)=>{
+    if (!wrap.contains(e.target) && !menu.contains(e.target)) menu.classList.remove('open');
+  });
+  // Reposition or close on viewport changes so the menu doesn't float off where the chip used to be.
+  window.addEventListener('resize', ()=> menu.classList.remove('open'));
+  window.addEventListener('scroll', ()=> { if (menu.classList.contains('open')) positionMenu(); }, { passive: true });
   document.getElementById('btnSignOut').onclick = async ()=>{ await CTG.signOut(); };
 }
 
