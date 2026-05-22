@@ -2808,12 +2808,13 @@ function showToast(msg, kind){
 function compute(s){
   const sales = Number(s.salesTarget)||0;
   const actual = Number(s.actualSales)||0;
-  let totalFixed=0, totalVariable=0, totalProduct=0;
+  let totalFixed=0, totalVariable=0;
+  const totalProduct = 0;  // Legacy field — Product cost type was retired
   s.costs.forEach(c=>{
     const amt=(Number(c.qty)||0)*(Number(c.unit)||0);
     if(c.type==='Fixed') totalFixed+=amt;
     else if(c.type==='Variable') totalVariable+=amt;
-    else if(c.type==='Product') totalProduct+=amt;
+    // c.type === 'Product' silently ignored — normalizeBepState migrates them to Variable
   });
   let totPurchase=0,totSelling=0;
   s.products.forEach(p=>{
@@ -2860,15 +2861,13 @@ function renderCosts(){
   const tbody = document.querySelector('#costTable tbody');
   tbody.innerHTML = state.costs.map((c,i)=>{
     const amt=(Number(c.qty)||0)*(Number(c.unit)||0);
-    const tc = c.type==='Fixed'?'fixed':(c.type==='Variable'?'variable':'product');
-    const sel = c.type==='Product' ? `
-      <select data-ci="${i}" data-field="productIndex" style="font-size:11px;margin-top:4px;width:100%;border:1px dashed var(--border);">
-        <option value="">${t('link_product')}</option>
-        ${state.products.map((p,pi)=>`<option value="${pi}" ${c.productIndex===pi?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
-      </select>` : '';
+    // Type pill class: default to 'variable' for any unknown/legacy type so
+    // the pill keeps a sensible color (was 'product' which is no longer
+    // a selectable type and would mislead).
+    const tc = c.type==='Fixed' ? 'fixed' : 'variable';
     return `<tr>
       <td>${i+1}</td>
-      <td><input type="text" value="${escapeHtml(c.item)}" data-ci="${i}" data-field="item">${sel}</td>
+      <td><input type="text" value="${escapeHtml(c.item)}" data-ci="${i}" data-field="item"></td>
       <td><select data-ci="${i}" data-field="category">${CATEGORIES.map(k=>`<option ${c.category===k?'selected':''}>${k}</option>`).join('')}</select></td>
       <td><select data-ci="${i}" data-field="type">${TYPES.map(k=>`<option ${c.type===k?'selected':''}>${k}</option>`).join('')}</select>
           <div style="margin-top:4px;"><span class="pill ${tc}">${c.type}</span></div></td>
@@ -3242,29 +3241,6 @@ document.addEventListener('input', e=>{
     const i=+tgt.dataset.pi, f=tgt.dataset.field;
     state.products[i][f] = (f==='name') ? tgt.value : (Number(tgt.value)||0);
 
-    // Propagate name changes to linked cost items (and their visible inputs).
-    if(f==='name'){
-      state.costs.forEach((c, ci)=>{
-        if(c.type==='Product' && c.productIndex===i){
-          c.item = tgt.value;
-          const costInput = document.querySelector('#costTable input[data-ci="'+ci+'"][data-field="item"]');
-          if(costInput && document.activeElement !== costInput) costInput.value = tgt.value;
-        }
-      });
-    }
-    // Propagate purchase changes to linked cost.unit, also patch each cost row's amount.
-    if(f==='purchase'){
-      const newVal = Number(tgt.value)||0;
-      state.costs.forEach((c, ci)=>{
-        if(c.type==='Product' && c.productIndex===i){
-          c.unit = newVal;
-          c.item = state.products[i].name;
-          const costUnitInput = document.querySelector('#costTable input[data-ci="'+ci+'"][data-field="unit"]');
-          if(costUnitInput && document.activeElement !== costUnitInput) costUnitInput.value = newVal;
-          patchCostRowAmount(ci);
-        }
-      });
-    }
     // Margin % cell on this product row depends on purchase + selling.
     if(f==='purchase' || f==='selling') patchProductRowMargin(i);
 
@@ -3276,20 +3252,11 @@ document.addEventListener('input', e=>{
   if(tgt.dataset.ci!==undefined){
     const i=+tgt.dataset.ci, f=tgt.dataset.field;
 
-    // Select-driven changes: structural (pill colors, productIndex dropdown
-    // appearing/disappearing), so a full renderCosts() is correct here — and
-    // selects don't suffer the focus-loss problem text inputs do.
-    if(f==='productIndex' || f==='category' || f==='type'){
-      if(f==='productIndex'){
-        const v=tgt.value;
-        state.costs[i].productIndex = v===''?null:Number(v);
-        if(state.costs[i].productIndex!==null && state.products[state.costs[i].productIndex]){
-          state.costs[i].unit = state.products[state.costs[i].productIndex].purchase;
-          state.costs[i].item = state.products[state.costs[i].productIndex].name;
-        }
-      } else {
-        state.costs[i][f] = tgt.value;
-      }
+    // Select-driven changes: structural (pill colors), so a full renderCosts()
+    // is correct here — and selects don't suffer the focus-loss problem text
+    // inputs do.
+    if(f==='category' || f==='type'){
+      state.costs[i][f] = tgt.value;
       renderCosts(); renderSummary();
       return;
     }
@@ -3305,7 +3272,6 @@ document.addEventListener('click', e=>{
     const i=+e.target.dataset.delProduct;
     if(confirm(t('confirm_del_p'))){
       state.products.splice(i,1);
-      state.costs.forEach(c=>{if(c.productIndex===i)c.productIndex=null; else if(c.productIndex>i)c.productIndex--;});
       render();
     }
   }
@@ -3679,18 +3645,32 @@ document.getElementById('btnPrint').onclick = ()=>window.print();
 function maybeShowMigrate(){
   const banner = document.getElementById('migrateBanner');
   if(!banner) return;
-  const hasLocal = (JSON.parse(localStorage.getItem('ctg_bep_scenarios_v1') || '[]') || [])
-                    .some(s => String(s.id).startsWith('local_'));
+  let hasLocal = false;
+  try {
+    const raw = localStorage.getItem('ctg_bep_scenarios_v1');
+    const arr = raw ? JSON.parse(raw) : [];
+    hasLocal = Array.isArray(arr) && arr.some(s => s && String(s.id || '').startsWith('local_'));
+  } catch(e) { hasLocal = false; }
   banner.style.display = (CTG.isSignedIn() && hasLocal) ? 'flex' : 'none';
 }
 document.getElementById('btnMigrate').onclick = async ()=>{
-  const res = await CTG.migrateLocalToCloud();
-  if(res.migrated>0){
-    scenarios = await CTG.listScenarios();
-    renderCompare();
-    showToast(t('migrate_done').replace('{n}', res.migrated), 'success');
+  const btn = document.getElementById('btnMigrate');
+  btn.disabled = true;
+  try {
+    const res = await CTG.migrateLocalToCloud();
+    if(res && res.migrated > 0){
+      scenarios = await CTG.listScenarios();
+      renderCompare();
+      showToast(t('migrate_done').replace('{n}', res.migrated), 'success');
+    }
+  } catch (err) {
+    console.error(err);
+    showToast(t('err_save'), 'error');
+  } finally {
+    btn.disabled = false;
+    const banner = document.getElementById('migrateBanner');
+    if(banner) banner.style.display = 'none';
   }
-  document.getElementById('migrateBanner').style.display = 'none';
 };
 document.getElementById('btnMigrateDismiss').onclick = ()=>{
   document.getElementById('migrateBanner').style.display = 'none';
@@ -5062,6 +5042,17 @@ async function init(){
     if(currentTab==='entities') renderEntitiesTab();
     if(currentTab==='users')    renderUsersTab();
     maybeShowMigrate();
+    // Now that admin-only tabs may be visible, retry tab restoration if the
+    // user's saved tab is an admin tab that was hidden at first paint.
+    try {
+      const savedTab = localStorage.getItem(TAB_LS_KEY);
+      if(savedTab && savedTab !== currentTab){
+        const tgtBtn = document.querySelector('.tab-btn[data-tab="'+savedTab+'"]');
+        if(tgtBtn && tgtBtn.offsetParent !== null){
+          activateTab(savedTab, { skipScroll:true });
+        }
+      }
+    } catch(e){}
   });
   await CTG.init();
 
