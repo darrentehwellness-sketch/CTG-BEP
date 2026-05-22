@@ -31,7 +31,7 @@
 <script>if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
 <script src="config.js?v=21"></script>
 <script src="assets/js/supabase-client.js?v=21"></script>
-<script src="assets/js/pnl-converter.js?v=1"></script>
+<script src="assets/js/pnl-converter.js?v=2"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -1865,7 +1865,7 @@
     <!-- Step 2: Convert -->
     <div class="card">
       <h2><span class="ic">②</span><span data-i18n="pnl_convert_title">Convert &amp; Download</span><span class="badge" data-i18n="pnl_convert_badge">Auto-mapped</span></h2>
-      <p class="note" data-i18n="pnl_convert_help">We auto-match each source account to your canonical COA using keyword rules. Months are detected from the source headers. Anything we can't classify lands in a "— Unmapped —" sheet so nothing is silently dropped.</p>
+      <p class="note" data-i18n="pnl_convert_help">Output mirrors your source's structure exactly — accounts, order, sections, and totals all preserved per entity (SKINDAE, DRSMILE, etc.). We just rebuild the subtotals + Gross Profit + Net Profit as proper Excel formulas, add a % column, and apply MYR formatting.</p>
       <div class="input-group" style="margin-top:14px;">
         <label data-i18n="pnl_entity_label">Entity name (printed on the output)</label>
         <input type="text" id="pnlEntityName" placeholder="e.g. SKINDAE SDN BHD"/>
@@ -1880,15 +1880,12 @@
     <div class="card" id="pnlReportCard" style="display:none;">
       <h2><span class="ic">③</span><span data-i18n="pnl_report_title">Conversion Report</span></h2>
       <div class="grid-4" style="margin-bottom:14px;">
-        <div class="kpi success"><div class="label"><span class="dot"></span><span data-i18n="pnl_rep_mapped">Mapped lines</span></div><div class="value" id="pnlRepMapped">—</div><div class="sub" data-i18n="pnl_rep_mapped_sub">Auto-classified</div></div>
-        <div class="kpi warn"><div class="label"><span class="dot"></span><span data-i18n="pnl_rep_unmapped">Unmapped</span></div><div class="value" id="pnlRepUnmapped">—</div><div class="sub" data-i18n="pnl_rep_unmapped_sub">See "— Unmapped —" sheet</div></div>
-        <div class="kpi"><div class="label"><span class="dot"></span><span data-i18n="pnl_rep_accounts">COA buckets filled</span></div><div class="value" id="pnlRepAccounts">—</div><div class="sub" data-i18n="pnl_rep_accounts_sub">of canonical COA</div></div>
+        <div class="kpi success"><div class="label"><span class="dot"></span><span data-i18n="pnl_rep_sections">Sections</span></div><div class="value" id="pnlRepSections">—</div><div class="sub" data-i18n="pnl_rep_sections_sub">e.g. Trading Income, COS</div></div>
+        <div class="kpi"><div class="label"><span class="dot"></span><span data-i18n="pnl_rep_accounts2">Accounts</span></div><div class="value" id="pnlRepAccounts">—</div><div class="sub" data-i18n="pnl_rep_accounts2_sub">Line items in your COA</div></div>
+        <div class="kpi warn"><div class="label"><span class="dot"></span><span data-i18n="pnl_rep_formulas">Totals as formulas</span></div><div class="value" id="pnlRepFormulas">—</div><div class="sub" data-i18n="pnl_rep_formulas_sub">SUM + GP/NP rebuilt</div></div>
         <div class="kpi danger"><div class="label"><span class="dot"></span><span data-i18n="pnl_rep_months">Months detected</span></div><div class="value" id="pnlRepMonths">—</div><div class="sub" id="pnlRepMonthsSub">—</div></div>
       </div>
-      <details>
-        <summary style="cursor:pointer;font-size:13px;color:var(--sky-soft);font-weight:700;" data-i18n="pnl_rep_show_unmapped">📋 Show unmapped source lines</summary>
-        <div id="pnlUnmappedList" style="margin-top:10px;font-size:12.5px;color:var(--text-soft);"></div>
-      </details>
+      <p class="note" data-i18n="pnl_rep_done_msg">✓ Output mirrors your source's COA exactly — accounts, order, and section headers all preserved. All subtotals, Gross Profit, and Net Profit are now live Excel formulas.</p>
     </div>
   </div>
 
@@ -2391,11 +2388,11 @@ const I18N = {
     pnl_err_type:"Only .xlsx, .xls, and .pdf files are supported.",
     pnl_err_parse:"Couldn't parse the file. Please check the format.",
     pnl_report_title:"Conversion Report",
-    pnl_rep_mapped:"Mapped lines", pnl_rep_mapped_sub:"Auto-classified",
-    pnl_rep_unmapped:"Unmapped", pnl_rep_unmapped_sub:"See \"— Unmapped —\" sheet",
-    pnl_rep_accounts:"COA buckets filled", pnl_rep_accounts_sub:"of canonical COA",
+    pnl_rep_sections:"Sections", pnl_rep_sections_sub:"e.g. Trading Income, COS",
+    pnl_rep_accounts2:"Accounts", pnl_rep_accounts2_sub:"Line items in your COA",
+    pnl_rep_formulas:"Totals as formulas", pnl_rep_formulas_sub:"SUM + GP/NP rebuilt",
     pnl_rep_months:"Months detected",
-    pnl_rep_show_unmapped:"📋 Show unmapped source lines",
+    pnl_rep_done_msg:"✓ Output mirrors your source's COA exactly — accounts, order, and section headers all preserved. All subtotals, Gross Profit, and Net Profit are now live Excel formulas.",
     // Page header subtitles per tab
     page_sub_calc:"Build budgets and compute break-even in real-time",
     page_sub_setup:"Manage products and cost line items",
@@ -4570,15 +4567,12 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
       setTimeout(() => URL.revokeObjectURL(url), 1500);
 
       // Show report
-      document.getElementById('pnlRepMapped').textContent    = report.mappedCount;
-      document.getElementById('pnlRepUnmapped').textContent  = report.unmappedCount;
-      document.getElementById('pnlRepAccounts').textContent  = report.mappedAccounts;
-      document.getElementById('pnlRepMonths').textContent    = report.months.length;
-      document.getElementById('pnlRepMonthsSub').textContent = report.months.join(' · ');
-      const um = document.getElementById('pnlUnmappedList');
-      um.innerHTML = report.unmapped.length === 0
-        ? '<div class="note">✓ Every source line was mapped to a COA bucket.</div>'
-        : report.unmapped.map(n => '<div class="um-line">' + escapeHtml(n) + '</div>').join('');
+      const setT = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+      setT('pnlRepSections',  report.sections);
+      setT('pnlRepAccounts',  report.accounts);
+      setT('pnlRepFormulas',  report.subtotals + report.computed);
+      setT('pnlRepMonths',    report.months.length);
+      setT('pnlRepMonthsSub', report.months.join(' · '));
       reportCard.style.display = 'block';
       showStatus(t('pnl_done'), 'success');
     } catch (err) {
