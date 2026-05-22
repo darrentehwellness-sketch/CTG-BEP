@@ -25,8 +25,13 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- P&L Converter dependencies -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
 <script src="config.js?v=21"></script>
 <script src="assets/js/supabase-client.js?v=21"></script>
+<script src="assets/js/pnl-converter.js?v=1"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -1186,6 +1191,32 @@
     }
   }
 
+  /* ============ P&L CONVERTER ============ */
+  .pnl-drop{
+    border:2px dashed rgba(91,155,213,.30);
+    border-radius:14px;
+    padding:32px 20px;
+    text-align:center;
+    background:rgba(7,13,23,.30);
+    transition:.18s var(--ease);
+    cursor:pointer;
+  }
+  .pnl-drop:hover,
+  .pnl-drop.drag-over{
+    border-color:var(--coral);
+    background:rgba(232,93,60,.06);
+  }
+  .pnl-drop-inner{pointer-events:none;}
+  .pnl-drop button{pointer-events:auto;}
+  #btnPnlConvert{font-size:14px;padding:11px 22px;font-weight:700;}
+  #btnPnlConvert:disabled{background:rgba(255,255,255,.06);color:var(--muted);border:1px solid var(--border);box-shadow:none;}
+  #pnlUnmappedList{display:flex;flex-direction:column;gap:4px;}
+  #pnlUnmappedList .um-line{
+    padding:6px 10px;background:rgba(7,13,23,.40);
+    border:1px solid var(--border);border-radius:6px;
+    font-family:Consolas,Menlo,monospace;font-size:12px;color:var(--text-soft);
+  }
+
   /* ============ PRINT ============ */
   @media print{
     header,.tabs,.toolbar,.add-row,.action,button,.toast-stack,.migrate-banner{display:none !important;}
@@ -1381,6 +1412,17 @@
       </button>
       <div class="tab-section-items">
         <button class="tab-btn" data-tab="pcalc" title="Product Costing Calculator"><svg class="ic"><use href="#i-cart"/></svg><span data-i18n="tab_pcalc">Product Costing Calculator</span></button>
+      </div>
+    </div>
+
+    <!-- Section: Reporting -->
+    <div class="tab-section">
+      <button class="tab-section-toggle" data-section-id="reporting" type="button">
+        <span data-i18n="nav_sec_reporting">Reporting</span>
+        <svg class="chevron"><use href="#i-chevron-down"/></svg>
+      </button>
+      <div class="tab-section-items">
+        <button class="tab-btn" data-tab="pnl" title="P&amp;L Converter"><svg class="ic"><use href="#i-receipt"/></svg><span data-i18n="tab_pnl">P&amp;L Converter</span></button>
       </div>
     </div>
 
@@ -1770,6 +1812,69 @@
         <button class="ghost" data-pc-sku-close data-i18n="auth_close">Close</button>
         <button class="accent" id="btnPcSkuApply" data-i18n="pc_sku_apply">Apply to Product</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- TAB: P&L CONVERTER (PDF/Excel → SKINDAE COA format) -->
+  <!-- ============================================================== -->
+  <div class="tab-panel" id="tab-pnl">
+
+    <div class="toolbar">
+      <span class="note" data-i18n="pnl_note">Drop a P&amp;L exported from AutoCount, SQL Account, Xero, or any Excel/PDF — we auto-map to your COA and give you a downloadable Excel.</span>
+    </div>
+
+    <!-- Step 1: Upload -->
+    <div class="card">
+      <h2><span class="ic">①</span><span data-i18n="pnl_upload_title">Upload Source P&amp;L</span><span class="badge" data-i18n="pnl_upload_badge">PDF or Excel</span></h2>
+      <div id="pnlDropZone" class="pnl-drop">
+        <div class="pnl-drop-inner">
+          <div style="font-size:42px;line-height:1;margin-bottom:10px;">📄</div>
+          <div style="color:#fff;font-weight:700;font-size:14px;margin-bottom:4px;" data-i18n="pnl_drop_title">Drop your P&amp;L file here</div>
+          <div class="note" style="margin-bottom:14px;" data-i18n="pnl_drop_sub">or click to browse · .xlsx · .xls · .pdf · max 20 MB</div>
+          <button class="accent" id="btnPnlChoose" type="button" data-i18n="pnl_choose">Choose file…</button>
+          <input type="file" id="pnlFileInput" accept=".xlsx,.xls,.pdf" style="display:none;"/>
+        </div>
+      </div>
+      <div id="pnlFileInfo" style="display:none;margin-top:14px;padding:12px 16px;background:rgba(91,155,213,.10);border:1px solid rgba(91,155,213,.30);border-radius:10px;display:none;">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <span style="font-size:24px;line-height:1;" id="pnlFileIcon">📊</span>
+          <div style="flex:1;min-width:200px;">
+            <div style="color:#fff;font-weight:700;font-size:14px;" id="pnlFileName">—</div>
+            <div class="note" style="margin:2px 0 0;" id="pnlFileSize">—</div>
+          </div>
+          <button class="ghost" id="btnPnlClear" type="button" style="padding:6px 14px;font-size:12px;" data-i18n="pnl_clear">✕ Remove</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Convert -->
+    <div class="card">
+      <h2><span class="ic">②</span><span data-i18n="pnl_convert_title">Convert &amp; Download</span><span class="badge" data-i18n="pnl_convert_badge">Auto-mapped</span></h2>
+      <p class="note" data-i18n="pnl_convert_help">We auto-match each source account to your canonical COA using keyword rules. Months are detected from the source headers. Anything we can't classify lands in a "— Unmapped —" sheet so nothing is silently dropped.</p>
+      <div class="input-group" style="margin-top:14px;">
+        <label data-i18n="pnl_entity_label">Entity name (printed on the output)</label>
+        <input type="text" id="pnlEntityName" placeholder="e.g. SKINDAE SDN BHD"/>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;">
+        <button class="accent" id="btnPnlConvert" type="button" disabled><span data-i18n="pnl_convert_btn">⚡ Convert &amp; Download Excel</span></button>
+        <span id="pnlStatus" class="note" style="align-self:center;"></span>
+      </div>
+    </div>
+
+    <!-- Step 3: Report -->
+    <div class="card" id="pnlReportCard" style="display:none;">
+      <h2><span class="ic">③</span><span data-i18n="pnl_report_title">Conversion Report</span></h2>
+      <div class="grid-4" style="margin-bottom:14px;">
+        <div class="kpi success"><div class="label"><span class="dot"></span><span data-i18n="pnl_rep_mapped">Mapped lines</span></div><div class="value" id="pnlRepMapped">—</div><div class="sub" data-i18n="pnl_rep_mapped_sub">Auto-classified</div></div>
+        <div class="kpi warn"><div class="label"><span class="dot"></span><span data-i18n="pnl_rep_unmapped">Unmapped</span></div><div class="value" id="pnlRepUnmapped">—</div><div class="sub" data-i18n="pnl_rep_unmapped_sub">See "— Unmapped —" sheet</div></div>
+        <div class="kpi"><div class="label"><span class="dot"></span><span data-i18n="pnl_rep_accounts">COA buckets filled</span></div><div class="value" id="pnlRepAccounts">—</div><div class="sub" data-i18n="pnl_rep_accounts_sub">of canonical COA</div></div>
+        <div class="kpi danger"><div class="label"><span class="dot"></span><span data-i18n="pnl_rep_months">Months detected</span></div><div class="value" id="pnlRepMonths">—</div><div class="sub" id="pnlRepMonthsSub">—</div></div>
+      </div>
+      <details>
+        <summary style="cursor:pointer;font-size:13px;color:var(--sky-soft);font-weight:700;" data-i18n="pnl_rep_show_unmapped">📋 Show unmapped source lines</summary>
+        <div id="pnlUnmappedList" style="margin-top:10px;font-size:12.5px;color:var(--text-soft);"></div>
+      </details>
     </div>
   </div>
 
@@ -2254,6 +2359,29 @@ const I18N = {
     tab_settings:"Profile", tab_users:"User Management",
     nav_sec_bep:"Exhibition BEP", nav_sec_account:"Account", nav_sec_admin:"Settings",
     nav_sec_ecomm:"Product Calculator", tab_pcalc:"Product Costing Calculator",
+    nav_sec_reporting:"Reporting", tab_pnl:"P&L Converter",
+    page_sub_pnl:"Convert any P&L (PDF/Excel) to your canonical COA format",
+    pnl_note:"Drop a P&L exported from AutoCount, SQL Account, Xero, or any Excel/PDF — we auto-map to your COA and give you a downloadable Excel.",
+    pnl_upload_title:"Upload Source P&L", pnl_upload_badge:"PDF or Excel",
+    pnl_drop_title:"Drop your P&L file here",
+    pnl_drop_sub:"or click to browse · .xlsx · .xls · .pdf · max 20 MB",
+    pnl_choose:"Choose file…", pnl_clear:"✕ Remove",
+    pnl_convert_title:"Convert & Download", pnl_convert_badge:"Auto-mapped",
+    pnl_convert_help:"We auto-match each source account to your canonical COA using keyword rules. Months are detected from the source headers. Anything we can't classify lands in a \"— Unmapped —\" sheet so nothing is silently dropped.",
+    pnl_entity_label:"Entity name (printed on the output)",
+    pnl_convert_btn:"⚡ Convert & Download Excel",
+    pnl_no_file:"Please choose a file first.",
+    pnl_processing:"Processing…",
+    pnl_done:"Done — file downloaded.",
+    pnl_err_size:"File is too large (max 20 MB).",
+    pnl_err_type:"Only .xlsx, .xls, and .pdf files are supported.",
+    pnl_err_parse:"Couldn't parse the file. Please check the format.",
+    pnl_report_title:"Conversion Report",
+    pnl_rep_mapped:"Mapped lines", pnl_rep_mapped_sub:"Auto-classified",
+    pnl_rep_unmapped:"Unmapped", pnl_rep_unmapped_sub:"See \"— Unmapped —\" sheet",
+    pnl_rep_accounts:"COA buckets filled", pnl_rep_accounts_sub:"of canonical COA",
+    pnl_rep_months:"Months detected",
+    pnl_rep_show_unmapped:"📋 Show unmapped source lines",
     // Page header subtitles per tab
     page_sub_calc:"Build budgets and compute break-even in real-time",
     page_sub_setup:"Manage products and cost line items",
@@ -3531,6 +3659,7 @@ const PAGE_HEADER_MAP = {
   compare:     { title: 'tab_compare',  sub: 'page_sub_compare' },
   sensitivity: { title: 'tab_sens',     sub: 'page_sub_sens' },
   pcalc:       { title: 'tab_pcalc',    sub: 'page_sub_pcalc' },
+  pnl:         { title: 'tab_pnl',      sub: 'page_sub_pnl' },
   settings:    { title: 'tab_settings', sub: 'page_sub_settings' },
   entities:    { title: 'tab_entities', sub: 'page_sub_entities' },
   users:       { title: 'tab_users',    sub: 'page_sub_users' }
@@ -4312,6 +4441,131 @@ document.addEventListener('click', async e => {
 // Compatibility shim — used elsewhere in legacy paths to lazy-init channels.
 // New shape has no `channels`, but other code may call this on save/load.
 function pcEnsureChannels(){ /* no-op in v2 */ }
+
+/* ============ P&L CONVERTER TAB ============
+   Glue between the upload UI and the CTGPnLConverter module
+   (assets/js/pnl-converter.js). Module exposes:
+     CTGPnLConverter.convertFile(file, entityName) → { blob, report } */
+(function(){
+  const MAX_BYTES = 20 * 1024 * 1024;  // 20 MB
+  let _pnlFile = null;
+
+  const dropZone   = document.getElementById('pnlDropZone');
+  const fileInput  = document.getElementById('pnlFileInput');
+  const btnChoose  = document.getElementById('btnPnlChoose');
+  const btnClear   = document.getElementById('btnPnlClear');
+  const btnConvert = document.getElementById('btnPnlConvert');
+  const fileInfo   = document.getElementById('pnlFileInfo');
+  const fileName   = document.getElementById('pnlFileName');
+  const fileSize   = document.getElementById('pnlFileSize');
+  const fileIcon   = document.getElementById('pnlFileIcon');
+  const statusEl   = document.getElementById('pnlStatus');
+  const reportCard = document.getElementById('pnlReportCard');
+  const entityIn   = document.getElementById('pnlEntityName');
+
+  if(!dropZone) return;  // bail if tab not present
+
+  function showStatus(msg, kind){
+    if(!statusEl) return;
+    statusEl.textContent = msg || '';
+    statusEl.style.color = kind === 'error' ? '#fca5a5'
+                         : kind === 'success' ? '#6ee7b7'
+                         : 'var(--muted)';
+  }
+  function fmtBytes(n){
+    if(n < 1024) return n + ' B';
+    if(n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
+    return (n/1024/1024).toFixed(2) + ' MB';
+  }
+  function setFile(f){
+    if(!f){
+      _pnlFile = null;
+      fileInfo.style.display = 'none';
+      btnConvert.disabled = true;
+      showStatus('');
+      return;
+    }
+    if(f.size > MAX_BYTES){ showStatus(t('pnl_err_size'), 'error'); return; }
+    const nm = (f.name || '').toLowerCase();
+    if(!/\.(xlsx|xls|pdf)$/i.test(nm)){ showStatus(t('pnl_err_type'), 'error'); return; }
+    _pnlFile = f;
+    fileName.textContent = f.name;
+    fileSize.textContent = fmtBytes(f.size);
+    fileIcon.textContent = nm.endsWith('.pdf') ? '📑' : '📊';
+    fileInfo.style.display = 'flex';
+    btnConvert.disabled = false;
+    showStatus('');
+  }
+
+  // Drag & drop
+  dropZone.addEventListener('click', e => {
+    // Only trigger when clicking the empty area, not the button itself
+    if(e.target === btnChoose || (e.target.closest && e.target.closest('button'))) return;
+    fileInput.click();
+  });
+  btnChoose.addEventListener('click', e => { e.stopPropagation(); fileInput.click(); });
+  ['dragenter','dragover'].forEach(ev => {
+    dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  });
+  ['dragleave','drop'].forEach(ev => {
+    dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.remove('drag-over'); });
+  });
+  dropZone.addEventListener('drop', e => {
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if(f) setFile(f);
+  });
+  fileInput.addEventListener('change', e => {
+    const f = e.target.files && e.target.files[0];
+    if(f) setFile(f);
+  });
+  btnClear.addEventListener('click', () => {
+    fileInput.value = '';
+    setFile(null);
+    reportCard.style.display = 'none';
+  });
+
+  // Convert
+  btnConvert.addEventListener('click', async () => {
+    if(!_pnlFile){ showStatus(t('pnl_no_file'), 'error'); return; }
+    if(typeof CTGPnLConverter === 'undefined'){
+      showStatus('Converter module not loaded — reload the page.', 'error'); return;
+    }
+    btnConvert.disabled = true;
+    showStatus(t('pnl_processing'));
+    try {
+      const entityName = (entityIn.value || '').trim();
+      const { blob, report } = await CTGPnLConverter.convertFile(_pnlFile, entityName);
+      // Trigger download
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const baseName = _pnlFile.name.replace(/\.(xlsx|xls|pdf)$/i, '');
+      a.href = url;
+      a.download = baseName + '_COA_' + new Date().toISOString().slice(0,10) + '.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+
+      // Show report
+      document.getElementById('pnlRepMapped').textContent    = report.mappedCount;
+      document.getElementById('pnlRepUnmapped').textContent  = report.unmappedCount;
+      document.getElementById('pnlRepAccounts').textContent  = report.mappedAccounts;
+      document.getElementById('pnlRepMonths').textContent    = report.months.length;
+      document.getElementById('pnlRepMonthsSub').textContent = report.months.join(' · ');
+      const um = document.getElementById('pnlUnmappedList');
+      um.innerHTML = report.unmapped.length === 0
+        ? '<div class="note">✓ Every source line was mapped to a COA bucket.</div>'
+        : report.unmapped.map(n => '<div class="um-line">' + escapeHtml(n) + '</div>').join('');
+      reportCard.style.display = 'block';
+      showStatus(t('pnl_done'), 'success');
+    } catch (err) {
+      console.error(err);
+      showStatus((err && err.message) ? err.message : t('pnl_err_parse'), 'error');
+    } finally {
+      btnConvert.disabled = false;
+    }
+  });
+})();
 
 /* ============ SETTINGS TAB ============ */
 async function renderSettingsTab(){
