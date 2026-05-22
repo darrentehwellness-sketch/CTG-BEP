@@ -221,19 +221,31 @@ function normalizeName(s){
 /* Build a flat lookup index sorted longest-keyword-first so specific
    matches win (e.g. "shopee commission" matches before "shopee").
    Also AUTO-REGISTERS each canonical COA name as a keyword for itself
-   so any source file that uses the exact canonical name maps 1:1. */
+   so any source file that uses the exact canonical name maps 1:1.
+   Wrapped in try/catch so a malformed entry can't break script load. */
 const KEYWORD_INDEX = (function(){
   const idx = [];
-  // 1) Auto-register canonical names as self-matching keywords
-  COA.forEach(item => {
-    if(item.kind === 'account' && item.name){
-      idx.push({ kw: normalizeName(item.name), target: item.name });
-    }
-  });
-  // 2) Then the explicit fuzzy keywords
-  Object.keys(COA_KEYWORDS).forEach(target => {
-    COA_KEYWORDS[target].forEach(kw => idx.push({ kw: kw.toLowerCase(), target }));
-  });
+  try {
+    // 1) Auto-register canonical names as self-matching keywords
+    COA.forEach(item => {
+      if(item && item.kind === 'account' && item.name){
+        const kw = normalizeName(item.name);
+        if(kw) idx.push({ kw, target: item.name });
+      }
+    });
+    // 2) Then the explicit fuzzy keywords
+    Object.keys(COA_KEYWORDS).forEach(target => {
+      const kws = COA_KEYWORDS[target];
+      if(!Array.isArray(kws)) return;
+      kws.forEach(kw => {
+        if(typeof kw === 'string' && kw.length > 0){
+          idx.push({ kw: kw.toLowerCase(), target });
+        }
+      });
+    });
+  } catch(e) {
+    console.error('KEYWORD_INDEX build failed:', e);
+  }
   // Longest-first so more specific matches win
   idx.sort((a,b) => b.kw.length - a.kw.length);
   return idx;
@@ -667,11 +679,12 @@ function buildOutputWorkbook({ source, mapped, unmapped, entityOverride }){
   ws['!rows'] = [ { hpt: 22 }, { hpt: 16 }, { hpt: 14 }, { hpt: 16 } ];
 
   // Freeze rows 1–4 (title block + month-header row) so they stay
-  // visible while scrolling. The SheetJS/xlsx-js-style way is via
-  // worksheet view "pane" settings — they take effect when the file
-  // opens in Excel/Google Sheets.
+  // visible while scrolling. Set BOTH freeze syntaxes for maximum
+  // compatibility — older xlsx-style forks recognize !freeze, newer
+  // SheetJS recognizes !views with pane state.
+  ws['!freeze'] = { xSplit: 0, ySplit: 4 };
   ws['!views'] = [{
-    state:'frozen',
+    state: 'frozen',
     ySplit: 4,
     xSplit: 0,
     topLeftCell: 'A5',

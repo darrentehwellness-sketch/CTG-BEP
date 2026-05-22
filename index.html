@@ -33,7 +33,7 @@
 <script>if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
 <script src="config.js?v=21"></script>
 <script src="assets/js/supabase-client.js?v=21"></script>
-<script src="assets/js/pnl-converter.js?v=5"></script>
+<script src="assets/js/pnl-converter.js?v=6"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -4573,18 +4573,20 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 1500);
 
-      // Show report
-      const setT = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
-      setT('pnlRepMapped',    report.mappedRows);
-      setT('pnlRepUnmapped',  report.unmappedRows);
-      setT('pnlRepBuckets',   report.coaAccounts);
-      setT('pnlRepMonths',    report.months.length);
-      setT('pnlRepMonthsSub', report.months.join(' · '));
+      // Show report — defensive against malformed report objects
+      const setT = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = (val == null ? '—' : val); };
+      const months = Array.isArray(report.months) ? report.months : [];
+      const unmappedNames = Array.isArray(report.unmappedNames) ? report.unmappedNames : [];
+      setT('pnlRepMapped',    report.mappedRows   || 0);
+      setT('pnlRepUnmapped',  report.unmappedRows || 0);
+      setT('pnlRepBuckets',   report.coaAccounts  || 0);
+      setT('pnlRepMonths',    months.length);
+      setT('pnlRepMonthsSub', months.join(' · ') || '—');
       const umList = document.getElementById('pnlUnmappedList');
       if(umList){
-        umList.innerHTML = report.unmappedRows === 0
+        umList.innerHTML = (report.unmappedRows || 0) === 0
           ? '<div class="note">✓ Every source line was mapped to a canonical COA bucket.</div>'
-          : (report.unmappedNames || []).map(n => '<div class="um-line">' + escapeHtml(n) + '</div>').join('');
+          : unmappedNames.map(n => '<div class="um-line">' + escapeHtml(n) + '</div>').join('');
       }
       reportCard.style.display = 'block';
       showStatus(t('pnl_done'), 'success');
