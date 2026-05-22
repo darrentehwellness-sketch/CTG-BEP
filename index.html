@@ -34,6 +34,7 @@
 <script src="config.js?v=21"></script>
 <script src="assets/js/supabase-client.js?v=21"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
+<script src="assets/js/wht-calculator.js?v=1"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -1193,6 +1194,41 @@
     }
   }
 
+  /* ============ WHT CALCULATOR ============ */
+  .wht-payee-card{
+    background:linear-gradient(180deg, rgba(19,28,45,.85), rgba(19,28,45,.65));
+    border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:16px;
+    box-shadow:0 4px 14px rgba(0,0,0,.28);
+  }
+  .wht-payee-card .head{
+    display:flex;align-items:center;justify-content:space-between;
+    padding-bottom:10px;border-bottom:1px solid var(--border);margin-bottom:14px;
+    gap:12px;flex-wrap:wrap;
+  }
+  .wht-payee-card .head .pno{
+    width:32px;height:32px;border-radius:50%;
+    background:linear-gradient(135deg, var(--coral), var(--coral-deep));
+    color:#fff;display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:13px;box-shadow:0 2px 8px rgba(232,93,60,.4);
+  }
+  .wht-payee-card .head .ttl{flex:1;font-size:15px;font-weight:700;color:#fff;min-width:160px;}
+  .wht-payee-card .head .sub{font-size:11.5px;color:var(--text-soft);font-weight:500;}
+  .wht-payee-card .opts{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px;font-size:12.5px;color:var(--text-soft);}
+  .wht-payee-card .opts label{cursor:pointer;display:flex;align-items:center;gap:6px;}
+  .wht-payee-card .opts input[type="checkbox"]{accent-color:var(--coral);}
+  .wht-totals{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px;
+  }
+  .wht-totals .box{
+    background:rgba(7,13,23,.40);
+    border:1px solid var(--border);border-radius:10px;padding:10px 14px;
+  }
+  .wht-totals .box .label{font-size:10.5px;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);font-weight:700;}
+  .wht-totals .box .value{font-size:18px;font-weight:800;color:#fff;margin-top:3px;font-variant-numeric:tabular-nums;}
+  .wht-totals .box.hilite{background:rgba(232,93,60,.10);border-color:rgba(232,93,60,.30);}
+  .wht-totals .box.hilite .value{color:var(--coral-soft);}
+  @media (max-width:900px){ .wht-totals{ grid-template-columns:repeat(2,1fr); } }
+
   /* ============ AUDIT REVIEW (Pass 3) PANEL ============ */
   #pnlAuditPanel.op-clean    #pnlAuditOpinion { background:linear-gradient(135deg, #047857, #065f46); }
   #pnlAuditPanel.op-minor    #pnlAuditOpinion { background:linear-gradient(135deg, #b45309, #92400e); }
@@ -1496,6 +1532,7 @@
       </button>
       <div class="tab-section-items">
         <button class="tab-btn" data-tab="pnl" title="P&amp;L Converter"><svg class="ic"><use href="#i-receipt"/></svg><span data-i18n="tab_pnl">P&amp;L Converter</span></button>
+        <button class="tab-btn" data-tab="wht" title="WHT Calculator"><svg class="ic"><use href="#i-calc"/></svg><span data-i18n="tab_wht">WHT Calculator</span></button>
       </div>
     </div>
 
@@ -1995,6 +2032,97 @@
   </div>
 
   <!-- ============================================================== -->
+  <!-- TAB: WHT CALCULATOR (Malaysia LHDN CP37) -->
+  <!-- ============================================================== -->
+  <div class="tab-panel" id="tab-wht">
+
+    <div class="toolbar">
+      <button class="ghost" id="btnWhtReset">↺ <span data-i18n="reset">Reset Sample</span></button>
+      <button class="ghost" id="btnWhtAddPayee">+ <span data-i18n="wht_add_payee">Add Payee</span></button>
+      <button class="success" id="btnWhtSave">⭐ <span data-i18n="wht_save_btn">Save Scenario</span></button>
+      <button class="accent" id="btnWhtExport">⬇ <span data-i18n="wht_export_excel">Export Excel</span></button>
+      <div style="flex:1"></div>
+      <span class="note" data-i18n="wht_note">Auto-saved on this device · MYR only</span>
+    </div>
+
+    <!-- Step 1: Payer block -->
+    <div class="card">
+      <h2><span class="ic">①</span><span data-i18n="wht_payer_title">Payer Information</span><span class="badge" data-i18n="wht_payer_badge">Your company</span></h2>
+      <div class="grid-3">
+        <div class="input-group">
+          <label data-i18n="wht_payer_name">Payer Name</label>
+          <input type="text" id="whtPayerName" placeholder="e.g. SKINDAE SDN BHD"/>
+        </div>
+        <div class="input-group">
+          <label data-i18n="wht_payer_tin">Tax Identification No. (TIN)</label>
+          <input type="text" id="whtPayerTin" placeholder="e.g. C 58427907080"/>
+        </div>
+        <div class="input-group">
+          <label data-i18n="wht_period">Period</label>
+          <input type="text" id="whtPeriod" placeholder="e.g. 17 Jan 2026 - 31 Jan 2026"/>
+        </div>
+      </div>
+      <div class="grid-3">
+        <div class="input-group">
+          <label data-i18n="wht_prepared">Prepared By</label>
+          <input type="text" id="whtPreparedBy" placeholder="e.g. Janet Ooi"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Payees list (dynamically rendered) -->
+    <div id="whtPayeesContainer"></div>
+
+    <!-- Step 3: Master Summary -->
+    <div class="card" id="whtMasterCard">
+      <h2><span class="ic">③</span><span data-i18n="wht_master_title">Master Summary</span><span class="badge" data-i18n="wht_master_badge">CP37 Total</span></h2>
+      <div class="grid-4" style="margin-bottom:14px;">
+        <div class="kpi"><div class="label"><span class="dot"></span><span data-i18n="wht_kpi_gross">Total Gross</span></div><div class="value" id="whtKpiGross">—</div><div class="sub" data-i18n="wht_kpi_gross_sub">SST-inclusive invoice total</div></div>
+        <div class="kpi warn"><div class="label"><span class="dot"></span><span data-i18n="wht_kpi_sst">Total SST</span></div><div class="value" id="whtKpiSst">—</div><div class="sub" data-i18n="wht_kpi_sst_sub">8% reverse-calc, excluded from WHT base</div></div>
+        <div class="kpi success"><div class="label"><span class="dot"></span><span data-i18n="wht_kpi_net">Total Net</span></div><div class="value" id="whtKpiNet">—</div><div class="sub" data-i18n="wht_kpi_net_sub">WHT base · Σ Net per LHDN PR 11/2018</div></div>
+        <div class="kpi danger"><div class="label"><span class="dot"></span><span data-i18n="wht_kpi_payable">Total Payable</span></div><div class="value" id="whtKpiPayable">—</div><div class="sub" id="whtKpiPayableSub" data-i18n="wht_kpi_payable_sub">WHT + Penalty (if any)</div></div>
+      </div>
+      <div class="table-wrap">
+        <table id="whtMasterTable">
+          <thead>
+            <tr>
+              <th style="width:36px;">No</th>
+              <th data-i18n="wht_th_payee">Payee</th>
+              <th style="width:120px;" data-i18n="wht_th_country">Country</th>
+              <th data-i18n="wht_th_section">ITA Section</th>
+              <th style="width:130px;" data-i18n="wht_th_net">Subtotal (Net)</th>
+              <th style="width:80px;" data-i18n="wht_th_rate">Rate</th>
+              <th style="width:130px;" data-i18n="wht_th_wht">WHT</th>
+              <th style="width:130px;" data-i18n="wht_th_penalty">Penalty</th>
+              <th style="width:130px;" data-i18n="wht_th_payable">Payable</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot>
+            <tr>
+              <td colspan="4" style="text-align:right;" data-i18n="wht_tf_total">Grand Total:</td>
+              <td class="num" id="whtTfNet">—</td>
+              <td></td>
+              <td class="num" id="whtTfWht">—</td>
+              <td class="num" id="whtTfPenalty">—</td>
+              <td class="num" id="whtTfPayable">—</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <p class="note" style="margin-top:12px;" data-i18n="wht_master_help">📋 Per LHDN: submit Form CP37 + pay WHT to LHDN within <b>1 month</b> from the date of paying the non-resident. Late = 10% penalty per ITA s.109(2). The reverse-SST calc follows LHDN PR 11/2018 — WHT base is net of SST/GST.</p>
+    </div>
+
+    <!-- Step 4: Saved scenarios -->
+    <div class="card">
+      <h2><span class="ic">④</span><span data-i18n="wht_saved_title">Saved Scenarios</span></h2>
+      <div id="whtSavedList" style="display:flex;flex-direction:column;gap:8px;">
+        <p class="note" data-i18n="wht_saved_empty">No saved scenarios yet. Click ⭐ Save Scenario above.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
   <!-- TAB 3: SENSITIVITY ANALYSIS -->
   <!-- ============================================================== -->
   <div class="tab-panel" id="tab-sensitivity">
@@ -2475,8 +2603,42 @@ const I18N = {
     tab_settings:"Profile", tab_users:"User Management",
     nav_sec_bep:"Exhibition BEP", nav_sec_account:"Account", nav_sec_admin:"Settings",
     nav_sec_ecomm:"Product Calculator", tab_pcalc:"Product Costing Calculator",
-    nav_sec_reporting:"Reporting", tab_pnl:"P&L Converter",
+    nav_sec_reporting:"Reporting", tab_pnl:"P&L Converter", tab_wht:"WHT Calculator",
     page_sub_pnl:"Convert any P&L (PDF/Excel) to your canonical COA format",
+    page_sub_wht:"Compute Malaysian Withholding Tax on non-resident payments (CP37)",
+    wht_add_payee:"Add Payee", wht_save_btn:"Save Scenario", wht_export_excel:"Export Excel",
+    wht_note:"Auto-saved on this device · MYR only",
+    wht_payer_title:"Payer Information", wht_payer_badge:"Your company",
+    wht_payer_name:"Payer Name", wht_payer_tin:"Tax Identification No. (TIN)",
+    wht_period:"Period", wht_prepared:"Prepared By",
+    wht_payee_title:"Payee", wht_payee_name:"Payee Name", wht_payee_country:"Foreign Country",
+    wht_payee_tin:"Foreign TIN (optional)", wht_payee_section:"ITA Section",
+    wht_payee_rate:"WHT Rate (%)", wht_payee_sst:"SST-inclusive",
+    wht_payee_sst_rate:"SST Rate (%)", wht_payee_penalty:"Apply 10% penalty (late)",
+    wht_payee_period:"Date Range",
+    wht_lines_title:"Invoice Receipts",
+    wht_th_no:"No", wht_th_date:"Payment Date", wht_th_receipt:"Receipt No",
+    wht_th_gross:"Gross (MYR)", wht_th_net2:"Net", wht_th_sst:"SST",
+    wht_th_total:"Total", wht_add_line:"Add Receipt",
+    wht_subtotal:"Subtotal", wht_wht_calc:"WHT", wht_penalty_calc:"Penalty (10%)",
+    wht_payable_calc:"WHT + Penalty (Payable)",
+    wht_remove_payee:"✕ Remove Payee",
+    wht_master_title:"Master Summary", wht_master_badge:"CP37 Total",
+    wht_kpi_gross:"Total Gross", wht_kpi_gross_sub:"SST-inclusive invoice total",
+    wht_kpi_sst:"Total SST", wht_kpi_sst_sub:"8% reverse-calc, excluded from WHT base",
+    wht_kpi_net:"Total Net", wht_kpi_net_sub:"WHT base · Σ Net per LHDN PR 11/2018",
+    wht_kpi_payable:"Total Payable", wht_kpi_payable_sub:"WHT + Penalty (if any)",
+    wht_th_payee:"Payee", wht_th_country:"Country", wht_th_section:"ITA Section",
+    wht_th_net:"Subtotal (Net)", wht_th_rate:"Rate", wht_th_wht:"WHT",
+    wht_th_penalty:"Penalty", wht_th_payable:"Payable",
+    wht_tf_total:"Grand Total:",
+    wht_master_help:"📋 Per LHDN: submit Form CP37 + pay WHT to LHDN within 1 month from the date of paying the non-resident. Late = 10% penalty per ITA s.109(2). The reverse-SST calc follows LHDN PR 11/2018 — WHT base is net of SST/GST.",
+    wht_saved_title:"Saved Scenarios", wht_saved_empty:"No saved scenarios yet. Click ⭐ Save Scenario above.",
+    wht_save_prompt:"Name this WHT scenario:", wht_saved_ok:"Scenario saved.",
+    wht_confirm_del_payee:"Remove this payee and all its receipt lines?",
+    wht_confirm_del_line:"Remove this receipt line?",
+    wht_confirm_reset:"Reset to sample data?",
+    wht_confirm_del_scn:"Delete this saved scenario?",
     pnl_note:"Drop a P&L exported from AutoCount, SQL Account, Xero, or any Excel/PDF — we auto-map to your COA and give you a downloadable Excel.",
     pnl_upload_title:"Upload Source P&L", pnl_upload_badge:"PDF or Excel",
     pnl_drop_title:"Drop your P&L file here",
@@ -3794,6 +3956,7 @@ const PAGE_HEADER_MAP = {
   sensitivity: { title: 'tab_sens',     sub: 'page_sub_sens' },
   pcalc:       { title: 'tab_pcalc',    sub: 'page_sub_pcalc' },
   pnl:         { title: 'tab_pnl',      sub: 'page_sub_pnl' },
+  wht:         { title: 'tab_wht',      sub: 'page_sub_wht' },
   settings:    { title: 'tab_settings', sub: 'page_sub_settings' },
   entities:    { title: 'tab_entities', sub: 'page_sub_entities' },
   users:       { title: 'tab_users',    sub: 'page_sub_users' }
@@ -3826,6 +3989,7 @@ function activateTab(id, opts){
   if(id==='entities') renderEntitiesTab();
   if(id==='users') renderUsersTab();
   if(id==='pcalc') { pcEnsureChannels(); pcRender(); pcRefreshSaved(); }
+  if(id==='wht' && typeof window._whtRefresh === 'function') window._whtRefresh();
   // Scroll content back to top so the user starts at the page header
   if(!opts.skipScroll){
     const main = document.querySelector('.main-content');
@@ -4844,6 +5008,349 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
       btnConvert.disabled = false;
     }
   });
+})();
+
+/* ============================================================
+   WHT CALCULATOR — UI glue
+   ============================================================ */
+(function(){
+  if(typeof CTGWhtCalculator === 'undefined') return;
+  const W = CTGWhtCalculator;
+
+  // ---- State ----
+  let whtState = W.loadLocal() || W.defaultSession();
+
+  function persist(){ W.saveLocal(whtState); }
+
+  // ---- Helpers ----
+  function buildCountryOptions(selected){
+    return W.COUNTRY_LIST.map(c =>
+      '<option value="' + escapeHtml(c) + '"' + (c === selected ? ' selected' : '') + '>' + escapeHtml(c) + '</option>'
+    ).join('');
+  }
+  function buildSectionOptions(selected){
+    return Object.keys(W.WHT_SECTIONS).map(k =>
+      '<option value="' + k + '"' + (k === selected ? ' selected' : '') + '>' + escapeHtml(W.WHT_SECTIONS[k].label) + '</option>'
+    ).join('');
+  }
+
+  // ---- Render ALL payee cards ----
+  function renderPayees(){
+    const container = document.getElementById('whtPayeesContainer');
+    if(!container) return;
+    if(whtState.payees.length === 0){
+      container.innerHTML = '<div class="card"><p class="note" style="text-align:center;padding:30px 16px;">No payees added. Click <b>+ Add Payee</b> in the toolbar.</p></div>';
+      return;
+    }
+    container.innerHTML = whtState.payees.map((p, i) => {
+      const c = W.calcPayee(p);
+      const sstChecked   = p.sstInclusive ? 'checked' : '';
+      const lateChecked  = p.latePenalty  ? 'checked' : '';
+      const sec = W.WHT_SECTIONS[p.section] || {};
+      return '' +
+      '<div class="wht-payee-card" data-pi="' + i + '">' +
+        '<div class="head">' +
+          '<div class="pno">' + (i+1) + '</div>' +
+          '<div class="ttl">' + escapeHtml(p.name || 'Payee ' + (i+1)) +
+            '<div class="sub">' + escapeHtml(p.country || '—') + ' · ' + escapeHtml(sec.label || '—') + ' · Code ' + (sec.code || '—') + '</div>' +
+          '</div>' +
+          '<button class="danger" data-wht-del-payee="' + i + '" style="padding:6px 12px;font-size:11.5px;">' + t('wht_remove_payee') + '</button>' +
+        '</div>' +
+        '<div class="grid-3">' +
+          '<div class="input-group"><label>' + t('wht_payee_name') + '</label><input type="text" value="' + escapeHtml(p.name||'') + '" data-wpf="' + i + '" data-field="name"></div>' +
+          '<div class="input-group"><label>' + t('wht_payee_country') + '</label><select data-wpf="' + i + '" data-field="country" style="width:100%;padding:11px 14px;border:1px solid var(--border-strong);border-radius:8px;background:rgba(7,13,23,.6);color:var(--text);font:inherit;">' + buildCountryOptions(p.country) + '</select></div>' +
+          '<div class="input-group"><label>' + t('wht_payee_tin') + '</label><input type="text" value="' + escapeHtml(p.foreignTin||'') + '" data-wpf="' + i + '" data-field="foreignTin"></div>' +
+        '</div>' +
+        '<div class="grid-3">' +
+          '<div class="input-group"><label>' + t('wht_payee_section') + '</label><select data-wpf="' + i + '" data-field="section" style="width:100%;padding:11px 14px;border:1px solid var(--border-strong);border-radius:8px;background:rgba(7,13,23,.6);color:var(--text);font:inherit;">' + buildSectionOptions(p.section) + '</select></div>' +
+          '<div class="input-group"><label>' + t('wht_payee_rate') + '</label><input type="number" min="0" max="100" step="0.1" value="' + (Number(p.whtRate)||0) + '" data-wpf="' + i + '" data-field="whtRate"></div>' +
+          '<div class="input-group"><label>' + t('wht_payee_period') + '</label><input type="text" value="' + escapeHtml(p.dateRange||'') + '" data-wpf="' + i + '" data-field="dateRange" placeholder="DD/MM/YYYY - DD/MM/YYYY"></div>' +
+        '</div>' +
+        '<div class="opts">' +
+          '<label><input type="checkbox" data-wpf="' + i + '" data-field="sstInclusive" ' + sstChecked + '> ' + t('wht_payee_sst') + '</label>' +
+          '<label>' + t('wht_payee_sst_rate') + ' <input type="number" min="0" max="100" step="0.1" value="' + (Number(p.sstRate)||8) + '" data-wpf="' + i + '" data-field="sstRate" style="width:60px;padding:4px 6px;"></label>' +
+          '<label><input type="checkbox" data-wpf="' + i + '" data-field="latePenalty" ' + lateChecked + '> ' + t('wht_payee_penalty') + '</label>' +
+        '</div>' +
+        '<h3 style="font-size:13px;color:var(--sky-soft);margin:14px 0 8px;font-weight:700;">📋 ' + t('wht_lines_title') + '</h3>' +
+        '<div class="table-wrap">' +
+          '<table>' +
+            '<thead><tr>' +
+              '<th style="width:36px;">' + t('wht_th_no') + '</th>' +
+              '<th style="width:120px;">' + t('wht_th_date') + '</th>' +
+              '<th>' + t('wht_th_receipt') + '</th>' +
+              '<th style="width:130px;">' + t('wht_th_gross') + '</th>' +
+              '<th style="width:110px;">' + t('wht_th_net2') + '</th>' +
+              '<th style="width:110px;">' + t('wht_th_sst') + '</th>' +
+              '<th style="width:42px;"></th>' +
+            '</tr></thead>' +
+            '<tbody>' +
+              p.lines.map((L, li) => {
+                const r = W.calcReceipt(L.gross || 0, p.sstInclusive ? (p.sstRate || 8) : 0);
+                return '<tr>' +
+                  '<td>' + (li+1) + '</td>' +
+                  '<td><input type="text" value="' + escapeHtml(L.date||'') + '" data-wpl="' + i + '" data-line="' + li + '" data-field="date" placeholder="DD/MM/YYYY"></td>' +
+                  '<td><input type="text" value="' + escapeHtml(L.receiptNo||'') + '" data-wpl="' + i + '" data-line="' + li + '" data-field="receiptNo"></td>' +
+                  '<td><input type="number" min="0" step="0.01" value="' + (Number(L.gross)||0) + '" data-wpl="' + i + '" data-line="' + li + '" data-field="gross"></td>' +
+                  '<td class="num">' + W.fmt(r.net) + '</td>' +
+                  '<td class="num">' + W.fmt(r.sst) + '</td>' +
+                  '<td class="action"><button data-wht-del-line="' + i + ':' + li + '">✕</button></td>' +
+                '</tr>';
+              }).join('') +
+            '</tbody>' +
+            '<tfoot>' +
+              '<tr>' +
+                '<td colspan="3" style="text-align:right;">' + t('wht_subtotal') + ':</td>' +
+                '<td class="num">' + W.fmt(c.subtotal.gross) + '</td>' +
+                '<td class="num">' + W.fmt(c.subtotal.net) + '</td>' +
+                '<td class="num">' + W.fmt(c.subtotal.sst) + '</td>' +
+                '<td></td>' +
+              '</tr>' +
+            '</tfoot>' +
+          '</table>' +
+        '</div>' +
+        '<div class="add-row"><button data-wht-add-line="' + i + '">+ ' + t('wht_add_line') + '</button></div>' +
+        '<div class="wht-totals">' +
+          '<div class="box"><div class="label">Subtotal Net</div><div class="value">' + W.fmt(c.subtotal.net) + '</div></div>' +
+          '<div class="box"><div class="label">' + t('wht_wht_calc') + ' (' + (Number(p.whtRate)||0) + '%)</div><div class="value">' + W.fmt(c.wht) + '</div></div>' +
+          '<div class="box"><div class="label">' + t('wht_penalty_calc') + '</div><div class="value">' + W.fmt(c.penalty) + '</div></div>' +
+          '<div class="box hilite"><div class="label">' + t('wht_payable_calc') + '</div><div class="value">' + W.fmt(c.payable) + '</div></div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  // ---- Render master summary ----
+  function renderMaster(){
+    const result = W.calcSession(whtState);
+    const setT = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+    setT('whtKpiGross',   W.fmt(result.totals.gross));
+    setT('whtKpiSst',     W.fmt(result.totals.sst));
+    setT('whtKpiNet',     W.fmt(result.totals.net));
+    setT('whtKpiPayable', W.fmt(result.totals.payable));
+    setT('whtKpiPayableSub', 'WHT ' + W.fmt(result.totals.wht) + (result.totals.penalty > 0 ? ' + Penalty ' + W.fmt(result.totals.penalty) : ''));
+
+    const tbody = document.querySelector('#whtMasterTable tbody');
+    if(tbody){
+      tbody.innerHTML = result.payees.map((p, i) => {
+        const sec = W.WHT_SECTIONS[p.section] || {};
+        return '<tr>' +
+          '<td>' + (i+1) + '</td>' +
+          '<td>' + escapeHtml(p.name||'') + '</td>' +
+          '<td>' + escapeHtml(p.country||'') + '</td>' +
+          '<td style="font-size:11.5px;">' + escapeHtml(sec.label || p.section || '') + '</td>' +
+          '<td class="num">' + W.fmt(p._calc.subtotal.net) + '</td>' +
+          '<td class="pct">' + (Number(p.whtRate)||0).toFixed(1) + '%</td>' +
+          '<td class="num">' + W.fmt(p._calc.wht) + '</td>' +
+          '<td class="num">' + W.fmt(p._calc.penalty) + '</td>' +
+          '<td class="num"><b style="color:var(--coral-soft);">' + W.fmt(p._calc.payable) + '</b></td>' +
+        '</tr>';
+      }).join('');
+    }
+    setT('whtTfNet',     W.fmt(result.totals.net));
+    setT('whtTfWht',     W.fmt(result.totals.wht));
+    setT('whtTfPenalty', W.fmt(result.totals.penalty));
+    setT('whtTfPayable', W.fmt(result.totals.payable));
+  }
+
+  function renderAll(){
+    // sync payer block
+    const setVal = (id, val) => { const el = document.getElementById(id); if(el && document.activeElement !== el) el.value = val || ''; };
+    setVal('whtPayerName',  whtState.payerName);
+    setVal('whtPayerTin',   whtState.payerTin);
+    setVal('whtPeriod',     whtState.period);
+    setVal('whtPreparedBy', whtState.preparedBy);
+    renderPayees();
+    renderMaster();
+    persist();
+  }
+
+  // ---- Add / remove handlers ----
+  function addPayee(){
+    whtState.payees.push({
+      name:'New Payee', country:'No DTA / Other', foreignTin:'',
+      section:'royalty', whtRate:10,
+      sstInclusive:true, sstRate:8, latePenalty:false,
+      dateRange:'', lines:[{ date:'', receiptNo:'', gross:0 }]
+    });
+    renderAll();
+  }
+  function delPayee(i){
+    if(!confirm(t('wht_confirm_del_payee'))) return;
+    whtState.payees.splice(i,1);
+    renderAll();
+  }
+  function addLine(i){
+    if(!whtState.payees[i]) return;
+    whtState.payees[i].lines.push({ date:'', receiptNo:'', gross:0 });
+    renderAll();
+  }
+  function delLine(i, li){
+    if(!whtState.payees[i] || !whtState.payees[i].lines[li]) return;
+    if(!confirm(t('wht_confirm_del_line'))) return;
+    whtState.payees[i].lines.splice(li, 1);
+    renderAll();
+  }
+
+  // ---- Input handlers (delegated) ----
+  document.addEventListener('input', e => {
+    const tgt = e.target;
+    // Payer block
+    if(tgt.id === 'whtPayerName'){ whtState.payerName = tgt.value; persist(); return; }
+    if(tgt.id === 'whtPayerTin'){  whtState.payerTin  = tgt.value; persist(); return; }
+    if(tgt.id === 'whtPeriod'){    whtState.period    = tgt.value; persist(); return; }
+    if(tgt.id === 'whtPreparedBy'){whtState.preparedBy= tgt.value; persist(); return; }
+    // Payee field
+    if(tgt.dataset.wpf !== undefined){
+      const i = +tgt.dataset.wpf, f = tgt.dataset.field;
+      const p = whtState.payees[i]; if(!p) return;
+      if(f === 'sstInclusive' || f === 'latePenalty'){
+        p[f] = tgt.checked;
+      } else if(f === 'whtRate' || f === 'sstRate'){
+        p[f] = Math.max(0, Math.min(100, Number(tgt.value) || 0));
+      } else if(f === 'section'){
+        p.section = tgt.value;
+        // Auto-refresh suggested rate when section changes
+        const newRate = W.rateForCountrySection(p.country, p.section);
+        if(newRate != null) p.whtRate = newRate;
+      } else if(f === 'country'){
+        p.country = tgt.value;
+        // Auto-refresh suggested rate when country changes
+        const newRate = W.rateForCountrySection(p.country, p.section);
+        if(newRate != null) p.whtRate = newRate;
+      } else {
+        p[f] = tgt.value;
+      }
+      renderAll();
+      return;
+    }
+    // Line field
+    if(tgt.dataset.wpl !== undefined){
+      const i = +tgt.dataset.wpl, li = +tgt.dataset.line, f = tgt.dataset.field;
+      const p = whtState.payees[i]; if(!p || !p.lines[li]) return;
+      if(f === 'gross') p.lines[li][f] = Math.max(0, Number(tgt.value) || 0);
+      else              p.lines[li][f] = tgt.value;
+      renderAll();
+      return;
+    }
+  });
+
+  document.addEventListener('change', e => {
+    // checkbox + select changes already covered by 'input' event in modern browsers,
+    // but some older Safari fires 'change' instead. Fall through.
+  });
+
+  document.addEventListener('click', e => {
+    const tgt = e.target;
+    if(tgt.dataset.whtDelPayee !== undefined){ delPayee(+tgt.dataset.whtDelPayee); return; }
+    if(tgt.dataset.whtAddLine  !== undefined){ addLine(+tgt.dataset.whtAddLine);   return; }
+    if(tgt.dataset.whtDelLine  !== undefined){
+      const [i, li] = tgt.dataset.whtDelLine.split(':').map(Number);
+      delLine(i, li); return;
+    }
+  });
+
+  // ---- Toolbar buttons ----
+  const btnAddPayee = document.getElementById('btnWhtAddPayee');
+  const btnReset    = document.getElementById('btnWhtReset');
+  const btnSave     = document.getElementById('btnWhtSave');
+  const btnExport   = document.getElementById('btnWhtExport');
+  if(btnAddPayee) btnAddPayee.onclick = addPayee;
+  if(btnReset)    btnReset.onclick    = () => {
+    if(!confirm(t('wht_confirm_reset'))) return;
+    whtState = W.defaultSession();
+    renderAll();
+  };
+
+  // ---- Save scenario (localStorage list) ----
+  const WHT_SCN_LS = 'ctg_wht_scenarios_v1';
+  function loadScenarios(){
+    try { return JSON.parse(localStorage.getItem(WHT_SCN_LS) || '[]'); } catch(e){ return []; }
+  }
+  function persistScenarios(list){
+    try { localStorage.setItem(WHT_SCN_LS, JSON.stringify(list)); } catch(e){}
+  }
+  function refreshSavedList(){
+    const wrap = document.getElementById('whtSavedList');
+    if(!wrap) return;
+    const list = loadScenarios();
+    if(list.length === 0){
+      wrap.innerHTML = '<p class="note">' + t('wht_saved_empty') + '</p>';
+      return;
+    }
+    wrap.innerHTML = list.map((s, idx) => {
+      const dt = new Date(s.savedAt).toLocaleString();
+      const calcTotal = (() => { try { return W.calcSession(s.data).totals.payable; } catch(e){ return 0; } })();
+      return '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(7,13,23,.4);border:1px solid var(--border);border-radius:10px;">' +
+        '<span style="width:10px;height:10px;border-radius:50%;background:var(--coral);box-shadow:0 0 8px var(--coral);"></span>' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div style="color:#fff;font-weight:600;">' + escapeHtml(s.name) + '</div>' +
+          '<div style="font-size:11.5px;color:var(--muted);">' + dt + ' · ' + (s.data.payees||[]).length + ' payees · Total payable RM ' + W.fmt(calcTotal) + '</div>' +
+        '</div>' +
+        '<button class="ghost" data-wht-scn-load="' + idx + '">↻ Load</button>' +
+        '<button class="danger" data-wht-scn-del="' + idx + '" style="padding:6px 10px;font-size:11.5px;">✕</button>' +
+      '</div>';
+    }).join('');
+  }
+  if(btnSave) btnSave.onclick = () => {
+    const name = prompt(t('wht_save_prompt'), 'WHT ' + (whtState.period || new Date().toLocaleDateString()));
+    if(!name) return;
+    const list = loadScenarios();
+    list.unshift({ name: name.trim(), savedAt: Date.now(), data: JSON.parse(JSON.stringify(whtState)) });
+    persistScenarios(list);
+    refreshSavedList();
+    showToast(t('wht_saved_ok'), 'success');
+  };
+  document.addEventListener('click', e => {
+    if(e.target.dataset.whtScnLoad !== undefined){
+      const idx = +e.target.dataset.whtScnLoad;
+      const list = loadScenarios();
+      if(list[idx] && list[idx].data){
+        whtState = JSON.parse(JSON.stringify(list[idx].data));
+        renderAll();
+        showToast('Loaded: ' + list[idx].name, 'success');
+      }
+    }
+    if(e.target.dataset.whtScnDel !== undefined){
+      if(!confirm(t('wht_confirm_del_scn'))) return;
+      const idx = +e.target.dataset.whtScnDel;
+      const list = loadScenarios();
+      list.splice(idx, 1);
+      persistScenarios(list);
+      refreshSavedList();
+    }
+  });
+
+  // ---- Excel export ----
+  if(btnExport) btnExport.onclick = () => {
+    if(typeof XLSX === 'undefined'){
+      showToast('Excel library not loaded — reload the page.', 'error');
+      return;
+    }
+    try {
+      const wb = W.buildWorkbook(whtState);
+      const out = XLSX.write(wb, { bookType:'xlsx', type:'array' });
+      const blob = new Blob([out], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const fileName = 'WHT_' + (whtState.payerName || 'Summary').replace(/[^A-Za-z0-9]+/g,'_') + '_' + new Date().toISOString().slice(0,10) + '.xlsx';
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+      showToast('Excel downloaded.', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('Export failed: ' + (err.message || err), 'error');
+    }
+  };
+
+  // Initial render
+  renderAll();
+  refreshSavedList();
+  // expose for activateTab() hook
+  window._whtRefresh = () => { renderAll(); refreshSavedList(); };
 })();
 
 /* ============ SETTINGS TAB ============ */
