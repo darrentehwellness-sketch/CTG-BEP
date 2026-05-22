@@ -1,63 +1,246 @@
 /* ============================================================
-   CTG P&L CONVERTER  —  Source-Mirror Mode
+   CTG P&L CONVERTER  —  Canonical SKINDAE Template
    ============================================================
-   Reads a P&L exported from any Malaysian accounting system
-   (AutoCount, SQL Account, MYOB, Xero, generic Excel, or PDF)
-   and re-emits it in a clean Excel with:
-     - the EXACT account list and order from the source
-     - section headers preserved
-     - total rows rebuilt as SUM() formulas
-     - Gross Profit / Net Profit detected and rebuilt as formulas
-     - a % column added next to each value column (% of Trading Income)
-     - MYR number formatting + standard column widths
-   This way every entity's own COA (SKINDAE, DRSMILE, etc.) keeps
-   its own structure in the output — we don't squash everything
-   into one fixed template.
+   Reads a P&L exported from ANY system (AutoCount, SQL Account,
+   Xero, MYOB, generic Excel, PDF) and re-emits it in the canonical
+   SKINDAE COA format:
+     - exact account list, order, and section grouping
+     - Calibri 10 styling with bold section headers, ruled totals,
+       double-underline Gross/Net Profit
+     - all subtotals + Gross Profit + Net Profit as live formulas
+     - % column for each month (= account / Total Trading Income)
+     - MYR number format with parens for negatives, "-" for zero
+
+   Anything the source has that doesn't map → "— Unmapped —" sheet
+   so nothing is silently lost.
    ============================================================
 */
 (function(global){
 'use strict';
 
-/* ---- Row-kind classification ---- */
-const KIND = {
-  TITLE:    'title',     // "Profit and Loss"
-  ENTITY:   'entity',    // company name
-  PERIOD:   'period',    // "For the month ended..."
-  COLHEAD:  'colhead',   // "Account" + month names
-  SECTION:  'section',   // "Trading Income", "Cost of Sales", "Operating Expenses", etc.
-  ACCOUNT:  'account',   // a normal line with values
-  SUBTOTAL: 'subtotal',  // "Total Trading Income", "Total Cost of Sales", ...
-  GP:       'gp',        // "Gross Profit"
-  NP:       'np',        // "Net Profit"
-  OP:       'op',        // "Operating Profit"
-  EBITDA:   'ebitda',    // "EBITDA"
-  BLANK:    'blank'      // empty row (preserved for spacing)
+/* ============ CANONICAL SKINDAE COA TEMPLATE ============
+   Order matters — this is the row order in the output. */
+const COA = [
+  // === TRADING INCOME ===
+  { group:'Trading Income', kind:'header' },
+  { group:'Trading Income', kind:'account', name:'Revenue - Retail Sales (O2O)' },
+  { group:'Trading Income', kind:'account', name:'Revenue - WebStore Sales (Shopify)' },
+  { group:'Trading Income', kind:'account', name:'Revenue - COD Sales' },
+  { group:'Trading Income', kind:'account', name:'Revenue - Meta Platform Sales (Facebook/Instagram/WhatsApp)' },
+  { group:'Trading Income', kind:'account', name:'Revenue - Shopee Sales' },
+  { group:'Trading Income', kind:'account', name:'Revenue - Lazada Sales' },
+  { group:'Trading Income', kind:'account', name:'Revenue - Exhibition Event' },
+  { group:'Trading Income', kind:'account', name:'Discount Voucher - Shopee' },
+  { group:'Trading Income', kind:'total',   name:'Total Trading Income' },
+  { group:'',               kind:'blank' },
+
+  // === COST OF SALES ===
+  { group:'Cost of Sales',  kind:'header' },
+  { group:'Cost of Sales',  kind:'account', name:'Stocks At the Beginning of Year' },
+  { group:'Cost of Sales',  kind:'account', name:'COGS - Purchases of Goods' },
+  { group:'Cost of Sales',  kind:'account', name:'COGS - Packaging Costs' },
+  { group:'Cost of Sales',  kind:'account', name:'COGS - Promotional Items (Souvenirs)' },
+  { group:'Cost of Sales',  kind:'account', name:'COGS - Inbound Transportation Costs' },
+  { group:'Cost of Sales',  kind:'account', name:'COGS - Import Duties' },
+  { group:'Cost of Sales',  kind:'account', name:'Stocks At the End of Year' },
+  { group:'Cost of Sales',  kind:'total',   name:'Total Cost of Sales' },
+  { group:'',               kind:'blank' },
+
+  // === GROSS PROFIT ===
+  { group:'Gross Profit',   kind:'gp',      name:'Gross Profit' },
+  { group:'',               kind:'blank' },
+
+  // === OTHER INCOME ===
+  { group:'Other Income',   kind:'header' },
+  { group:'Other Income',   kind:'account', name:'Other Income - Unknown Fund Received' },
+  { group:'Other Income',   kind:'account', name:'Other Income - Shared Employees Service' },
+  { group:'Other Income',   kind:'total',   name:'Total Other Income' },
+  { group:'',               kind:'blank' },
+
+  // === OPERATING EXPENSES ===
+  { group:'Operating Expenses', kind:'header' },
+  // -- STAFF --
+  { group:'Operating Expenses', kind:'account', name:"STAFF - Employees Salaries & Wages" },
+  { group:'Operating Expenses', kind:'account', name:"STAFF - Employees Employer's Contribution" },
+  { group:'Operating Expenses', kind:'account', name:"STAFF - Bonuses & Incentives/Allowances" },
+  { group:'Operating Expenses', kind:'account', name:"STAFF - Staff Benefits" },
+  // -- CTG --
+  { group:'Operating Expenses', kind:'account', name:"CTG - E-Commerce Webstore Management Fee" },
+  { group:'Operating Expenses', kind:'account', name:"CTG - Human Resource Management Fee" },
+  { group:'Operating Expenses', kind:'account', name:"CTG - O2O Hub Management Fee" },
+  { group:'Operating Expenses', kind:'account', name:"CTG - Sales Design Management Fee" },
+  { group:'Operating Expenses', kind:'account', name:"CTG - Training Hub Management Fee" },
+  { group:'Operating Expenses', kind:'account', name:"CTG - Lazada Commission Fee 3%" },
+  { group:'Operating Expenses', kind:'account', name:"CTG - O2O Hub Commission Fee 3.8%" },
+  { group:'Operating Expenses', kind:'account', name:"CTG - Shopee Hub Commission Fee 3%" },
+  { group:'Operating Expenses', kind:'account', name:"CTG - Supply Chain Commission Fee" },
+  // -- BD&M --
+  { group:'Operating Expenses', kind:'account', name:"BD&M Travel - Transportation" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - Gift/Souvenirs/Sponsorship" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - Marketing Press Release (Meta Platform)" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - Marketing Press Release (Shopee)" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - Marketing Press Release (Lazada)" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - Marketing Press Release (Google)" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - Platform Merchant/Commission Fees (Shopee)" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - Platform Merchant/Commission Fees (Lazada)" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - Platform Merchant/Commission Fees (COD)" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - IT Software Information System (Shopify)" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - IT Software Information System (ManyChat)" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - IT Software Information System (Hello CRM)" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - IT Software Information System (Others Marketing)" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - Marketing Production Cost (Photography/Videography)" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - Marketing Production Cost (Design & Miscellaneous Studio)" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - Exibition Event Space Rental (Booth / Venue)" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - Exibition Event (Sponsorship & Advertising)" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - Exibition Event (Event Crew/Show Talent/MC)" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - Professional Service Fees" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - KOC Collaboration Commission" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - Customer Referral Fees" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - Withholding Tax (8%/10%)" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - Sales Service Tax (6%/8%)" },
+  // -- G&A --
+  { group:'Operating Expenses', kind:'account', name:"G&A Travel - Accommodation" },
+  { group:'Operating Expenses', kind:'account', name:"G&A - Office Supplies & Logisters" },
+  { group:'Operating Expenses', kind:'account', name:"G&A - Ofiice IT Software Information System" },
+  { group:'Operating Expenses', kind:'account', name:"G&A - Office Depreciation/Assets" },
+  { group:'Operating Expenses', kind:'account', name:"G&A - Professional Fees/Taxation Service" },
+  { group:'Operating Expenses', kind:'account', name:"G&A - Compliance - Corp Sec & Reg Fees" },
+  { group:'Operating Expenses', kind:'account', name:"G&A - Stamping Fee/Filling Fee/Tax Duty" },
+  { group:'Operating Expenses', kind:'account', name:"G&A - Penalty & Compound" },
+  { group:'Operating Expenses', kind:'account', name:"G&A - Withholding Tax (8%/10%)" },
+  // -- FIN --
+  { group:'Operating Expenses', kind:'account', name:"FIN - Bank Charges & Handling Fees" },
+  { group:'Operating Expenses', kind:'account', name:"FIN - Payment Gatewway Fee (Atome)" },
+  { group:'Operating Expenses', kind:'account', name:"FIN - Payment Gatewway Fee (Payex)" },
+  { group:'Operating Expenses', kind:'account', name:"FIN - Realised Currency Gains" },
+  { group:'Operating Expenses', kind:'account', name:"FIN - Revaluations (Gain)/Loss on Foreign Exchange Rate Changes" },
+  { group:'Operating Expenses', kind:'account', name:"FIN - Unrealised Currency Gains" },
+  { group:'Operating Expenses', kind:'total',   name:'Total Operating Expenses' },
+  { group:'',               kind:'blank' },
+
+  // === NET PROFIT ===
+  { group:'Net Profit',     kind:'np',      name:'Net Profit' }
+];
+
+/* ============ KEYWORD DICTIONARY ============
+   Maps source-line keywords to canonical COA names. Order longest-first
+   per target so multi-word keywords beat single-word ones. */
+const COA_KEYWORDS = {
+  // === Trading Income ===
+  'Revenue - Retail Sales (O2O)': ['o2o', 'retail sales', 'counter sales', 'walk-in', 'walk in', 'showroom', 'pos sales'],
+  'Revenue - WebStore Sales (Shopify)': ['shopify', 'webstore', 'web store', 'website sales', 'online store'],
+  'Revenue - COD Sales': ['cod sales', 'cash on delivery', 'c.o.d'],
+  'Revenue - Meta Platform Sales (Facebook/Instagram/WhatsApp)': ['meta platform sales', 'facebook sales', 'instagram sales', 'whatsapp sales', 'ig sales', 'fb sales', 'meta sales', 'social media sales'],
+  'Revenue - Shopee Sales': ['shopee sales', 'shopee revenue', 'revenue - shopee'],
+  'Revenue - Lazada Sales': ['lazada sales', 'lazada revenue', 'revenue - lazada'],
+  'Revenue - Exhibition Event': ['exhibition', 'expo', 'event sales', 'fair sales', 'roadshow'],
+  'Discount Voucher - Shopee': ['discount voucher shopee', 'shopee voucher', 'shopee discount', 'return inwards - shopee', 'returns shopee'],
+
+  // === Cost of Sales ===
+  'Stocks At the Beginning of Year': ['stock at beginning', 'opening stock', 'opening inventory', 'beginning inventory', 'stocks at beginning'],
+  'COGS - Purchases of Goods': ['purchase of goods', 'purchases - goods', 'purchases of goods', 'goods purchase', 'cogs - purchase', 'cogs purchase', 'purchases', 'purchases return'],
+  'COGS - Packaging Costs': ['packaging cost', 'packing cost', 'packaging materials', 'cogs - pack', 'cogs packaging'],
+  'COGS - Promotional Items (Souvenirs)': ['promotional item', 'souvenir', 'promo item', 'gift items cogs', 'promotional items'],
+  'COGS - Inbound Transportation Costs': ['inbound transport', 'inbound freight', 'inbound shipping', 'cogs - freight', 'incoming freight', 'inbound transportation'],
+  'COGS - Import Duties': ['import duty', 'import duties', 'customs duty', 'customs duties', 'kastam'],
+  'Stocks At the End of Year': ['stock at end', 'closing stock', 'closing inventory', 'ending inventory', 'stocks at end'],
+
+  // === Other Income ===
+  'Other Income - Unknown Fund Received': ['unknown fund', 'unidentified deposit', 'sundry income', 'miscellaneous income'],
+  'Other Income - Shared Employees Service': ['shared employee', 'shared service', 'inter-co recharge', 'intercompany recharge'],
+
+  // === STAFF ===
+  "STAFF - Employees Salaries & Wages": ['staff - employees salaries', 'salaries & wages', 'salary', 'salaries', 'wages', 'wage', 'payroll', 'gaji', 'remuneration'],
+  "STAFF - Employees Employer's Contribution": ["employer's contribution", 'employer contribution', 'epf', 'kwsp', 'socso', 'perkeso', 'eis', 'hrd levy', 'hrdf'],
+  "STAFF - Bonuses & Incentives/Allowances": ['bonus', 'bonuses', 'incentive', 'allowance', 'commission - staff', 'commission staff', 'sales commission'],
+  "STAFF - Staff Benefits": ['staff benefit', 'staff welfare', 'medical', 'insurance - staff', 'staff insurance', 'training - staff'],
+
+  // === CTG ===
+  "CTG - E-Commerce Webstore Management Fee": ['ctg - e-commerce', 'ctg - ecommerce', 'ctg webstore', 'ctg e-commerce webstore'],
+  "CTG - Human Resource Management Fee": ['ctg - human resource', 'ctg hr management'],
+  "CTG - O2O Hub Management Fee": ['ctg - o2o hub management', 'ctg o2o management'],
+  "CTG - Sales Design Management Fee": ['ctg - sales design', 'ctg design management'],
+  "CTG - Training Hub Management Fee": ['ctg - training', 'ctg training hub'],
+  "CTG - Lazada Commission Fee 3%": ['ctg - lazada commission', 'ctg lazada commission'],
+  "CTG - O2O Hub Commission Fee 3.8%": ['ctg - o2o hub commission', 'ctg o2o commission'],
+  "CTG - Shopee Hub Commission Fee 3%": ['ctg - shopee', 'ctg shopee hub'],
+  "CTG - Supply Chain Commission Fee": ['ctg - supply chain', 'ctg supply chain'],
+
+  // === BD&M ===
+  "BD&M Travel - Transportation": ['bd&m travel - transportation', 'bdm travel', 'sales travel - transport', 'business travel', 'mileage'],
+  "BD&M - Gift/Souvenirs/Sponsorship": ['gift/souvenirs', 'gift expense', 'souvenir expense', 'sponsorship gift', 'corporate gift'],
+  "BD&M - Marketing Press Release (Meta Platform)": ['bd&m - marketing press release (meta', 'meta ads', 'facebook ads', 'instagram ads', 'fb ads', 'ig ads', 'meta marketing'],
+  "BD&M - Marketing Press Release (Shopee)": ['bd&m - marketing press release (shopee', 'shopee ads', 'shopee marketing'],
+  "BD&M - Marketing Press Release (Lazada)": ['bd&m - marketing press release (lazada', 'lazada ads', 'lazada marketing'],
+  "BD&M - Marketing Press Release (Google)": ['bd&m - marketing press release (google', 'google ads', 'google adwords', 'youtube ads'],
+  "BD&M - Platform Merchant/Commission Fees (Shopee)": ['platform merchant/commission fees (shopee', 'platform fees shopee', 'shopee commission', 'shopee merchant fee', 'shopee platform fee'],
+  "BD&M - Platform Merchant/Commission Fees (Lazada)": ['platform merchant/commission fees (lazada', 'platform fees lazada', 'lazada commission fee', 'lazada merchant fee', 'lazada platform fee'],
+  "BD&M - Platform Merchant/Commission Fees (COD)": ['platform merchant/commission fees (cod', 'cod commission', 'cod fee', 'cod handling'],
+  "BD&M - IT Software Information System (Shopify)": ['it software information system (shopify', 'shopify subscription', 'shopify fee', 'shopify monthly'],
+  "BD&M - IT Software Information System (ManyChat)": ['manychat'],
+  "BD&M - IT Software Information System (Hello CRM)": ['hello crm', 'hellocrm'],
+  "BD&M - IT Software Information System (Others Marketing)": ['it software information system (others', 'mailchimp', 'klaviyo', 'hubspot', 'canva pro', 'marketing software', 'crm software'],
+  "BD&M - Marketing Production Cost (Photography/Videography)": ['photography/videography', 'photography', 'videography', 'photoshoot', 'video shoot', 'film production', 'model/show talent'],
+  "BD&M - Marketing Production Cost (Design & Miscellaneous Studio)": ['design & miscellaneous studio', 'studio rental', 'creative production', 'graphic design - marketing'],
+  "BD&M - Exibition Event Space Rental (Booth / Venue)": ['exibition event space', 'booth rental', 'venue rental', 'exhibition rental', 'event space'],
+  "BD&M - Exibition Event (Sponsorship & Advertising)": ['exibition event (sponsorship', 'event sponsorship', 'event advertising'],
+  "BD&M - Exibition Event (Event Crew/Show Talent/MC)": ['event crew/show talent', 'mc fee', 'event crew', 'show talent', 'emcee', 'usher', 'event staff'],
+  "BD&M - Professional Service Fees": ['bd&m - professional service', 'professional fee - marketing', 'consultant - marketing', 'agency fee'],
+  "BD&M - KOC Collaboration Commission": ['koc collaboration', 'koc', 'kol', 'influencer', 'creator commission'],
+  "BD&M - Customer Referral Fees": ['customer referral', 'referral fee', 'affiliate commission'],
+  "BD&M - Withholding Tax (8%/10%)": ['bd&m - withholding tax', 'wht - marketing'],
+  "BD&M - Sales Service Tax (6%/8%)": ['sales service tax', 'sst - sales', 'service tax - sales'],
+
+  // === G&A ===
+  "G&A Travel - Accommodation": ['g&a travel - accommodation', 'g&a travel', 'accommodation', 'hotel', 'lodging', 'travel - admin'],
+  "G&A - Office Supplies & Logisters": ['office supplies', 'stationery', 'office consumables', 'pantry'],
+  "G&A - Ofiice IT Software Information System": ['office it software', 'ofiice it software', 'microsoft 365', 'google workspace', 'office subscription', 'it admin'],
+  "G&A - Office Depreciation/Assets": ['office depreciation', 'depreciation', 'amortisation', 'amortization', 'office asset', 'fixed asset write off'],
+  "G&A - Professional Fees/Taxation Service": ['professional fees/taxation', 'audit fee', 'accounting fee', 'tax agent', 'tax consultant', 'company secretary fee'],
+  "G&A - Compliance - Corp Sec & Reg Fees": ['compliance - corp sec', 'corp sec', 'ssm', 'companies commission', 'registration fee', 'license fee', 'g&a - office rental'],
+  "G&A - Stamping Fee/Filling Fee/Tax Duty": ['stamping fee/filling', 'stamp duty', 'stamping', 'filing fee', 'filling fee'],
+  "G&A - Penalty & Compound": ['penalty', 'compound', 'fine', 'late fee'],
+  "G&A - Withholding Tax (8%/10%)": ['g&a - withholding tax', 'withholding tax', 'wht'],
+
+  // === FIN ===
+  "FIN - Bank Charges & Handling Fees": ['bank charges', 'bank fee', 'handling fee', 'transfer fee'],
+  "FIN - Payment Gatewway Fee (Atome)": ['payment gatewway fee (atome', 'atome'],
+  "FIN - Payment Gatewway Fee (Payex)": ['payment gatewway fee (payex', 'payex'],
+  "FIN - Realised Currency Gains": ['realised currency gain', 'realized currency gain', 'realised fx gain'],
+  "FIN - Revaluations (Gain)/Loss on Foreign Exchange Rate Changes": ['revaluations (gain)/loss', 'fx revaluation', 'foreign exchange revaluation', 'forex loss', 'fx loss'],
+  "FIN - Unrealised Currency Gains": ['unrealised currency gain', 'unrealized currency gain', 'unrealised fx gain']
 };
 
-/* ---- Section detector: text that introduces a group ---- */
-const SECTION_RE = /^(trading income|sales revenue|revenue|cost of sales|cost of goods sold|cogs|other income|operating expenses|administrative expenses|finance (cost|income|expenses)|other expenses|less:.*$|expenses)$/i;
+/* Build a flat lookup index sorted longest-keyword-first so specific
+   matches win (e.g. "shopee commission" matches before "shopee"). */
+const KEYWORD_INDEX = (function(){
+  const idx = [];
+  Object.keys(COA_KEYWORDS).forEach(target => {
+    COA_KEYWORDS[target].forEach(kw => idx.push({ kw: kw.toLowerCase(), target }));
+  });
+  idx.sort((a,b) => b.kw.length - a.kw.length);
+  return idx;
+})();
 
-/* ---- Helpers ---- */
-function trimLow(s){ return String(s || '').trim().toLowerCase(); }
-function classifyRow(nameRaw, hasAnyValue){
-  const name = trimLow(nameRaw);
-  if(!name) return KIND.BLANK;
-  if(/^total\s+/.test(name)) return KIND.SUBTOTAL;
-  if(name === 'gross profit')   return KIND.GP;
-  if(name === 'net profit' || name === 'net loss' || name === 'net profit/(loss)') return KIND.NP;
-  if(name === 'operating profit' || name === 'operating profit/(loss)') return KIND.OP;
-  if(name === 'ebitda') return KIND.EBITDA;
-  // A short heading with no values is most likely a section header
-  if(!hasAnyValue && (SECTION_RE.test(name) || name.length < 35)) return KIND.SECTION;
-  return KIND.ACCOUNT;
+function normalizeName(s){
+  return String(s||'').toLowerCase()
+    .replace(/[–—]/g,'-')
+    .replace(/[^a-z0-9&/\-\(\)\s\.\%]/g,' ')
+    .replace(/\s+/g,' ').trim();
 }
-
+function mapAccount(sourceName){
+  if(!sourceName) return null;
+  const n = normalizeName(sourceName);
+  for(const { kw, target } of KEYWORD_INDEX){
+    if(n.indexOf(kw) !== -1) return target;
+  }
+  return null;
+}
 function parseNumeric(v){
   if(v == null || v === '') return null;
   if(typeof v === 'number') return v;
   const s = String(v).trim();
   if(!s) return null;
-  // (1,234.56) → -1234.56  ;  RM 1,234.56 → 1234.56
   const cleaned = s.replace(/^rm\s*/i,'').replace(/[,\s]/g,'').replace(/^\((.*)\)$/,'-$1');
   const n = Number(cleaned);
   return isFinite(n) ? n : null;
@@ -65,7 +248,7 @@ function parseNumeric(v){
 
 /* ============ EXCEL PARSER ============ */
 function parseExcel(arrayBuffer){
-  if(typeof XLSX === 'undefined') throw new Error('SheetJS (xlsx) not loaded');
+  if(typeof XLSX === 'undefined') throw new Error('SheetJS not loaded');
   const wb = XLSX.read(arrayBuffer, { type:'array', cellDates:true, cellNF:false });
   let sheetName = wb.SheetNames[0];
   for(const sn of wb.SheetNames){
@@ -73,9 +256,9 @@ function parseExcel(arrayBuffer){
     if(ws && ws['!ref']){ sheetName = sn; break; }
   }
   const ws = wb.Sheets[sheetName];
-  const aoa = XLSX.utils.sheet_to_json(ws, { header:1, defval:null, blankrows:true });
+  const aoa = XLSX.utils.sheet_to_json(ws, { header:1, defval:null, blankrows:false });
 
-  // === Find header row (with month labels) ===
+  // Detect header row
   let headerRowIdx = -1;
   const monthRe = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\b/i;
   for(let i=0; i<Math.min(aoa.length, 25); i++){
@@ -93,27 +276,21 @@ function parseExcel(arrayBuffer){
     if(monthHits >= 1){ headerRowIdx = i; break; }
   }
   if(headerRowIdx === -1) headerRowIdx = 0;
-
   const headerRow = aoa[headerRowIdx] || [];
 
-  // === Detect month columns ===
-  const monthCols = [];   // { col, label }
+  // Detect month columns
+  const monthCols = [];
   for(let j=1; j<headerRow.length; j++){
     const v = headerRow[j];
     if(v == null || v === '') continue;
     let label = '';
-    if(v instanceof Date){
-      label = v.toLocaleString('en-US', { month:'short', year:'numeric' });
-    } else {
-      label = String(v).trim();
-    }
+    if(v instanceof Date) label = v.toLocaleString('en-US', { month:'short', year:'numeric' });
+    else label = String(v).trim();
     if(!label) continue;
-    if(/^%$/.test(label)) continue;
+    if(/^%$/.test(label) || /^ytd\s*%$/i.test(label)) continue;
     if(/^variance$|^var\.?$|^change$|^diff(erence)?$/i.test(label)) continue;
-    if(/^ytd\s*%$/i.test(label)) continue;
     monthCols.push({ col: j, label });
   }
-  // Fallback: numeric-column detection if strict scan found nothing
   if(monthCols.length === 0){
     for(let j=1; j<headerRow.length; j++){
       const v = headerRow[j];
@@ -134,43 +311,41 @@ function parseExcel(arrayBuffer){
     throw new Error('No month/period columns detected. Your source file must have month labels (e.g. "Jan 2026") in a header row.');
   }
 
-  // === Extract title block (rows above header) ===
+  // Extract title block
   let title = '', entity = '', period = '';
   for(let i=0; i<headerRowIdx; i++){
     const r = aoa[i] || [];
     const v = String(r[0] || '').trim();
     if(!v) continue;
-    if(/^profit\s+and\s+loss/i.test(v) || /^income\s+statement/i.test(v) || v.toLowerCase() === 'p&l') title = v;
+    if(/^profit\s+and\s+loss/i.test(v) || /^income\s+statement/i.test(v)) title = v;
     else if(/(sdn\s+bhd|berhad|ltd|pte|inc|llp|gmbh|enterprise|trading)/i.test(v)) entity = v;
-    else if(/^for\s+(the|month|year|period)|^as\s+at|^period|^year\s+ended/i.test(v) || /^\d/.test(v)) period = v;
+    else if(/^for\s+(the|month|year|period)|^as\s+at|^year\s+ended/i.test(v) || /^\d/.test(v)) period = v;
     else if(!entity) entity = v;
     else if(!period) period = v;
   }
 
-  // === Extract data rows preserving order + structure ===
-  const items = [];  // { kind, name, values: [...] | null }
+  // Extract data rows (skip totals/sections — only map accounts)
+  const rows = [];
   for(let i=headerRowIdx+1; i<aoa.length; i++){
     const row = aoa[i] || [];
     const name = (row[0] == null ? '' : String(row[0])).trim();
-    const values = monthCols.map(mc => parseNumeric(row[mc.col]));
-    const hasAnyValue = values.some(v => v != null && v !== 0);
-    if(!name && !hasAnyValue){
-      // Pure blank row — preserve only if surrounded by data (skip trailing blanks)
-      items.push({ kind: KIND.BLANK, name: '', values: null });
-      continue;
-    }
-    const kind = classifyRow(name, hasAnyValue);
-    items.push({ kind, name, values });
+    if(!name) continue;
+    // Skip subtotal/computed lines
+    if(/^total\s+/i.test(name)) continue;
+    if(/^gross\s+profit$/i.test(name) || /^net\s+profit(\/?\(loss\))?$/i.test(name) ||
+       /^operating\s+profit/i.test(name) || /^ebitda$/i.test(name)) continue;
+    const values = monthCols.map(mc => parseNumeric(row[mc.col]) || 0);
+    const hasAny = values.some(v => v !== 0);
+    if(!hasAny) continue;
+    rows.push({ name, values });
   }
-  // Trim trailing blanks
-  while(items.length && items[items.length-1].kind === KIND.BLANK) items.pop();
 
   return {
     title:  title  || 'Profit and Loss',
     entity: entity || '',
     period: period || '',
     months: monthCols.map(mc => mc.label),
-    items
+    rows
   };
 }
 
@@ -184,9 +359,8 @@ async function parsePdf(arrayBuffer){
     const tc = await page.getTextContent();
     const pageHeight = page.view[3];
     for(const item of tc.items){
-      const tx = item.transform;
-      const x = tx[4];
-      const y = pageHeight - tx[5];
+      const x = item.transform[4];
+      const y = pageHeight - item.transform[5];
       const text = (item.str || '').trim();
       if(!text) continue;
       let line = lines.find(L => Math.abs(L.y - y) < 3 && L.page === p);
@@ -197,7 +371,6 @@ async function parsePdf(arrayBuffer){
   lines.sort((a,b) => a.page - b.page || a.y - b.y);
   lines.forEach(L => L.items.sort((a,b) => a.x - b.x));
 
-  // Find header line with month tokens
   const monthTokenRe = /^(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\.?\s*\-?\s*\d{2,4}|\d{4}\-\d{2}|q[1-4]\s*\d{2,4}|ytd|fy\d{2,4}/i;
   let headerLineIdx = -1;
   for(let i=0;i<lines.length;i++){
@@ -206,33 +379,30 @@ async function parsePdf(arrayBuffer){
     if(dateLike >= 1){ headerLineIdx = i; break; }
   }
   if(headerLineIdx === -1) throw new Error('Could not find a header row with month labels in the PDF');
-
   const headerLine = lines[headerLineIdx];
   const monthCols = [];
   headerLine.items.forEach(it => {
     if(monthTokenRe.test(it.text)) monthCols.push({ label: it.text, x: it.x });
   });
-  if(monthCols.length === 0) throw new Error('No month columns detected in header');
+  if(monthCols.length === 0) throw new Error('No month columns detected in PDF header');
 
-  // Title block from lines above the header
   let title = '', entity = '', period = '';
   for(let i=0;i<headerLineIdx;i++){
     const txt = lines[i].items.map(it => it.text).join(' ').trim();
     if(!txt) continue;
-    if(/^profit\s+and\s+loss/i.test(txt) || /^income\s+statement/i.test(txt)) title = txt;
+    if(/^profit\s+and\s+loss/i.test(txt)) title = txt;
     else if(/(sdn\s+bhd|berhad|ltd|pte|inc|llp|gmbh)/i.test(txt)) entity = txt;
-    else if(/^for\s+(the|month|year|period)|^as\s+at|^year\s+ended/i.test(txt)) period = txt;
+    else if(/^for\s+(the|month|year|period)|^year\s+ended/i.test(txt)) period = txt;
     else if(!entity) entity = txt;
     else if(!period) period = txt;
   }
 
-  // Walk data lines
-  const items = [];
+  const rows = [];
   const numRe = /^\(?-?[\d,]+\.?\d*\)?$/;
   for(let i=headerLineIdx+1; i<lines.length; i++){
     const L = lines[i];
     const nameParts = [];
-    const vals = new Array(monthCols.length).fill(null);
+    const vals = new Array(monthCols.length).fill(0);
     let hitNumeric = false;
     for(const it of L.items){
       if(numRe.test(it.text)){
@@ -249,10 +419,10 @@ async function parsePdf(arrayBuffer){
       }
     }
     const name = nameParts.join(' ').trim();
-    if(!name && vals.every(v => v == null)) continue;
-    const hasAny = vals.some(v => v != null && v !== 0);
-    const kind = classifyRow(name, hasAny);
-    items.push({ kind, name, values: vals });
+    if(!name) continue;
+    if(/^total\s+/i.test(name) || /^gross\s+profit$/i.test(name) || /^net\s+profit/i.test(name) || /^operating\s+profit/i.test(name)) continue;
+    if(vals.every(v => v === 0)) continue;
+    rows.push({ name, values: vals });
   }
 
   return {
@@ -260,34 +430,39 @@ async function parsePdf(arrayBuffer){
     entity: entity || '',
     period: period || '',
     months: monthCols.map(mc => mc.label),
-    items
+    rows
   };
 }
 
-/* ============ OUTPUT BUILDER ============
-   Writes an xlsx where the layout matches the SKINDAE/DRSMILE
-   convention exactly:
-     - Row 1: "Profit and Loss"
-     - Row 2: entity name
-     - Row 3: period description
-     - Row 4: column headers — "Account" | Month1 | "%" | Month2 | "%" | ...
-     - Following rows: section headers + accounts + totals + GP + NP
-   Also applies Excel cell styles (bold section headers, bold totals,
-   top border on subtotals, double underline on GP/NP, etc.) so the
-   output looks like the source.
-*/
-function buildOutputWorkbook({ source, entityOverride }){
+/* ============ AUTO-MAP ============ */
+function autoMap(parsed){
+  const monthCount = parsed.months.length;
+  const mapped = {};
+  const unmapped = [];
+  parsed.rows.forEach(r => {
+    const target = mapAccount(r.name);
+    if(target){
+      if(!mapped[target]) mapped[target] = new Array(monthCount).fill(0);
+      for(let i=0;i<monthCount;i++) mapped[target][i] += (Number(r.values[i])||0);
+    } else {
+      unmapped.push(r);
+    }
+  });
+  return { mapped, unmapped };
+}
+
+/* ============ OUTPUT BUILDER ============ */
+function buildOutputWorkbook({ source, mapped, unmapped, entityOverride }){
   if(typeof XLSX === 'undefined') throw new Error('SheetJS not loaded');
-  const { title, entity, period, months, items } = source;
+  const { title, entity, period, months } = source;
   const monthCount = months.length;
   const entityName = (entityOverride && entityOverride.trim()) || entity || '';
 
-  // === Column layout ===
-  const COL_WIDTHS = [{ wch: 60 }];
+  const COL_WIDTHS = [{ wch: 64 }];  // wider col A like SKINDAE
   for(let i=0; i<monthCount; i++){
-    COL_WIDTHS.push({ wch: 18 });   // value
-    COL_WIDTHS.push({ wch: 9 });    // %
-    if(i < monthCount - 1) COL_WIDTHS.push({ wch: 2.5 });  // spacer
+    COL_WIDTHS.push({ wch: 18 });
+    COL_WIDTHS.push({ wch: 11 });
+    if(i < monthCount - 1) COL_WIDTHS.push({ wch: 2.7 });
   }
   const totalCols = 1 + monthCount * 3 - (monthCount > 0 ? 1 : 0);
   const valueColIdx = (m) => 1 + m * 3;
@@ -298,24 +473,19 @@ function buildOutputWorkbook({ source, entityOverride }){
     return s;
   };
 
-  // === Build aoa ===
   const aoa = [];
-  const rowKinds = [];  // parallel array — tracks the row's kind for styling
+  const rowKinds = [];
   const empty = () => new Array(totalCols).fill(null);
-  const push = (row, kind) => {
-    aoa.push(row);
-    rowKinds.push(kind || 'plain');
-    return aoa.length;  // 1-indexed sheet row
-  };
+  const push = (row, kind) => { aoa.push(row); rowKinds.push(kind || 'plain'); return aoa.length; };
 
-  // Rows 1-3: title block
+  // Title block
   const r1 = empty(); r1[0] = title || 'Profit and Loss'; push(r1, 'title');
   const r2 = empty(); r2[0] = entityName;                  push(r2, 'entity');
-  const r3 = empty(); r3[0] = period ||
-    (months.length > 1 ? ('From ' + months[months.length-1] + ' to ' + months[0])
-                       : ('For the period ' + (months[0] || '')));
+  const r3 = empty(); r3[0] = period || (months.length > 1
+    ? 'From ' + months[months.length-1] + ' to ' + months[0]
+    : 'For the period ' + (months[0] || ''));
   push(r3, 'period');
-  // Row 4: column headers
+  // Column headers
   const r4 = empty();
   r4[0] = 'Account';
   for(let m=0; m<monthCount; m++){
@@ -324,173 +494,106 @@ function buildOutputWorkbook({ source, entityOverride }){
   }
   push(r4, 'colhead');
 
-  // === Walk items, building section ranges so totals can SUM ===
-  // We treat each SECTION header as starting a new account-range.
-  // SUBTOTAL/GP/NP/OP/EBITDA close the current range.
-  const sectionRanges = [];  // array of { sectionRow, firstAcctRow, lastAcctRow, sectionName, totalRow }
-  let cur = null;
-  const beginSection = (sectionRow, name) => {
-    cur = { sectionRow, firstAcctRow: null, lastAcctRow: null, sectionName: name, totalRow: null };
-    sectionRanges.push(cur);
-  };
-  // Identify Trading Income subtotal for % denominator
-  let tradingIncomeTotalRow = null;
-  let costOfSalesTotalRow   = null;
-  let otherIncomeTotalRow   = null;
-  let operatingExpensesTotalRow = null;
+  // Track key total row numbers for formula references
+  let trIncomeTotalRow = null;
+  let cosTotalRow = null;
+  let otherIncomeTotalRow = null;
+  let opexTotalRow = null;
   let grossProfitRow = null;
-  let operatingProfitRow = null;
-  let netProfitRow   = null;
+  let netProfitRow = null;
 
-  items.forEach(item => {
-    if(item.kind === KIND.BLANK){
-      // Preserve blank row for spacing
+  // Per-group account range tracking for SUM ranges
+  const groupRange = {};
+
+  COA.forEach(item => {
+    if(item.kind === 'blank'){
       push(empty(), 'blank');
       return;
     }
     const row = empty();
-    if(item.kind === KIND.SECTION){
-      row[0] = item.name;
+    if(item.kind === 'header'){
+      row[0] = item.group;
       const rowIdx = push(row, 'section');
-      beginSection(rowIdx, item.name);
+      groupRange[item.group] = { first: null, last: null, total: null };
       return;
     }
-    if(item.kind === KIND.ACCOUNT){
-      // No leading spaces — indentation comes from Excel cell style (alignment.indent)
+    if(item.kind === 'account'){
       row[0] = item.name;
       for(let m=0; m<monthCount; m++){
-        const v = item.values && item.values[m];
-        row[valueColIdx(m)] = (v == null) ? 0 : v;
+        const v = (mapped[item.name] && mapped[item.name][m]) || 0;
+        row[valueColIdx(m)] = v;
       }
       const rowIdx = push(row, 'account');
-      if(cur){
-        if(cur.firstAcctRow == null) cur.firstAcctRow = rowIdx;
-        cur.lastAcctRow = rowIdx;
-      }
+      const gr = groupRange[item.group];
+      if(gr){ if(gr.first == null) gr.first = rowIdx; gr.last = rowIdx; }
       return;
     }
-    if(item.kind === KIND.SUBTOTAL){
+    if(item.kind === 'total'){
       row[0] = item.name;
+      const gr = groupRange[item.group] || {};
       for(let m=0; m<monthCount; m++){
-        if(cur && cur.firstAcctRow && cur.lastAcctRow){
+        if(gr.first && gr.last){
           const c = colLetter(valueColIdx(m));
-          row[valueColIdx(m)] = { f: 'SUM(' + c + cur.firstAcctRow + ':' + c + cur.lastAcctRow + ')' };
+          row[valueColIdx(m)] = { f: 'SUM(' + c + gr.first + ':' + c + gr.last + ')' };
         } else {
-          const v = item.values && item.values[m];
-          row[valueColIdx(m)] = (v == null) ? 0 : v;
+          row[valueColIdx(m)] = 0;
         }
       }
       const rowIdx = push(row, 'subtotal');
-      if(cur) cur.totalRow = rowIdx;
-      const low = item.name.toLowerCase();
-      if(/trading income|sales\s+revenue|^total\s+revenue$/i.test(low))     tradingIncomeTotalRow = rowIdx;
-      else if(/cost of sales|cost of goods|cogs/i.test(low))                costOfSalesTotalRow = rowIdx;
-      else if(/other income/i.test(low))                                    otherIncomeTotalRow = rowIdx;
-      else if(/operating expense|administrative expense|expenses?$/i.test(low)) operatingExpensesTotalRow = rowIdx;
-      cur = null;
+      gr.total = rowIdx;
+      if(item.group === 'Trading Income')     trIncomeTotalRow = rowIdx;
+      if(item.group === 'Cost of Sales')      cosTotalRow = rowIdx;
+      if(item.group === 'Other Income')       otherIncomeTotalRow = rowIdx;
+      if(item.group === 'Operating Expenses') opexTotalRow = rowIdx;
       return;
     }
-    if(item.kind === KIND.GP){
+    if(item.kind === 'gp'){
       row[0] = item.name;
       for(let m=0; m<monthCount; m++){
         const c = colLetter(valueColIdx(m));
-        if(tradingIncomeTotalRow && costOfSalesTotalRow){
-          row[valueColIdx(m)] = { f: c + tradingIncomeTotalRow + '-' + c + costOfSalesTotalRow };
+        if(trIncomeTotalRow && cosTotalRow){
+          row[valueColIdx(m)] = { f: c + trIncomeTotalRow + '-' + c + cosTotalRow };
         } else {
-          const v = item.values && item.values[m];
-          row[valueColIdx(m)] = (v == null) ? 0 : v;
+          row[valueColIdx(m)] = 0;
         }
       }
       const rowIdx = push(row, 'gp');
       grossProfitRow = rowIdx;
-      cur = null;
       return;
     }
-    if(item.kind === KIND.OP){
+    if(item.kind === 'np'){
       row[0] = item.name;
       for(let m=0; m<monthCount; m++){
         const c = colLetter(valueColIdx(m));
         const parts = [];
         if(grossProfitRow) parts.push(c + grossProfitRow);
         if(otherIncomeTotalRow) parts.push('+' + c + otherIncomeTotalRow);
-        if(operatingExpensesTotalRow) parts.push('-' + c + operatingExpensesTotalRow);
-        if(parts.length > 0){
-          row[valueColIdx(m)] = { f: parts.join('') };
-        } else {
-          const v = item.values && item.values[m];
-          row[valueColIdx(m)] = (v == null) ? 0 : v;
-        }
-      }
-      const rowIdx = push(row, 'op');
-      operatingProfitRow = rowIdx;
-      cur = null;
-      return;
-    }
-    if(item.kind === KIND.NP){
-      row[0] = item.name;
-      for(let m=0; m<monthCount; m++){
-        const c = colLetter(valueColIdx(m));
-        const parts = [];
-        if(operatingProfitRow){
-          parts.push(c + operatingProfitRow);
-        } else {
-          if(grossProfitRow) parts.push(c + grossProfitRow);
-          if(otherIncomeTotalRow) parts.push('+' + c + otherIncomeTotalRow);
-          if(operatingExpensesTotalRow) parts.push('-' + c + operatingExpensesTotalRow);
-        }
-        if(parts.length > 0){
-          row[valueColIdx(m)] = { f: parts.join('') };
-        } else {
-          const v = item.values && item.values[m];
-          row[valueColIdx(m)] = (v == null) ? 0 : v;
-        }
+        if(opexTotalRow) parts.push('-' + c + opexTotalRow);
+        row[valueColIdx(m)] = parts.length ? { f: parts.join('') } : 0;
       }
       const rowIdx = push(row, 'np');
       netProfitRow = rowIdx;
-      cur = null;
       return;
     }
-    if(item.kind === KIND.EBITDA){
-      row[0] = item.name;
-      for(let m=0; m<monthCount; m++){
-        const v = item.values && item.values[m];
-        row[valueColIdx(m)] = (v == null) ? 0 : v;
-      }
-      push(row, 'subtotal');
-      cur = null;
-      return;
-    }
-    // Fallback — should not happen
-    row[0] = item.name;
-    for(let m=0; m<monthCount; m++){
-      const v = item.values && item.values[m];
-      row[valueColIdx(m)] = (v == null) ? 0 : v;
-    }
-    push(row, 'plain');
   });
 
-  // === Second pass: % formulas (divide by Trading Income total) ===
-  if(tradingIncomeTotalRow){
+  // Second pass: % column formulas (divide by Trading Income total)
+  if(trIncomeTotalRow){
     for(let r = 5; r <= aoa.length; r++){
       const row = aoa[r-1];
       if(!row) continue;
-      // Skip if the value cell is null (section header or blank row)
+      // Skip if value cell is null (section header or blank row)
       if(row[valueColIdx(0)] == null) continue;
       for(let m=0; m<monthCount; m++){
         const vc = colLetter(valueColIdx(m));
         const valRef = vc + r;
-        const totalRef = vc + tradingIncomeTotalRow;
+        const totalRef = vc + trIncomeTotalRow;
         row[pctColIdx(m)] = { f: 'IFERROR(' + valRef + '/' + totalRef + ',0)' };
       }
     }
   }
 
-  // === Build SheetJS worksheet ===
-  const ws = XLSX.utils.aoa_to_sheet([], { dateNF:'yyyy-mm-dd' });
-  const PCT_COLS = new Set();
-  for(let m=0; m<monthCount; m++) PCT_COLS.add(pctColIdx(m));
-
-  // ----- Cell style presets (Calibri 10 base, matches SKINDAE/Xero style) -----
+  // === Cell styles (Calibri 10 base, SKINDAE/Xero look) ===
   const FONT_BASE  = { name:'Calibri', sz:10, color:{ rgb:'333333' } };
   const FONT_BOLD  = { name:'Calibri', sz:10, color:{ rgb:'000000' }, bold:true };
   const FONT_TITLE = { name:'Calibri', sz:16, color:{ rgb:'1F3A5F' }, bold:true };
@@ -499,56 +602,35 @@ function buildOutputWorkbook({ source, entityOverride }){
   const FONT_COL   = { name:'Calibri', sz:9,  color:{ rgb:'333333' }, bold:true };
   const FONT_SECT  = { name:'Calibri', sz:11, color:{ rgb:'1F3A5F' }, bold:true };
 
-  const BORDER_THIN_TOP    = { top:    { style:'thin',   color:{ rgb:'000000' } } };
-  const BORDER_THIN_BOTTOM = { bottom: { style:'thin',   color:{ rgb:'000000' } } };
-  const BORDER_DOUBLE_BOT  = { bottom: { style:'double', color:{ rgb:'000000' } } };
-  const BORDER_TOPLINE     = { top:    { style:'thin',   color:{ rgb:'000000' } } };
-  const BORDER_GP_NP       = { top:    { style:'thin',   color:{ rgb:'000000' } },
-                                bottom: { style:'double', color:{ rgb:'000000' } } };
+  const BORDER_TOPLINE = { top: { style:'thin', color:{ rgb:'000000' } } };
+  const BORDER_COLHEAD = { bottom: { style:'thin', color:{ rgb:'000000' } } };
+  const BORDER_GP_NP   = {
+    top:    { style:'thin',   color:{ rgb:'000000' } },
+    bottom: { style:'double', color:{ rgb:'000000' } }
+  };
 
   const ALIGN_LEFT   = { horizontal:'left',  vertical:'center' };
   const ALIGN_RIGHT  = { horizontal:'right', vertical:'center' };
   const ALIGN_INDENT = { horizontal:'left',  vertical:'center', indent:1 };
 
-  function styleForKind(kind, isCol0, isPctCol){
+  function styleForKind(kind, isCol0){
     const s = {};
-    if(kind === 'title'){
-      s.font = FONT_TITLE;
-      s.alignment = ALIGN_LEFT;
-    } else if(kind === 'entity'){
-      s.font = FONT_ENT;
-      s.alignment = ALIGN_LEFT;
-    } else if(kind === 'period'){
-      s.font = FONT_PER;
-      s.alignment = ALIGN_LEFT;
-    } else if(kind === 'colhead'){
-      s.font = FONT_COL;
-      s.alignment = isCol0 ? ALIGN_LEFT : ALIGN_RIGHT;
-      s.border = { ...BORDER_THIN_BOTTOM };
-    } else if(kind === 'section'){
-      s.font = FONT_SECT;
-      s.alignment = ALIGN_LEFT;
-    } else if(kind === 'account'){
-      s.font = FONT_BASE;
-      s.alignment = isCol0 ? ALIGN_INDENT : ALIGN_RIGHT;
-    } else if(kind === 'subtotal'){
-      s.font = FONT_BOLD;
-      s.alignment = isCol0 ? ALIGN_LEFT : ALIGN_RIGHT;
-      s.border = { ...BORDER_TOPLINE };
-    } else if(kind === 'gp' || kind === 'np'){
-      s.font = FONT_BOLD;
-      s.alignment = isCol0 ? ALIGN_LEFT : ALIGN_RIGHT;
-      s.border = { ...BORDER_GP_NP };
-    } else if(kind === 'op'){
-      s.font = FONT_BOLD;
-      s.alignment = isCol0 ? ALIGN_LEFT : ALIGN_RIGHT;
-      s.border = { ...BORDER_TOPLINE };
-    } else {
-      s.font = FONT_BASE;
-      s.alignment = isCol0 ? ALIGN_LEFT : ALIGN_RIGHT;
-    }
+    if(kind === 'title'){          s.font = FONT_TITLE; s.alignment = ALIGN_LEFT; }
+    else if(kind === 'entity'){    s.font = FONT_ENT;   s.alignment = ALIGN_LEFT; }
+    else if(kind === 'period'){    s.font = FONT_PER;   s.alignment = ALIGN_LEFT; }
+    else if(kind === 'colhead'){   s.font = FONT_COL;   s.alignment = isCol0 ? ALIGN_LEFT : ALIGN_RIGHT; s.border = { ...BORDER_COLHEAD }; }
+    else if(kind === 'section'){   s.font = FONT_SECT;  s.alignment = ALIGN_LEFT; }
+    else if(kind === 'account'){   s.font = FONT_BASE;  s.alignment = isCol0 ? ALIGN_INDENT : ALIGN_RIGHT; }
+    else if(kind === 'subtotal'){  s.font = FONT_BOLD;  s.alignment = isCol0 ? ALIGN_LEFT : ALIGN_RIGHT; s.border = { ...BORDER_TOPLINE }; }
+    else if(kind === 'gp' || kind === 'np'){ s.font = FONT_BOLD; s.alignment = isCol0 ? ALIGN_LEFT : ALIGN_RIGHT; s.border = { ...BORDER_GP_NP }; }
+    else {                         s.font = FONT_BASE;  s.alignment = isCol0 ? ALIGN_LEFT : ALIGN_RIGHT; }
     return s;
   }
+
+  // === Build SheetJS worksheet ===
+  const ws = XLSX.utils.aoa_to_sheet([], { dateNF:'yyyy-mm-dd' });
+  const PCT_COLS = new Set();
+  for(let m=0; m<monthCount; m++) PCT_COLS.add(pctColIdx(m));
 
   for(let r=0; r<aoa.length; r++){
     const rowVals = aoa[r];
@@ -559,7 +641,7 @@ function buildOutputWorkbook({ source, entityOverride }){
       const addr = XLSX.utils.encode_cell({ r, c });
       const isCol0 = (c === 0);
       const isPctCol = PCT_COLS.has(c);
-      const baseStyle = styleForKind(kind, isCol0, isPctCol);
+      const baseStyle = styleForKind(kind, isCol0);
       if(typeof v === 'object' && v.f){
         const z = isPctCol ? '0.0%;(0.0%);"-"' : '#,##0.00;(#,##0.00);"-"';
         ws[addr] = { t:'n', f: v.f, z, s: baseStyle };
@@ -572,17 +654,35 @@ function buildOutputWorkbook({ source, entityOverride }){
   }
   ws['!ref']  = XLSX.utils.encode_range({ s:{r:0,c:0}, e:{r:aoa.length-1, c:totalCols-1} });
   ws['!cols'] = COL_WIDTHS;
+  ws['!rows'] = [ { hpt: 22 }, { hpt: 16 }, { hpt: 14 }, { hpt: 16 } ];
 
-  // Row heights — title row a bit taller
-  ws['!rows'] = [
-    { hpt: 22 }, // row 1 - title
-    { hpt: 16 }, // row 2 - entity
-    { hpt: 14 }, // row 3 - period
-    { hpt: 16 }  // row 4 - column headers
-  ];
+  // Freeze the title + column header rows (so they stay visible on scroll)
+  ws['!freeze'] = { xSplit: 0, ySplit: 4 };
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Profit and Loss');
+
+  // === Unmapped sheet ===
+  if(unmapped && unmapped.length > 0){
+    const head = ['Source Account'].concat(months);
+    const data = unmapped.map(u => [u.name].concat(u.values));
+    const umWs = XLSX.utils.aoa_to_sheet([head].concat(data));
+    umWs['!cols'] = [{ wch: 50 }].concat(months.map(() => ({ wch: 16 })));
+    // Style header row
+    for(let c=0; c<head.length; c++){
+      const addr = XLSX.utils.encode_cell({ r:0, c });
+      if(umWs[addr]) umWs[addr].s = { font: FONT_BOLD, fill: { fgColor: { rgb:'FFF3E0' } }, border: { ...BORDER_COLHEAD } };
+    }
+    // Number format on amount cells
+    for(let r=1; r<=data.length; r++){
+      for(let c=1; c<head.length; c++){
+        const addr = XLSX.utils.encode_cell({ r, c });
+        if(umWs[addr]) umWs[addr].z = '#,##0.00;(#,##0.00);"-"';
+      }
+    }
+    XLSX.utils.book_append_sheet(wb, umWs, '— Unmapped —');
+  }
+
   return wb;
 }
 
@@ -591,52 +691,29 @@ async function convertFile(file, entityName){
   const arrayBuffer = await file.arrayBuffer();
   const fname = (file.name || '').toLowerCase();
   let source;
-  if(fname.endsWith('.pdf')){
-    source = await parsePdf(arrayBuffer);
-  } else {
-    source = parseExcel(arrayBuffer);
-  }
-  if(!source || !source.items || source.items.length === 0){
+  if(fname.endsWith('.pdf')) source = await parsePdf(arrayBuffer);
+  else                       source = parseExcel(arrayBuffer);
+  if(!source || !source.rows || source.rows.length === 0){
     throw new Error('No data rows detected in the file. Please check the format.');
   }
-  const wb = buildOutputWorkbook({ source, entityOverride: entityName });
+  const { mapped, unmapped } = autoMap(source);
+  const wb = buildOutputWorkbook({ source, mapped, unmapped, entityOverride: entityName });
   const out = XLSX.write(wb, { bookType:'xlsx', type:'array' });
   const blob = new Blob([out], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-
-  // Build a friendly report
-  const tally = { sections: 0, accounts: 0, subtotals: 0, gp: 0, np: 0, op: 0, ebitda: 0, blank: 0 };
-  source.items.forEach(it => {
-    if(it.kind === KIND.SECTION)  tally.sections++;
-    if(it.kind === KIND.ACCOUNT)  tally.accounts++;
-    if(it.kind === KIND.SUBTOTAL) tally.subtotals++;
-    if(it.kind === KIND.GP)       tally.gp++;
-    if(it.kind === KIND.NP)       tally.np++;
-    if(it.kind === KIND.OP)       tally.op++;
-    if(it.kind === KIND.EBITDA)   tally.ebitda++;
-    if(it.kind === KIND.BLANK)    tally.blank++;
-  });
-
   return {
     blob,
     report: {
-      months:      source.months,
-      entity:      source.entity,
-      sections:    tally.sections,
-      accounts:    tally.accounts,
-      subtotals:   tally.subtotals,
-      computed:    tally.gp + tally.np + tally.op + tally.ebitda
+      months:        source.months,
+      entity:        source.entity,
+      totalRows:     source.rows.length,
+      mappedRows:    source.rows.length - unmapped.length,
+      unmappedRows:  unmapped.length,
+      unmappedNames: unmapped.map(u => u.name),
+      coaAccounts:   Object.keys(mapped).length
     }
   };
 }
 
-// Expose
-global.CTGPnLConverter = {
-  convertFile,
-  parseExcel,
-  parsePdf,
-  buildOutputWorkbook,
-  classifyRow,
-  KIND
-};
+global.CTGPnLConverter = { convertFile, parseExcel, parsePdf, autoMap, mapAccount, COA, COA_KEYWORDS };
 
 })(window);
