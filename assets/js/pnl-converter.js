@@ -211,23 +211,33 @@ const COA_KEYWORDS = {
   "FIN - Unrealised Currency Gains": ['unrealised currency gain', 'unrealized currency gain', 'unrealised fx gain']
 };
 
-/* Build a flat lookup index sorted longest-keyword-first so specific
-   matches win (e.g. "shopee commission" matches before "shopee"). */
-const KEYWORD_INDEX = (function(){
-  const idx = [];
-  Object.keys(COA_KEYWORDS).forEach(target => {
-    COA_KEYWORDS[target].forEach(kw => idx.push({ kw: kw.toLowerCase(), target }));
-  });
-  idx.sort((a,b) => b.kw.length - a.kw.length);
-  return idx;
-})();
-
 function normalizeName(s){
   return String(s||'').toLowerCase()
     .replace(/[–—]/g,'-')
     .replace(/[^a-z0-9&/\-\(\)\s\.\%]/g,' ')
     .replace(/\s+/g,' ').trim();
 }
+
+/* Build a flat lookup index sorted longest-keyword-first so specific
+   matches win (e.g. "shopee commission" matches before "shopee").
+   Also AUTO-REGISTERS each canonical COA name as a keyword for itself
+   so any source file that uses the exact canonical name maps 1:1. */
+const KEYWORD_INDEX = (function(){
+  const idx = [];
+  // 1) Auto-register canonical names as self-matching keywords
+  COA.forEach(item => {
+    if(item.kind === 'account' && item.name){
+      idx.push({ kw: normalizeName(item.name), target: item.name });
+    }
+  });
+  // 2) Then the explicit fuzzy keywords
+  Object.keys(COA_KEYWORDS).forEach(target => {
+    COA_KEYWORDS[target].forEach(kw => idx.push({ kw: kw.toLowerCase(), target }));
+  });
+  // Longest-first so more specific matches win
+  idx.sort((a,b) => b.kw.length - a.kw.length);
+  return idx;
+})();
 function mapAccount(sourceName){
   if(!sourceName) return null;
   const n = normalizeName(sourceName);
@@ -643,10 +653,10 @@ function buildOutputWorkbook({ source, mapped, unmapped, entityOverride }){
       const isPctCol = PCT_COLS.has(c);
       const baseStyle = styleForKind(kind, isCol0);
       if(typeof v === 'object' && v.f){
-        const z = isPctCol ? '0.0%;(0.0%);"-"' : '#,##0.00;(#,##0.00);"-"';
+        const z = isPctCol ? '0.0%;[Red](0.0%);"-"' : '#,##0.00;[Red](#,##0.00);"-"';
         ws[addr] = { t:'n', f: v.f, z, s: baseStyle };
       } else if(typeof v === 'number'){
-        ws[addr] = { t:'n', v, z:'#,##0.00;(#,##0.00);"-"', s: baseStyle };
+        ws[addr] = { t:'n', v, z:'#,##0.00;[Red](#,##0.00);"-"', s: baseStyle };
       } else {
         ws[addr] = { t:'s', v: String(v), s: baseStyle };
       }
@@ -656,8 +666,17 @@ function buildOutputWorkbook({ source, mapped, unmapped, entityOverride }){
   ws['!cols'] = COL_WIDTHS;
   ws['!rows'] = [ { hpt: 22 }, { hpt: 16 }, { hpt: 14 }, { hpt: 16 } ];
 
-  // Freeze the title + column header rows (so they stay visible on scroll)
-  ws['!freeze'] = { xSplit: 0, ySplit: 4 };
+  // Freeze rows 1–4 (title block + month-header row) so they stay
+  // visible while scrolling. The SheetJS/xlsx-js-style way is via
+  // worksheet view "pane" settings — they take effect when the file
+  // opens in Excel/Google Sheets.
+  ws['!views'] = [{
+    state:'frozen',
+    ySplit: 4,
+    xSplit: 0,
+    topLeftCell: 'A5',
+    activePane: 'bottomLeft'
+  }];
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Profit and Loss');
@@ -677,7 +696,7 @@ function buildOutputWorkbook({ source, mapped, unmapped, entityOverride }){
     for(let r=1; r<=data.length; r++){
       for(let c=1; c<head.length; c++){
         const addr = XLSX.utils.encode_cell({ r, c });
-        if(umWs[addr]) umWs[addr].z = '#,##0.00;(#,##0.00);"-"';
+        if(umWs[addr]) umWs[addr].z = '#,##0.00;[Red](#,##0.00);"-"';
       }
     }
     XLSX.utils.book_append_sheet(wb, umWs, '— Unmapped —');
