@@ -31,8 +31,8 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
-<script src="config.js?v=21"></script>
-<script src="assets/js/supabase-client.js?v=21"></script>
+<script src="config.js?v=22"></script>
+<script src="assets/js/supabase-client.js?v=22"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
 <script src="assets/js/wht-calculator.js?v=1"></script>
 <script>
@@ -335,8 +335,9 @@
     max-height:0;opacity:0;margin-top:-4px;pointer-events:none;
   }
 
-  .tab-section.admin-section{display:none;}
-  .tab-section.admin-section.visible{display:flex;}
+  /* Legacy .admin-section rules removed — Settings section is now always
+     visible to all users; individual admin-only buttons (Entities, User
+     Management) are gated by the .tab-btn.admin-only rule below. */
 
   /* ----- Sidebar buttons: compact + softer active ----- */
   .tab-btn{
@@ -5765,9 +5766,22 @@ document.addEventListener('click', async e=>{
 /* ============ USER MANAGEMENT TAB ============ */
 let _isAdminCache = false;
 async function refreshAdminFlag(){
-  _isAdminCache = await CTG.isAppAdmin();
+  // Check BOTH the user_profiles.role AND the is_app_admin RPC.
+  // If either reports admin, treat as admin — defensive against transient
+  // RPC failures or cache mismatches.
+  let isAdmin = false;
+  try {
+    const profile = await CTG.getCurrentProfile();
+    if(profile && profile.role === 'admin') isAdmin = true;
+  } catch(e){ console.warn('getCurrentProfile failed in refreshAdminFlag:', e); }
+  if(!isAdmin){
+    try {
+      const rpcAdmin = await CTG.isAppAdmin();
+      if(rpcAdmin) isAdmin = true;
+    } catch(e){ console.warn('isAppAdmin RPC failed in refreshAdminFlag:', e); }
+  }
+  _isAdminCache = isAdmin;
   document.querySelectorAll('.tab-btn.admin-only').forEach(btn => btn.classList.toggle('visible', _isAdminCache));
-  // Also toggle the whole admin sidebar section so the "Admin" label doesn't show for non-admins
   const sec = document.getElementById('navAdminSection');
   if(sec) sec.classList.toggle('visible', _isAdminCache);
   return _isAdminCache;
