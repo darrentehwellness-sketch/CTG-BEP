@@ -454,7 +454,231 @@ function targetSection(canonicalName){
   return null;
 }
 
-/* The AI-thinking classifier.
+/* ============================================================
+   SENIOR ACCOUNTANT RULE ENGINE
+   ============================================================
+   Each rule encodes professional judgment from an ACCA-qualified
+   Senior Accountant / Finance Controller perspective. Rules are
+   evaluated in priority order (most specific first). Each carries:
+     - any:        array of tokens — at least one must appear
+     - none:       (optional) tokens that disqualify the rule
+     - target:     canonical COA account name (must match COA exactly)
+     - conf:       confidence 60-95 (rule-based matches max at 95;
+                   exact-name match still wins at 100)
+     - why:        professional reasoning shown to the user
+   ============================================================ */
+const SENIOR_RULES = [
+  // ==================== STAFF ====================
+  {
+    any:['director'], none:['epf','kwsp','contribution','socso','perkeso','eis','training','recruitment'],
+    target:"STAFF - Director's Remuneration", conf:92,
+    why:"Director's fees / salary are recognized as director's remuneration per MFRS 119 and disclosed separately from staff salaries (Companies Act 2016 s.252 disclosure)."
+  },
+  {
+    any:['director'], some:['epf','kwsp','contribution','socso'],
+    target:"STAFF - Director Employer's Contribution", conf:92,
+    why:"Employer's statutory contributions for directors (EPF/SOCSO/EIS) are reported under director's contribution — a Companies Act 2016 disclosure requirement separate from staff contributions."
+  },
+  {
+    any:['salary','salaries','wage','wages','gaji','payroll','remuneration'], none:['director','contribution','epf','socso','training','recruitment','commission'],
+    target:"STAFF - Employees Salaries & Wages", conf:92,
+    why:"Employee salaries & wages are recognized as employee benefits expense (MFRS 119). Distinct from director's remuneration and from sales commissions (which go to BD&M when paid to external parties)."
+  },
+  {
+    any:['epf','kwsp','socso','perkeso','eis','hrdf levy','employer contribution',"employer's contribution"], none:['director'],
+    target:"STAFF - Employees Employer's Contribution", conf:90,
+    why:"EPF (KWSP), SOCSO (PERKESO), EIS and HRDF Levy are mandatory employer-borne statutory contributions for employees — recognized as employee benefits expense per MFRS 119."
+  },
+  {
+    any:['bonus','bonuses','incentive','incentives','sales commission - staff','staff commission','allowance','allowances'], none:['director'],
+    target:"STAFF - Bonuses & Incentives/Allowances", conf:90,
+    why:"Bonuses, incentives and allowances paid to employees are short-term employee benefits (MFRS 119). Staff commissions also belong here — distinct from BD&M platform/affiliate commissions paid to external parties."
+  },
+  {
+    any:['training','development','course','seminar','workshop','hrdf course','hrdc'], none:['recruitment'],
+    target:"STAFF - Training & Development (HRDF)", conf:88,
+    why:"Staff training & development costs (including HRDF/HRDC-claimable training) are employee benefits per MFRS 119, recognized in the period the service is consumed."
+  },
+  {
+    any:['recruitment','hiring','headhunt','job ad','jobstreet','linkedin recruit'],
+    target:"STAFF - Recruitment Expenses", conf:90,
+    why:"Recruitment costs (agency fees, job postings, hiring tools) are period costs — recognized when incurred and not capitalized as part of any asset."
+  },
+  {
+    any:['staff benefit','staff welfare','medical','group insurance','insurance - staff','annual dinner','staff event'],
+    target:"STAFF - Staff Benefits", conf:88,
+    why:"Welfare / medical / group insurance / staff functions are employee benefits expense (MFRS 119). Excludes statutory contributions (which go to Employer's Contribution)."
+  },
+
+  // ==================== CTG (inter-co) ====================
+  {
+    any:['ctg'], some:['e-commerce','ecommerce','webstore','shopify management'],
+    target:"CTG - E-Commerce Webstore Management Fee", conf:90,
+    why:"Inter-company management fee for the e-commerce webstore function. Per MFRS 124 (Related Party Disclosures), inter-co charges must be on arm's-length terms and disclosed separately."
+  },
+  { any:['ctg - human','ctg hr','ctg - hr'], target:"CTG - Human Resource Management Fee", conf:90, why:"Inter-company HR management charge. Disclosed under MFRS 124 related-party transactions." },
+  { any:['ctg project','ctg - project'],     target:"CTG - Project Management Fee", conf:90, why:"Inter-company project management charge. MFRS 124 disclosure required." },
+  { any:['ctg o2o','ctg - o2o'], some:['management'], target:"CTG - O2O Hub Management Fee", conf:88, why:"Inter-company O2O hub management charge. MFRS 124 disclosure." },
+  { any:['ctg o2o','ctg - o2o'], some:['commission'], target:"CTG - O2O Hub Commission Fee 3.8%", conf:88, why:"Inter-company O2O hub commission (3.8% of relevant revenue). Variable-rate inter-co charge — MFRS 124." },
+  { any:['ctg - sales design','ctg sales design'], target:"CTG - Sales Design Management Fee", conf:88, why:"Inter-company sales design support charge — MFRS 124 disclosure." },
+  { any:['ctg - training','ctg training hub'], target:"CTG - Training Hub Management Fee", conf:88, why:"Inter-company training hub management charge — MFRS 124." },
+  { any:['ctg - databees','databees - maintenance','databees maintenance'], target:"CTG - DataBees Maintenance Management Fee", conf:90, why:"Inter-company DataBees platform maintenance — MFRS 124." },
+  { any:['ctg - databees commission','databees commission'], target:"CTG - DataBees Hub Commission Fee", conf:90, why:"Inter-company DataBees hub commission — MFRS 124." },
+  { any:['ctg shopee','ctg - shopee'], target:"CTG - Shopee Hub Commission Fee 3%", conf:88, why:"Inter-company Shopee hub commission (3%) — MFRS 124." },
+  { any:['ctg lazada','ctg - lazada'], target:"CTG - Lazada Commission Fee 3%", conf:88, why:"Inter-company Lazada commission (3%) — MFRS 124." },
+  { any:['ctg tiktok','ctg - tiktok'], target:"CTG - Tiktok Commission Fee", conf:88, why:"Inter-company TikTok commission — MFRS 124." },
+  { any:['ctg supply chain','ctg - supply chain'], target:"CTG - Supply Chain Commission Fee", conf:88, why:"Inter-company supply-chain management commission — MFRS 124." },
+  { any:['platform fee 30%','community sales/shopee'], target:"CTG - Platform Fee 30% (Community Sales/Shopee)", conf:90, why:"Inter-company community-sales platform fee (30% bracket) — MFRS 124." },
+  { any:['platform fee commission'], target:"CTG - Platform Fee Commission Fee 3%", conf:85, why:"Inter-company platform commission (3% bracket) — MFRS 124." },
+
+  // ==================== BD&M ====================
+  {
+    any:['fb ads','meta ads','facebook ads','instagram ads','ig ads','meta advertising','whatsapp ads'],
+    target:"BD&M - Marketing Press Release (Meta Platform)", conf:92,
+    why:"Paid advertising on Meta-owned platforms (Facebook / Instagram / WhatsApp) — marketing expense. Note: WHT may apply if billed via Meta Ireland — check LHDN's withholding tax guidance for digital services."
+  },
+  { any:['google ads','google adwords','adwords','sem','youtube ads','google marketing'], target:"BD&M - Marketing Press Release (Google)", conf:92, why:"Paid advertising on Google / YouTube / Search. WHT (8-10%) typically applies to Google Asia Pacific Pte Ltd billings — withhold and remit via CP37D." },
+  { any:['shopee ads','shopee marketing','shopee promotion','shopee boost'], target:"BD&M - Marketing Press Release (Shopee)", conf:92, why:"Shopee-platform paid promotions / ads / boost packs — marketing expense, not a commission." },
+  { any:['lazada ads','lazada marketing','lazada sponsored','lazada boost'], target:"BD&M - Marketing Press Release (Lazada)", conf:92, why:"Lazada-platform paid promotions / sponsored listings — marketing expense, not commission." },
+  { any:['tiktok ads','xhs','xiaohongshu','tiktok shop ads','tiktok marketing'], target:"BD&M - Marketing Press Release (TikTok/XHS)", conf:90, why:"Paid promotions on TikTok / Xiaohongshu (XHS) — marketing expense. WHT may apply on digital ad services billed offshore." },
+  { any:['live streaming','livestream marketing','live stream cost'], target:"BD&M - Live Streaming Marketing (Facebook/TikTok)", conf:88, why:"Live-streaming marketing campaign costs (host fees, platform boost, gifting). Distinct from Live Streaming SALES revenue." },
+
+  { any:['shopee commission','shopee fee','shopee merchant fee','shopee service fee','shopee transaction fee'], target:"BD&M - Platform Merchant/Commission Fees (Shopee)", conf:92, why:"Marketplace commission deducted by Shopee on each transaction. Substance: merchant fee for using the platform. Distinct from Shopee ads (marketing) and CTG Shopee Hub commission (inter-co)." },
+  { any:['lazada commission','lazada fee','lazada merchant','lazada service'], target:"BD&M - Platform Merchant/Commission Fees (Lazada)", conf:92, why:"Marketplace commission deducted by Lazada. Distinct from Lazada ads and CTG Lazada commission." },
+  { any:['tiktok commission','tiktok shop fee','tiktok merchant'], target:"BD&M - Platform Merchant/Commission Fees (TikTok)", conf:92, why:"TikTok Shop platform commission on transactions." },
+  { any:['cod commission','cod handling','cod fee'], target:"BD&M - Platform Merchant/Commission Fees (COD)", conf:88, why:"Cash-on-delivery courier handling fee per transaction." },
+
+  { any:['shopify subscription','shopify monthly','shopify plan'], target:"BD&M - IT Software Information System (Shopify)", conf:92, why:"Shopify monthly software subscription — recognized over the subscription period. Distinct from Shopify sales revenue or any payment-gateway processing fees on Shopify orders." },
+  { any:['manychat'], target:"BD&M - IT Software Information System (ManyChat)", conf:95, why:"ManyChat (Messenger/WhatsApp automation) — marketing tool subscription." },
+  { any:['wati'], target:"BD&M - IT Software Information System (Wati)", conf:95, why:"Wati WhatsApp Business API platform — marketing CRM subscription." },
+  { any:['hello crm','hellocrm'], target:"BD&M - IT Software Information System (Hello CRM)", conf:95, why:"Hello CRM marketing automation subscription." },
+  { any:['google workspace','google one','google ads tool','google marketing platform'], some:['marketing'], target:"BD&M - IT Software Information System (Google)", conf:80, why:"Google marketing-purpose subscription. (If office/admin use → G&A Office IT Software.)" },
+  { any:['mailchimp','klaviyo','hubspot','canva pro','marketing crm','sendgrid'], target:"BD&M - IT Software Information System (Others Marketing)", conf:90, why:"Generic marketing-stack SaaS subscription (email/CRM/design)." },
+
+  { any:['photography','videography','photoshoot','video shoot','photo session','content production'], target:"BD&M - Marketing Production Cost (Photography/Videography)", conf:92, why:"Photography / videography production costs for marketing assets — recognized when incurred (MFRS 138 — internally-generated brand-related costs are expensed, not capitalized)." },
+  { any:['model fee','show talent','influencer fee','model session'], target:"BD&M - Marketing Production Cost (Model/Show Talent)", conf:92, why:"Talent fees paid to models / hosts / influencers for production sessions. WHT 10% typically applies if paid to non-resident — CP37." },
+  { any:['design studio','creative studio','graphic design'], some:['marketing','design'], target:"BD&M - Marketing Production Cost (Design & Miscellaneous Studio)", conf:80, why:"External design studio production costs for marketing collateral — expense when incurred." },
+
+  { any:['booth rental','venue rental','exhibition rental','event space'], target:"BD&M - Exibition Event Space Rental (Booth / Venue)", conf:92, why:"Rental of exhibition booth or event venue — short-term operating cost, expensed in the period (MFRS 16 short-term lease exemption typically applies for events <12 months)." },
+  { any:['booth design','space design','exhibition build','booth construction'], target:"BD&M - Exibition Event Space Design (Booth/Venue)", conf:90, why:"Booth/venue design & build costs for exhibitions — expensed when consumed; not capitalized as fixed assets (use-life typically < 12 months)." },
+  { any:['mc fee','emcee','event crew','show talent - event','usher'], target:"BD&M - Exibition Event (Event Crew/Show Talent/MC)", conf:90, why:"Event crew / MC / show-talent fees during exhibitions — services consumed in the event period." },
+  { any:['event sponsorship','exhibition sponsorship','event advertising'], target:"BD&M - Exibition Event (Sponsorship & Advertising)", conf:88, why:"Sponsorship paid to event organizers or advertising bought within an event — marketing expense." },
+  { any:['event gift','event souvenir','exhibition giveaway'], target:"BD&M - Exibition Event (Gift/Souvenirs)", conf:85, why:"Gifts & souvenirs distributed at events — marketing expense (not deductible for income tax under s.39(1)(L) ITA if entertainment to non-related parties — check LHDN PR 4/2015)." },
+  { any:['exhibition miscellaneous','event miscellaneous','event misc'], target:"BD&M - Exibition Event (Miscellaneous)", conf:75, why:"Miscellaneous event-related costs not falling into other event sub-buckets." },
+
+  { any:['koc','kol','influencer collaboration','influencer commission'], target:"BD&M - KOC Collaboration Commission", conf:92, why:"Influencer / KOC / KOL commission on sales attributed to their content — WHT 10% applies for non-resident creators per ITA s.4A and PR 11/2018." },
+  { any:['customer referral','affiliate commission','referral fee - customer'], target:"BD&M - Customer Referral Fees", conf:88, why:"Referral fees paid to customers or affiliates for bringing in new business — marketing expense; SST 8% may apply if recipient is registered." },
+  { any:['entertainment - sales','client entertainment','client meal','entertainment marketing'], target:"BD&M - Entertainment", conf:88, why:"Client/customer entertainment — only 50% deductible for income tax (ITA s.39(1)(L)). Recognize full amount as expense; the 50% addback is a tax-computation adjustment." },
+  { any:['gift','souvenir','sponsorship'], none:['exhibition','event','customer','staff'], target:"BD&M - Gift/Souvenirs/Sponsorship", conf:80, why:"Gifts / souvenirs / sponsorships given to external parties for marketing purposes." },
+  { any:['bd&m travel - accommodation','bdm travel accommodation','sales travel hotel'], target:"BD&M Travel - Accommodation", conf:90, why:"Hotel/lodging for sales/marketing staff during business trips — distinct from G&A Travel (admin trips)." },
+  { any:['bd&m travel - meal','bdm travel meal','sales meal'], target:"BD&M Travel - Meal", conf:88, why:"Meals during sales/marketing business trips — deductible at full cost (not entertainment if no customer present)." },
+  { any:['bd&m travel - transportation','sales travel transportation','sales mileage','sales taxi'], target:"BD&M Travel - Transportation", conf:88, why:"Transportation (mileage / taxi / Grab) for sales/marketing staff — distinct from G&A admin travel." },
+  { any:['bd&m - withholding tax','wht - marketing','wht on koc'], target:"BD&M - Withholding Tax (8%/10%)", conf:90, why:"Withholding tax on marketing-related payments (KOC, agency, non-resident services). Borne by the payer if not deducted at source — booked as an expense per LHDN practice." },
+  { any:['sst - sales','sst output','sales service tax (6%','sales service tax (8%'], target:"BD&M - Sales Service Tax (6%/8%)", conf:85, why:"Output SST charged on taxable sales / services. Goes to BD&M Sales SST if it's the unrecovered portion or a reclass; usually netted against output SST liability." },
+  { any:['bd&m - professional','marketing consultant','agency fee - marketing'], target:"BD&M - Professional Service Fees", conf:80, why:"Professional fees for marketing-specific consulting / agency work. Distinct from G&A Professional Fees (audit, tax, legal)." },
+  { any:['bd&m - others','other marketing expense'], target:"BD&M - Others", conf:65, why:"Catch-all for marketing-related expenses not fitting any specific bucket." },
+
+  // ==================== G&A ====================
+  { any:['office rent','premise rent','office rental','shop rental'], none:['booth','exhibition','event'], target:"G&A - Office Rental", conf:92, why:"Office/premise lease cost. Per MFRS 16, treat as ROU asset + lease liability unless short-term (<12mo) or low-value — then expensed on straight-line basis." },
+  { any:['electricity','tnb','water','syabas','indah water','utility','utilities','astro'], target:"G&A - Office Utilities", conf:92, why:"Utilities (TNB / Syabas / Indah Water / etc.) — recognized when consumed." },
+  { any:['phone bill','mobile plan','postpaid','prepaid - office','internet','wifi','unifi','tm','maxis','digi','celcom'], target:"G&A - Office Communication", conf:92, why:"Communication services (phone / mobile / internet / unifi) — recognized when consumed." },
+  { any:['stationery','pantry','office supplies','printing supplies','letterhead'], target:"G&A - Office Supplies & Logisters", conf:90, why:"Office consumables & supplies — period expense." },
+  { any:['office repair','repair & maintenance','aircon service'], target:"G&A - Office Repair & Maintenance", conf:90, why:"Repairs that maintain (not enhance) office assets — expensed per MFRS 116. Major enhancements that extend useful life should be capitalized." },
+  { any:['it equipment upkeep','computer repair','it support'], target:"G&A - Ofiice Upkeep of IT Equipment", conf:88, why:"Upkeep/maintenance of IT equipment (not new purchases). Repairs are expensed; upgrades that meet the recognition criteria (MFRS 116) should be capitalized." },
+  { any:['microsoft 365','office 365','google workspace','autocount','sql account','xero','quickbooks','myob'], target:"G&A - Ofiice IT Software Information System", conf:92, why:"Office/admin productivity & accounting software subscriptions — period expense. Distinct from BD&M IT (marketing tools)." },
+  { any:['depreciation','amortisation','amortization','accumulated depreciation'], target:"G&A - Office Depreciation/Assets", conf:92, why:"Depreciation expense on office PPE (MFRS 116) / amortization on intangibles (MFRS 138). Calculated over useful life on straight-line or chosen method." },
+  { any:['small value asset','low value asset','svca','non capital'], target:"G&A - Office Small Value Assets", conf:88, why:"Assets below capitalization threshold (per company policy, typically RM2,000 each) — expensed in year of acquisition. Tax: full SVCA deduction under Sch 3 Para 19A ITA capped at RM20k/yr." },
+  { any:['newspaper ad','newspaper advertisement','radio ad','generic advertising'], none:['shopee','lazada','meta','google','tiktok'], target:"G&A - Advertising", conf:80, why:"Generic / corporate advertising (newspaper, radio, billboard) — distinct from BD&M digital marketing which is platform-specific." },
+  { any:['incorpation fee','incorporation fee','company setup'], target:"G&A - Incorpation Fees", conf:90, why:"Company incorporation / setup fees — typically not tax-deductible as incurred before commencement (s.33(1) ITA); check tax treatment." },
+  { any:['audit fee','external audit'], target:"G&A - Audit Fees", conf:95, why:"Statutory audit fees per Companies Act 2016 s.266 — recognized in the period audited. Fully tax-deductible." },
+  { any:['tax agent','tax filing','taxation service','tax computation','tax consultant'], target:"G&A - Professional Fees/Taxation Service", conf:92, why:"Professional fees for tax compliance & consulting (filing CP204, Form C, etc.). Distinct from audit (which has its own account)." },
+  { any:['corp sec','company secretary','ssm','companies commission','annual return','ar fee'], target:"G&A - Compliance - Corp Sec & Reg Fees", conf:92, why:"Company secretary retainer + SSM annual returns / regulatory fees — corporate governance compliance per Companies Act 2016." },
+  { any:['stamp duty','setem','filing fee','filling fee','court fee'], target:"G&A - Stamping Fee/Filling Fee/Tax Duty", conf:90, why:"Stamp duty (Stamp Act 1949) on agreements / share transfers / loans + filing fees at government registries." },
+  { any:['license','certificate','business license','signage license','dbkl license','majlis'], target:"G&A - License/Certificate Fees", conf:88, why:"Business licenses, signage licenses, council fees (DBKL/MBPJ/etc.) — annually recurring period costs." },
+  { any:['penalty','compound','fine','late fee','late charge'], target:"G&A - Penalty & Compound", conf:92, why:"Penalties / fines / compounds — NOT tax-deductible under s.39(1)(l) ITA. Disclose separately for the tax computation addback." },
+  { any:['g&a - withholding','withholding tax','wht'], none:['marketing','koc'], target:"G&A - Withholding Tax (8%/10%)", conf:80, why:"Withholding tax on non-marketing payments (professional fees, royalties, rent to non-residents) — payer-borne where not deducted; check LHDN PR 11/2018." },
+  { any:['g&a - sales service tax','sst on g&a','sst input'], target:"G&A - Sales Service Tax (6%/8%)", conf:75, why:"Unrecoverable input SST on admin purchases — included in expense base." },
+  { any:['g&a travel - transportation','admin travel transport'], target:"G&A Travel - Transportation", conf:88, why:"Transportation costs for admin/director travel — distinct from BD&M Travel (sales/marketing trips)." },
+  { any:['g&a travel - accommodation','admin hotel','director hotel'], target:"G&A Travel - Accommodation", conf:88, why:"Admin/director accommodation during business travel — full expense, no entertainment 50% rule." },
+  { any:['g&a travel - meal','admin meal','director meal'], target:"G&A Travel - Meal", conf:85, why:"Admin/director meal during business travel — fully deductible if no clients present (otherwise entertainment 50% rule)." },
+  { any:['entertaiment','staff entertainment','company dinner','team building'], target:"G&A - Entertaiment", conf:80, why:"Staff entertainment (annual dinner, team building) — 100% deductible per LHDN PR 4/2015 if for ALL staff. CSV preserves the 'entertaiment' typo from the master COA." },
+  { any:['g&a - others','other admin','sundry admin'], target:"G&A - Others", conf:65, why:"Catch-all for admin expenses not fitting any specific G&A bucket." },
+
+  // ==================== FIN ====================
+  { any:['bank charge','bank fee','handling fee','cheque fee','tt fee','transfer fee','iban fee'], target:"FIN - Bank Charges & Handling Fees", conf:92, why:"Bank service charges — finance cost. Borne by the entity for banking services, distinct from payment-gateway fees on customer transactions." },
+  { any:['atome'], target:"FIN - Payment Gatewway Fee (Atome)", conf:95, why:"Atome BNPL transaction fees — netted from settlements. Recognize at gross sales + separately recognize the fee expense per MFRS 15." },
+  { any:['ahapay'], target:"FIN - Payment Gatewway Fee (Ahapay)", conf:95, why:"Ahapay payment gateway transaction fees." },
+  { any:['ezbeli'], target:"FIN - Payment Gatewway Fee (EzBeli)", conf:95, why:"EzBeli payment gateway transaction fees." },
+  { any:['hipay'], target:"FIN - Payment Gatewway Fee (HiPay)", conf:95, why:"HiPay payment gateway transaction fees." },
+  { any:['payex'], target:"FIN - Payment Gatewway Fee (Payex)", conf:95, why:"Payex payment gateway transaction fees." },
+  { any:['fx loss','forex loss','foreign exchange loss','fx revaluation','foreign exchange revaluation'], target:"FIN - Revaluations (Gain)/Loss on Foreign Exchange Rate Changes", conf:90, why:"FX revaluation gain/loss on monetary items per MFRS 121 — translate at closing rate; differences recognized in P&L." },
+  { any:['realised currency gain','realized currency gain','realised fx gain','realized fx gain'], target:"FIN - Realised Currency Gains", conf:90, why:"Realized FX gain on settled transactions — MFRS 121. Recognized in P&L at settlement." },
+  { any:['unrealised currency gain','unrealized currency gain','unrealised fx gain'], target:"FIN - Unrealised Currency Gains", conf:90, why:"Unrealized FX gain on open monetary positions at reporting date — MFRS 121 closing-rate translation." },
+
+  // ==================== TAXATION ====================
+  { any:['corporate tax','corparate tax','company tax','tax @24','tax@24','income tax expense','tax expense','tax provision'], target:"Corparate Taxation @24%", conf:95, why:"Malaysian corporate income tax @ 24% standard rate (15% on first RM150k taxable income for SME — check qualifying conditions per ITA s.6 and Sch 1). MFRS 112: recognize current tax based on current legislation and rates substantively enacted." },
+
+  // ==================== COGS ====================
+  { any:['opening stock','opening inventory','beginning inventory','stocks at the beginning','stocks at beginning'], target:'Stocks At the Beginning of Year', conf:95, why:"Opening inventory — included in cost of sales calculation per MFRS 102. Stock movement line, not a purchase." },
+  { any:['closing stock','closing inventory','ending inventory','stocks at the end','stocks at end'], target:'Stocks At the End of Year', conf:95, why:"Closing inventory — reduces COS in the period (negative figure). Valued at lower of cost and NRV per MFRS 102." },
+  { any:['purchases of goods','purchases - goods','goods purchase','cogs purchase'], target:'COGS - Purchases of Goods', conf:92, why:"Purchases of finished goods / merchandise for resale. Recognized when control transfers per MFRS 102 / Incoterms." },
+  { any:['packaging cost','packaging materials','packing cost'], target:'COGS - Packaging Costs', conf:90, why:"Packaging materials forming part of inventory cost (MFRS 102 paragraph 11) — included in cost of sales." },
+  { any:['promotional items','souvenirs','promo items','cogs - promotional'], target:'COGS - Promotional Items (Souvenirs)', conf:88, why:"Goods packed/included with sales as promotional items — direct cost of sales. Distinct from BD&M Gifts (external marketing gifts)." },
+  { any:['inbound transport','inbound freight','inbound shipping','incoming freight'], target:'COGS - Inbound Transportation Costs', conf:92, why:"Inbound freight included in inventory cost (MFRS 102 para 11) until sale, then released to COS." },
+  { any:['import duty','import duties','customs duty','customs duties','kastam'], target:'COGS - Import Duties', conf:92, why:"Import duty / customs / Kastam payments form part of inventory cost (MFRS 102 para 11) — released to COS on sale." },
+  { any:['royalty','license fee - goods','brand royalty'], target:'COGS - Goods Royalty Fees', conf:88, why:"Royalty fee paid as a direct condition of selling licensed goods — direct cost of sales. WHT 10% typically applies if paid to non-resident IP holder." },
+  { any:['purchases return','return outwards','return to supplier'], target:'Purchases Return', conf:90, why:"Goods returned to supplier — reduces COGS Purchases in the period of return. Documented via credit note." },
+
+  // ==================== TRADING INCOME ====================
+  { any:['retail sales','o2o sales','counter sales','walk-in','showroom','pos sales'], target:'Revenue - Retail Sales (O2O)', conf:90, why:"Revenue from offline retail / O2O channel. Recognized at point of sale when control transfers to customer (MFRS 15)." },
+  { any:['webstore','website sales','online store','shopify sales','d2c'], target:'Revenue - WebStore Sales (Shopify)', conf:90, why:"Direct-to-consumer webstore sales (Shopify) — revenue recognized when goods delivered / control transfers per MFRS 15." },
+  { any:['cod sales','cash on delivery sale'], target:'Revenue - COD Sales', conf:92, why:"Cash-on-delivery sales — revenue recognized on delivery (control transfer) per MFRS 15. Cash received via courier remittance." },
+  { any:['shopee sales','sales - shopee'], target:'Revenue - Shopee Sales', conf:92, why:"Marketplace sales via Shopee — gross revenue (before deducting platform commission). Platform fees recognized separately in BD&M." },
+  { any:['lazada sales','sales - lazada'], target:'Revenue - Lazada Sales', conf:92, why:"Marketplace sales via Lazada — gross revenue. Platform fees in BD&M." },
+  { any:['tiktok sales','tiktok shop sales','sales - tiktok'], target:'Revenue - TikTok Sales', conf:92, why:"Marketplace sales via TikTok Shop — gross revenue per MFRS 15." },
+  { any:['meta sales','facebook sales','instagram sales','social media sales','whatsapp sales','fb sales','ig sales'], target:'Revenue - Meta Platform Sales (Facebook/Instagram/WhatsApp)', conf:90, why:"Sales via Meta-owned channels (FB / IG / WhatsApp) — recognized at point of delivery." },
+  { any:['live streaming sales','livestream sales','live stream revenue'], target:'Revenue - Live Streaming Sales', conf:90, why:"Sales generated during live-streaming sessions — distinct revenue stream tracked separately." },
+  { any:['exhibition sales','event sales','expo sales','fair sales'], target:'Revenue - Exhibition Event', conf:88, why:"Sales made at exhibitions/events/fairs — separately disclosed channel revenue." },
+  { any:['one-day shop','one day shop','shop manager event'], target:'Revenue - One-Day Shop Manager Event', conf:88, why:"Pop-up / one-day shop manager event sales — separately tracked." },
+  { any:['ctg4u'], target:'Revenue - CTG4U Platform', conf:92, why:"Sales via CTG4U platform — inter-co linked platform sales, separately disclosed per MFRS 124." },
+
+  // Return Inwards
+  { any:['return inwards - shopee','sales return shopee'], target:'Return Inwards - Shopee Sales', conf:90, why:"Customer returns on Shopee — contra-revenue per MFRS 15 (variable consideration / refund liability)." },
+  { any:['return inwards - lazada','sales return lazada'], target:'Return Inwards - Lazada Sales', conf:90, why:"Customer returns on Lazada — contra-revenue." },
+  { any:['return inwards - cod','sales return cod','cod return'], target:'Return Inwards - COD Sales', conf:90, why:"COD failed deliveries / returns — contra-revenue when goods returned." },
+  { any:['return inwards - meta','sales return meta','meta return'], target:'Return Inwards - Meta Platform Sales (Facebook/Instagram/WhatsApp)', conf:88, why:"Customer returns on Meta channels — contra-revenue." },
+
+  // Discount Voucher
+  { any:['discount voucher - shopify','shopify voucher','shopify discount'], target:'Discount Voucher - Shopify', conf:90, why:"Discount vouchers / promo codes on Shopify — reduces transaction price per MFRS 15 (variable consideration)." },
+  { any:['discount voucher - shopee','shopee voucher','shopee discount'], target:'Discount Voucher - Shopee', conf:90, why:"Discount vouchers on Shopee — variable consideration reducing revenue per MFRS 15." },
+  { any:['discount voucher - lazada','lazada voucher','lazada discount'], target:'Discount Voucher - Lazada', conf:90, why:"Discount vouchers on Lazada — variable consideration." },
+  { any:['discount voucher - tiktok','tiktok voucher','tiktok discount'], target:'Discount Voucher - TikTok', conf:90, why:"Discount vouchers on TikTok Shop — variable consideration." },
+  { any:['discount voucher - others','other voucher','generic discount'], target:'Discount Voucher - Others', conf:75, why:"Discount vouchers on other/unspecified channels — variable consideration." },
+
+  // ==================== OTHER INCOME ====================
+  { any:['hibah','bank interest','interest income'], target:'Other Income - Bank Interest/Hibah', conf:92, why:"Interest income / Islamic hibah from bank deposits — recognized when receivable per MFRS 9. Taxable under s.4(c) ITA." },
+  { any:['gain on disposal','loss on disposal','disposal of asset','fixed asset disposal'], target:'Other Income - Fixed Asset (Gain)/Loss on Disposal', conf:92, why:"Net gain/loss on disposal of PPE per MFRS 116 para 67 — disposal proceeds less carrying amount." },
+  { any:['capital gain','capital loss','rpgt'], target:'Other Income - Capital (Gain)/Loss', conf:88, why:"Capital gain/loss on disposal of property/assets — Real Property Gains Tax (RPGT) may apply per RPGT Act 1976." },
+  { any:['shared employee','shared service','inter-co recharge','intercompany recharge'], target:'Other Income - Shared Employees Service', conf:88, why:"Inter-co recharge for shared employee services — disclose under MFRS 124 related-party transactions." },
+  { any:['unknown fund','unidentified deposit','sundry income','miscellaneous income'], target:'Other Income - Unknown Fund Received', conf:75, why:"Unidentified/unreconciled deposits — investigate source and reclass to proper account when identified." }
+];
+
+/* Evaluate SENIOR_RULES against a source name. Returns matching rule or null. */
+function evalSeniorRules(sourceName, normName, srcTokens){
+  for(const rule of SENIOR_RULES){
+    // any: at least one token/phrase must appear (substring match)
+    const anyHit = rule.any.some(p => normName.indexOf(p.toLowerCase()) !== -1);
+    if(!anyHit) continue;
+    // none: if any of these appear, disqualify
+    if(rule.none && rule.none.some(p => normName.indexOf(p.toLowerCase()) !== -1)) continue;
+    // some (optional): if specified, at least one must also appear (further qualifier)
+    if(rule.some && !rule.some.some(p => normName.indexOf(p.toLowerCase()) !== -1)) continue;
+    return rule;
+  }
+  return null;
+}
+
+/* The AI-thinking classifier — now with ACCA Senior Accountant reasoning.
    Returns { target, confidence (0-100), reason, signals[] } */
 function mapAccountAI(sourceName){
   if(!sourceName){
@@ -483,14 +707,29 @@ function mapAccountAI(sourceName){
       signals.push('keyword:"' + kw + '"');
       return {
         target,
-        confidence: Math.min(95, 70 + kw.length),  // longer keyword = more specific = higher confidence
+        confidence: Math.min(95, 70 + kw.length),
         reason: 'Matched canonical keyword "' + kw + '" inside the source name.',
         signals
       };
     }
   }
 
-  // === Signal 3: Multi-signal fuzzy scoring ===
+  // === Signal 3: ACCA Senior Accountant rule engine ===
+  // Applies professional accounting judgment — distinguishes similar
+  // accounts (e.g. Director's Remuneration vs Employee Salaries),
+  // cites MFRS/LHDN basis, and explains substance-over-form decisions.
+  const rule = evalSeniorRules(sourceName, n, srcTokens);
+  if(rule){
+    signals.push('senior-rule');
+    return {
+      target: rule.target,
+      confidence: rule.conf,
+      reason: '🎓 ACCA Senior Accountant: ' + rule.why,
+      signals
+    };
+  }
+
+  // === Signal 4: Multi-signal fuzzy scoring (fallback) ===
   const srcSection = detectSection(srcTokens);
   if(srcSection.section) signals.push('section-hint:' + srcSection.section);
 

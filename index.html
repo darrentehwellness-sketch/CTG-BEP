@@ -33,7 +33,7 @@
 <script>if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
 <script src="config.js?v=21"></script>
 <script src="assets/js/supabase-client.js?v=21"></script>
-<script src="assets/js/pnl-converter.js?v=9"></script>
+<script src="assets/js/pnl-converter.js?v=10"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -1937,8 +1937,8 @@
 
     <!-- Step 4: AI Thinking — per-row reasoning -->
     <div class="card" id="pnlAiCard" style="display:none;">
-      <h2><span class="ic">🧠</span><span data-i18n="pnl_ai_title">AI Thinking</span><span class="badge" data-i18n="pnl_ai_badge">Per-row reasoning</span></h2>
-      <p class="note" data-i18n="pnl_ai_intro">For each source row, the AI scored every canonical COA account on 5 signals — exact-name, keyword dictionary, section-prefix alignment, token overlap, and edit-distance — then picked the highest-confidence match and wrote out its reasoning. Below is the decision trail.</p>
+      <h2><span class="ic">🎓</span><span data-i18n="pnl_ai_title">AI Thinking — ACCA Senior Accountant</span><span class="badge" data-i18n="pnl_ai_badge">MFRS · LHDN · ACCA</span></h2>
+      <p class="note" data-i18n="pnl_ai_intro">The AI is trained to think like an <b>ACCA-qualified Senior Accountant / Finance Controller</b>. For each source row it runs through 4 layers — (1) exact-name match against the canonical COA, (2) keyword dictionary, (3) ~85 professional accounting rules citing MFRS / LHDN / ACCA principles (substance-over-form, employer's contributions vs salaries, marketplace commissions vs platform ads, etc.), then (4) multi-signal fuzzy fallback. Below is the per-row decision trail with reasoning.</p>
 
       <!-- Confidence breakdown KPIs -->
       <div class="grid-4" style="margin:14px 0;">
