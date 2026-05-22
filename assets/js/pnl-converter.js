@@ -18,23 +18,36 @@
 (function(global){
 'use strict';
 
-/* ============ CANONICAL SKINDAE COA TEMPLATE ============
-   Order matters — this is the row order in the output. */
+/* ============ CANONICAL MASTER COA TEMPLATE ============
+   Mirrors ChartOfAccounts.csv exactly (128 accounts). Row order
+   matters — this is the row order in the output. */
 const COA = [
-  // === TRADING INCOME ===
+  // === TRADING INCOME (Revenue + Return Inwards + Discount Voucher) ===
   { group:'Trading Income', kind:'header' },
   { group:'Trading Income', kind:'account', name:'Revenue - Retail Sales (O2O)' },
   { group:'Trading Income', kind:'account', name:'Revenue - WebStore Sales (Shopify)' },
   { group:'Trading Income', kind:'account', name:'Revenue - COD Sales' },
-  { group:'Trading Income', kind:'account', name:'Revenue - Meta Platform Sales (Facebook/Instagram/WhatsApp)' },
   { group:'Trading Income', kind:'account', name:'Revenue - Shopee Sales' },
   { group:'Trading Income', kind:'account', name:'Revenue - Lazada Sales' },
+  { group:'Trading Income', kind:'account', name:'Revenue - Meta Platform Sales (Facebook/Instagram/WhatsApp)' },
+  { group:'Trading Income', kind:'account', name:'Revenue - TikTok Sales' },
+  { group:'Trading Income', kind:'account', name:'Revenue - Live Streaming Sales' },
   { group:'Trading Income', kind:'account', name:'Revenue - Exhibition Event' },
+  { group:'Trading Income', kind:'account', name:'Revenue - One-Day Shop Manager Event' },
+  { group:'Trading Income', kind:'account', name:'Revenue - CTG4U Platform' },
+  { group:'Trading Income', kind:'account', name:'Return Inwards - COD Sales' },
+  { group:'Trading Income', kind:'account', name:'Return Inwards - Shopee Sales' },
+  { group:'Trading Income', kind:'account', name:'Return Inwards - Lazada Sales' },
+  { group:'Trading Income', kind:'account', name:'Return Inwards - Meta Platform Sales (Facebook/Instagram/WhatsApp)' },
+  { group:'Trading Income', kind:'account', name:'Discount Voucher - Shopify' },
   { group:'Trading Income', kind:'account', name:'Discount Voucher - Shopee' },
+  { group:'Trading Income', kind:'account', name:'Discount Voucher - Lazada' },
+  { group:'Trading Income', kind:'account', name:'Discount Voucher - TikTok' },
+  { group:'Trading Income', kind:'account', name:'Discount Voucher - Others' },
   { group:'Trading Income', kind:'total',   name:'Total Trading Income' },
   { group:'',               kind:'blank' },
 
-  // === COST OF SALES ===
+  // === COST OF SALES (Direct Costs) ===
   { group:'Cost of Sales',  kind:'header' },
   { group:'Cost of Sales',  kind:'account', name:'Stocks At the Beginning of Year' },
   { group:'Cost of Sales',  kind:'account', name:'COGS - Purchases of Goods' },
@@ -42,6 +55,8 @@ const COA = [
   { group:'Cost of Sales',  kind:'account', name:'COGS - Promotional Items (Souvenirs)' },
   { group:'Cost of Sales',  kind:'account', name:'COGS - Inbound Transportation Costs' },
   { group:'Cost of Sales',  kind:'account', name:'COGS - Import Duties' },
+  { group:'Cost of Sales',  kind:'account', name:'COGS - Goods Royalty Fees' },
+  { group:'Cost of Sales',  kind:'account', name:'Purchases Return' },
   { group:'Cost of Sales',  kind:'account', name:'Stocks At the End of Year' },
   { group:'Cost of Sales',  kind:'total',   name:'Total Cost of Sales' },
   { group:'',               kind:'blank' },
@@ -53,6 +68,9 @@ const COA = [
   // === OTHER INCOME ===
   { group:'Other Income',   kind:'header' },
   { group:'Other Income',   kind:'account', name:'Other Income - Unknown Fund Received' },
+  { group:'Other Income',   kind:'account', name:'Other Income - Bank Interest/Hibah' },
+  { group:'Other Income',   kind:'account', name:'Other Income - Capital (Gain)/Loss' },
+  { group:'Other Income',   kind:'account', name:'Other Income - Fixed Asset (Gain)/Loss on Disposal' },
   { group:'Other Income',   kind:'account', name:'Other Income - Shared Employees Service' },
   { group:'Other Income',   kind:'total',   name:'Total Other Income' },
   { group:'',               kind:'blank' },
@@ -60,65 +78,112 @@ const COA = [
   // === OPERATING EXPENSES ===
   { group:'Operating Expenses', kind:'header' },
   // -- STAFF --
+  { group:'Operating Expenses', kind:'account', name:"STAFF - Director's Remuneration" },
+  { group:'Operating Expenses', kind:'account', name:"STAFF - Director Employer's Contribution" },
   { group:'Operating Expenses', kind:'account', name:"STAFF - Employees Salaries & Wages" },
   { group:'Operating Expenses', kind:'account', name:"STAFF - Employees Employer's Contribution" },
   { group:'Operating Expenses', kind:'account', name:"STAFF - Bonuses & Incentives/Allowances" },
+  { group:'Operating Expenses', kind:'account', name:"STAFF - Training & Development (HRDF)" },
   { group:'Operating Expenses', kind:'account', name:"STAFF - Staff Benefits" },
+  { group:'Operating Expenses', kind:'account', name:"STAFF - Recruitment Expenses" },
   // -- CTG --
-  { group:'Operating Expenses', kind:'account', name:"CTG - E-Commerce Webstore Management Fee" },
-  { group:'Operating Expenses', kind:'account', name:"CTG - Human Resource Management Fee" },
-  { group:'Operating Expenses', kind:'account', name:"CTG - O2O Hub Management Fee" },
   { group:'Operating Expenses', kind:'account', name:"CTG - Sales Design Management Fee" },
+  { group:'Operating Expenses', kind:'account', name:"CTG - Human Resource Management Fee" },
+  { group:'Operating Expenses', kind:'account', name:"CTG - Project Management Fee" },
+  { group:'Operating Expenses', kind:'account', name:"CTG - O2O Hub Management Fee" },
   { group:'Operating Expenses', kind:'account', name:"CTG - Training Hub Management Fee" },
-  { group:'Operating Expenses', kind:'account', name:"CTG - Lazada Commission Fee 3%" },
-  { group:'Operating Expenses', kind:'account', name:"CTG - O2O Hub Commission Fee 3.8%" },
+  { group:'Operating Expenses', kind:'account', name:"CTG - E-Commerce Webstore Management Fee" },
+  { group:'Operating Expenses', kind:'account', name:"CTG - DataBees Maintenance Management Fee" },
+  { group:'Operating Expenses', kind:'account', name:"CTG - DataBees Hub Commission Fee" },
   { group:'Operating Expenses', kind:'account', name:"CTG - Shopee Hub Commission Fee 3%" },
+  { group:'Operating Expenses', kind:'account', name:"CTG - O2O Hub Commission Fee 3.8%" },
+  { group:'Operating Expenses', kind:'account', name:"CTG - Tiktok Commission Fee" },
+  { group:'Operating Expenses', kind:'account', name:"CTG - Lazada Commission Fee 3%" },
   { group:'Operating Expenses', kind:'account', name:"CTG - Supply Chain Commission Fee" },
+  { group:'Operating Expenses', kind:'account', name:"CTG - Platform Fee Commission Fee 3%" },
+  { group:'Operating Expenses', kind:'account', name:"CTG - Platform Fee 30% (Community Sales/Shopee)" },
   // -- BD&M --
   { group:'Operating Expenses', kind:'account', name:"BD&M Travel - Transportation" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M Travel - Accommodation" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M Travel - Meal" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - Entertainment" },
   { group:'Operating Expenses', kind:'account', name:"BD&M - Gift/Souvenirs/Sponsorship" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - Live Streaming Marketing (Facebook/TikTok)" },
   { group:'Operating Expenses', kind:'account', name:"BD&M - Marketing Press Release (Meta Platform)" },
   { group:'Operating Expenses', kind:'account', name:"BD&M - Marketing Press Release (Shopee)" },
   { group:'Operating Expenses', kind:'account', name:"BD&M - Marketing Press Release (Lazada)" },
   { group:'Operating Expenses', kind:'account', name:"BD&M - Marketing Press Release (Google)" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - Marketing Press Release (TikTok/XHS)" },
   { group:'Operating Expenses', kind:'account', name:"BD&M - Platform Merchant/Commission Fees (Shopee)" },
   { group:'Operating Expenses', kind:'account', name:"BD&M - Platform Merchant/Commission Fees (Lazada)" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - Platform Merchant/Commission Fees (TikTok)" },
   { group:'Operating Expenses', kind:'account', name:"BD&M - Platform Merchant/Commission Fees (COD)" },
-  { group:'Operating Expenses', kind:'account', name:"BD&M - IT Software Information System (Shopify)" },
   { group:'Operating Expenses', kind:'account', name:"BD&M - IT Software Information System (ManyChat)" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - IT Software Information System (Wati)" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - IT Software Information System (Shopify)" },
   { group:'Operating Expenses', kind:'account', name:"BD&M - IT Software Information System (Hello CRM)" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - IT Software Information System (Google)" },
   { group:'Operating Expenses', kind:'account', name:"BD&M - IT Software Information System (Others Marketing)" },
-  { group:'Operating Expenses', kind:'account', name:"BD&M - Marketing Production Cost (Photography/Videography)" },
   { group:'Operating Expenses', kind:'account', name:"BD&M - Marketing Production Cost (Design & Miscellaneous Studio)" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - Marketing Production Cost (Photography/Videography)" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - Marketing Production Cost (Model/Show Talent)" },
   { group:'Operating Expenses', kind:'account', name:"BD&M - Exibition Event Space Rental (Booth / Venue)" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - Exibition Event Space Design (Booth/Venue)" },
   { group:'Operating Expenses', kind:'account', name:"BD&M - Exibition Event (Sponsorship & Advertising)" },
   { group:'Operating Expenses', kind:'account', name:"BD&M - Exibition Event (Event Crew/Show Talent/MC)" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - Exibition Event (Gift/Souvenirs)" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - Exibition Event (Miscellaneous)" },
   { group:'Operating Expenses', kind:'account', name:"BD&M - Professional Service Fees" },
   { group:'Operating Expenses', kind:'account', name:"BD&M - KOC Collaboration Commission" },
   { group:'Operating Expenses', kind:'account', name:"BD&M - Customer Referral Fees" },
   { group:'Operating Expenses', kind:'account', name:"BD&M - Withholding Tax (8%/10%)" },
   { group:'Operating Expenses', kind:'account', name:"BD&M - Sales Service Tax (6%/8%)" },
+  { group:'Operating Expenses', kind:'account', name:"BD&M - Others" },
   // -- G&A --
+  { group:'Operating Expenses', kind:'account', name:"G&A Travel - Transportation" },
   { group:'Operating Expenses', kind:'account', name:"G&A Travel - Accommodation" },
+  { group:'Operating Expenses', kind:'account', name:"G&A Travel - Meal" },
+  { group:'Operating Expenses', kind:'account', name:"G&A - Entertaiment" },
+  { group:'Operating Expenses', kind:'account', name:"G&A - Office Rental" },
   { group:'Operating Expenses', kind:'account', name:"G&A - Office Supplies & Logisters" },
+  { group:'Operating Expenses', kind:'account', name:"G&A - Office Repair & Maintenance" },
+  { group:'Operating Expenses', kind:'account', name:"G&A - Office Utilities" },
+  { group:'Operating Expenses', kind:'account', name:"G&A - Office Communication" },
   { group:'Operating Expenses', kind:'account', name:"G&A - Ofiice IT Software Information System" },
+  { group:'Operating Expenses', kind:'account', name:"G&A - Ofiice Upkeep of IT Equipment" },
   { group:'Operating Expenses', kind:'account', name:"G&A - Office Depreciation/Assets" },
+  { group:'Operating Expenses', kind:'account', name:"G&A - Office Small Value Assets" },
+  { group:'Operating Expenses', kind:'account', name:"G&A - Advertising" },
+  { group:'Operating Expenses', kind:'account', name:"G&A - Incorpation Fees" },
+  { group:'Operating Expenses', kind:'account', name:"G&A - Audit Fees" },
   { group:'Operating Expenses', kind:'account', name:"G&A - Professional Fees/Taxation Service" },
   { group:'Operating Expenses', kind:'account', name:"G&A - Compliance - Corp Sec & Reg Fees" },
   { group:'Operating Expenses', kind:'account', name:"G&A - Stamping Fee/Filling Fee/Tax Duty" },
+  { group:'Operating Expenses', kind:'account', name:"G&A - License/Certificate Fees" },
   { group:'Operating Expenses', kind:'account', name:"G&A - Penalty & Compound" },
   { group:'Operating Expenses', kind:'account', name:"G&A - Withholding Tax (8%/10%)" },
+  { group:'Operating Expenses', kind:'account', name:"G&A - Sales Service Tax (6%/8%)" },
+  { group:'Operating Expenses', kind:'account', name:"G&A - Others" },
   // -- FIN --
   { group:'Operating Expenses', kind:'account', name:"FIN - Bank Charges & Handling Fees" },
   { group:'Operating Expenses', kind:'account', name:"FIN - Payment Gatewway Fee (Atome)" },
+  { group:'Operating Expenses', kind:'account', name:"FIN - Payment Gatewway Fee (Ahapay)" },
+  { group:'Operating Expenses', kind:'account', name:"FIN - Payment Gatewway Fee (EzBeli)" },
+  { group:'Operating Expenses', kind:'account', name:"FIN - Payment Gatewway Fee (HiPay)" },
   { group:'Operating Expenses', kind:'account', name:"FIN - Payment Gatewway Fee (Payex)" },
-  { group:'Operating Expenses', kind:'account', name:"FIN - Realised Currency Gains" },
   { group:'Operating Expenses', kind:'account', name:"FIN - Revaluations (Gain)/Loss on Foreign Exchange Rate Changes" },
   { group:'Operating Expenses', kind:'account', name:"FIN - Unrealised Currency Gains" },
+  { group:'Operating Expenses', kind:'account', name:"FIN - Realised Currency Gains" },
   { group:'Operating Expenses', kind:'total',   name:'Total Operating Expenses' },
   { group:'',               kind:'blank' },
 
-  // === NET PROFIT ===
+  // === TAXATION ===
+  { group:'Taxation',       kind:'header' },
+  { group:'Taxation',       kind:'account', name:'Corparate Taxation @24%' },
+  { group:'Taxation',       kind:'total',   name:'Total Taxation' },
+  { group:'',               kind:'blank' },
+
+  // === NET PROFIT (after tax) ===
   { group:'Net Profit',     kind:'np',      name:'Net Profit' }
 ];
 
@@ -205,7 +270,11 @@ const COA_KEYWORDS = {
   // === FIN ===
   "FIN - Bank Charges & Handling Fees": ['bank charges', 'bank fee', 'handling fee', 'transfer fee'],
   "FIN - Payment Gatewway Fee (Atome)": ['payment gatewway fee (atome', 'atome'],
+  "FIN - Payment Gatewway Fee (Ahapay)":['payment gatewway fee (ahapay','ahapay'],
+  "FIN - Payment Gatewway Fee (EzBeli)":['payment gatewway fee (ezbeli','ezbeli'],
+  "FIN - Payment Gatewway Fee (HiPay)": ['payment gatewway fee (hipay','hipay'],
   "FIN - Payment Gatewway Fee (Payex)": ['payment gatewway fee (payex', 'payex'],
+  "Corparate Taxation @24%":            ['corparate taxation','corporate taxation','corporate tax','corp tax','tax @24','tax@24'],
   "FIN - Realised Currency Gains": ['realised currency gain', 'realized currency gain', 'realised fx gain'],
   "FIN - Revaluations (Gain)/Loss on Foreign Exchange Rate Changes": ['revaluations (gain)/loss', 'fx revaluation', 'foreign exchange revaluation', 'forex loss', 'fx loss'],
   "FIN - Unrealised Currency Gains": ['unrealised currency gain', 'unrealized currency gain', 'unrealised fx gain']
@@ -283,31 +352,42 @@ const SECTIONS = ['staff','ctg','bd&m','g&a','fin','cogs','revenue','other incom
 // Semantic anchors — tokens that strongly suggest a section
 const SEMANTIC_HINTS = [
   // STAFF cues
-  { tokens:['salary','salaries','wage','wages','gaji','payroll','remuneration'], section:'staff' },
-  { tokens:['epf','kwsp','socso','perkeso','eis','hrdf','hrd','contribution'],   section:'staff' },
-  { tokens:['bonus','incentive','allowance','allowances'],                       section:'staff' },
-  { tokens:['benefit','welfare','medical','insurance','training'],               section:'staff' },
+  { tokens:['salary','salaries','wage','wages','gaji','payroll','remuneration','director'], section:'staff' },
+  { tokens:['epf','kwsp','socso','perkeso','eis','hrdf','hrd','contribution'],              section:'staff' },
+  { tokens:['bonus','incentive','allowance','allowances'],                                  section:'staff' },
+  { tokens:['benefit','welfare','medical','insurance','training','recruitment'],            section:'staff' },
   // BD&M cues
-  { tokens:['ads','advertis','marketing','press','release','adwords','sem'],     section:'bd&m' },
-  { tokens:['shopee','lazada','tiktok','meta','facebook','instagram','google'],  section:'bd&m' },
-  { tokens:['photography','videography','photoshoot','design','studio'],         section:'bd&m' },
-  { tokens:['exhibition','expo','event','booth','venue','sponsorship'],          section:'bd&m' },
-  { tokens:['koc','kol','influencer','referral','affiliate'],                    section:'bd&m' },
+  { tokens:['ads','advertis','marketing','press','release','adwords','sem'],                section:'bd&m' },
+  { tokens:['shopee','lazada','tiktok','meta','facebook','instagram','google','xhs','xiaohongshu','livestream','streaming'], section:'bd&m' },
+  { tokens:['photography','videography','photoshoot','design','studio','model','talent'],   section:'bd&m' },
+  { tokens:['exhibition','exibition','expo','event','booth','venue','sponsorship'],         section:'bd&m' },
+  { tokens:['koc','kol','influencer','referral','affiliate'],                               section:'bd&m' },
+  { tokens:['manychat','wati','crm'],                                                       section:'bd&m' },
+  { tokens:['entertainment'],                                                               section:'bd&m' },
   // G&A cues
-  { tokens:['office','stationery','utilities','communication','rental','rent'],  section:'g&a' },
-  { tokens:['audit','accounting','tax','agent','secretary','ssm'],               section:'g&a' },
-  { tokens:['stamp','stamping','filing','penalty','compound','fine'],            section:'g&a' },
-  { tokens:['depreciation','amortisation','amortization','asset'],               section:'g&a' },
+  { tokens:['office','stationery','utilities','communication','rental','rent','repair','maintenance','upkeep'], section:'g&a' },
+  { tokens:['audit','accounting','tax','agent','secretary','ssm','incorporation','incorpation','license','certificate'], section:'g&a' },
+  { tokens:['stamp','stamping','filing','filling','penalty','compound','fine'],             section:'g&a' },
+  { tokens:['depreciation','amortisation','amortization','asset','assets'],                 section:'g&a' },
+  { tokens:['entertaiment'],                                                                section:'g&a' },  // sic — typo preserved from CSV
   // FIN cues
-  { tokens:['bank','charge','charges','transfer','handling','gateway','gatewway'],section:'fin' },
-  { tokens:['atome','payex','hipay','ipay88','fiuu','stripe','ezbeli','ahapay'], section:'fin' },
+  { tokens:['bank','charge','charges','transfer','handling','gateway','gatewway'],          section:'fin' },
+  { tokens:['atome','payex','hipay','ipay88','fiuu','stripe','ezbeli','ahapay'],            section:'fin' },
   { tokens:['fx','forex','currency','foreign','exchange','realised','realized','unrealised','unrealized','revaluation'], section:'fin' },
   // CTG (inter-co) cues
-  { tokens:['ctg','management'],                                                  section:'ctg' },
+  { tokens:['ctg','databees'],                                                              section:'ctg' },
+  { tokens:['management','hub','commission'],                                               section:'ctg' },
   // COGS cues
-  { tokens:['cogs','purchase','purchases','packaging','packing','souvenir','souvenirs','inbound','freight','duty','duties','customs','kastam','stocks','inventory'], section:'cogs' },
+  { tokens:['cogs','purchase','purchases','packaging','packing','souvenir','souvenirs','inbound','freight','duty','duties','customs','kastam','stocks','inventory','royalty'], section:'cogs' },
   // Revenue cues
-  { tokens:['sales','revenue','retail','webstore','shopify','o2o','cod','sales)'], section:'revenue' }
+  { tokens:['sales','revenue','retail','webstore','shopify','o2o','cod'],                   section:'revenue' },
+  { tokens:['ctg4u','one-day','one day','live','livestream','streaming'],                   section:'revenue' },
+  { tokens:['return','inwards','refund','refunds'],                                         section:'revenue' },
+  { tokens:['discount','voucher','vouchers'],                                               section:'revenue' },
+  // Other Income cues
+  { tokens:['hibah','interest','capital','disposal'],                                       section:'other income' },
+  // Taxation cues
+  { tokens:['corporate','corparate','corp','taxation'],                                     section:'taxation' }
 ];
 
 function tokenize(s){
@@ -357,16 +437,20 @@ function detectSection(tokens){
 
 function targetSection(canonicalName){
   const n = canonicalName.toLowerCase();
-  if(n.startsWith('staff'))      return 'staff';
-  if(n.startsWith('ctg'))        return 'ctg';
-  if(n.startsWith('bd&m'))       return 'bd&m';
-  if(n.startsWith('g&a'))        return 'g&a';
-  if(n.startsWith('fin'))        return 'fin';
-  if(n.startsWith('cogs'))       return 'cogs';
-  if(n.startsWith('revenue'))    return 'revenue';
-  if(n.startsWith('other income'))return 'other income';
-  if(n.startsWith('stocks'))     return 'cogs';   // stock movements live in COS
-  if(n.startsWith('discount'))   return 'revenue';
+  if(n.startsWith('staff'))         return 'staff';
+  if(n.startsWith('ctg'))           return 'ctg';
+  if(n.startsWith('bd&m'))          return 'bd&m';
+  if(n.startsWith('g&a'))           return 'g&a';
+  if(n.startsWith('fin'))           return 'fin';
+  if(n.startsWith('cogs'))          return 'cogs';
+  if(n.startsWith('revenue'))       return 'revenue';
+  if(n.startsWith('other income'))  return 'other income';
+  if(n.startsWith('stocks'))        return 'cogs';     // stock movements live in COS
+  if(n.startsWith('purchases'))     return 'cogs';     // Purchases Return
+  if(n.startsWith('discount'))      return 'revenue';
+  if(n.startsWith('return inwards'))return 'revenue';
+  if(n.startsWith('corparate'))     return 'taxation'; // sic — matches the CSV typo
+  if(n.startsWith('corporate'))     return 'taxation';
   return null;
 }
 
@@ -740,6 +824,7 @@ function buildOutputWorkbook({ source, mapped, unmapped, decisions, entityOverri
   let cosTotalRow = null;
   let otherIncomeTotalRow = null;
   let opexTotalRow = null;
+  let taxationTotalRow = null;
   let grossProfitRow = null;
   let netProfitRow = null;
 
@@ -786,6 +871,7 @@ function buildOutputWorkbook({ source, mapped, unmapped, decisions, entityOverri
       if(item.group === 'Cost of Sales')      cosTotalRow = rowIdx;
       if(item.group === 'Other Income')       otherIncomeTotalRow = rowIdx;
       if(item.group === 'Operating Expenses') opexTotalRow = rowIdx;
+      if(item.group === 'Taxation')           taxationTotalRow = rowIdx;
       return;
     }
     if(item.kind === 'gp'){
@@ -810,6 +896,7 @@ function buildOutputWorkbook({ source, mapped, unmapped, decisions, entityOverri
         if(grossProfitRow) parts.push(c + grossProfitRow);
         if(otherIncomeTotalRow) parts.push('+' + c + otherIncomeTotalRow);
         if(opexTotalRow) parts.push('-' + c + opexTotalRow);
+        if(taxationTotalRow) parts.push('-' + c + taxationTotalRow);
         row[valueColIdx(m)] = parts.length ? { f: parts.join('') } : 0;
       }
       const rowIdx = push(row, 'np');
