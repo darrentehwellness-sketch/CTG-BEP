@@ -1403,24 +1403,18 @@
     border-color:rgba(91,155,213,.55) !important;
     color:var(--sky-soft) !important;
   }
+  /* All highlighted cells use the same rounded radius — cleaner at row
+     boundaries than the half-rounded "bar" approach (which broke visually
+     when start/end landed at week edges). */
   .wht-dp-day.in-range{
-    background:rgba(232,93,60,.16) !important;
+    background:rgba(232,93,60,.18) !important;
     color:var(--coral-soft) !important;
-    border-radius:0 !important;
+    border-radius:7px !important;
   }
-  .wht-dp-day.start{
-    background:var(--coral) !important;
-    color:#fff !important; font-weight:700;
-    border-radius:7px 0 0 7px !important;
-    box-shadow:0 2px 8px rgba(232,93,60,.45) !important;
-  }
-  .wht-dp-day.end{
-    background:var(--coral) !important;
-    color:#fff !important; font-weight:700;
-    border-radius:0 7px 7px 0 !important;
-    box-shadow:0 2px 8px rgba(232,93,60,.45) !important;
-  }
-  .wht-dp-day.single, .wht-dp-day.start.end{
+  .wht-dp-day.start,
+  .wht-dp-day.end,
+  .wht-dp-day.single,
+  .wht-dp-day.start.end{
     background:var(--coral) !important;
     color:#fff !important; font-weight:700;
     border-radius:7px !important;
@@ -5720,6 +5714,39 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
         '</div>' +
       '</div>';
     document.body.appendChild(div);
+
+    // ===== Bind click handlers DIRECTLY on the popup (not on document) =====
+    // This prevents any conflict with other document-level listeners and
+    // guarantees the Apply/Cancel buttons fire reliably. Each handler calls
+    // stopPropagation so the click doesn't bubble up and accidentally
+    // re-trigger the date-range trigger or close the popup prematurely.
+    // We use mousedown for outside-detection ELSEWHERE, but inside the popup
+    // we listen on 'click' (works for both mouse + keyboard activation).
+    div.addEventListener('click', e => {
+      const tgt = e.target.closest('[data-dp-day], [data-dp-preset], [data-dp-nav], [data-dp-action]');
+      if(!tgt) return;
+      e.stopPropagation();
+      if(tgt.dataset.dpDay){
+        dpSelectDay(tgt.dataset.dpDay);
+        return;
+      }
+      if(tgt.dataset.dpPreset){
+        dpApplyPreset(tgt.dataset.dpPreset);
+        return;
+      }
+      if(tgt.dataset.dpNav === 'prev-month'){
+        _dp.viewMonth--; if(_dp.viewMonth < 0){ _dp.viewMonth = 11; _dp.viewYear--; }
+        dpRender(); return;
+      }
+      if(tgt.dataset.dpNav === 'next-month'){
+        _dp.viewMonth++; if(_dp.viewMonth > 11){ _dp.viewMonth = 0; _dp.viewYear++; }
+        dpRender(); return;
+      }
+      if(tgt.dataset.dpAction === 'apply'){  dpApply();  return; }
+      if(tgt.dataset.dpAction === 'cancel'){ dpClose();  return; }
+    });
+    // Also catch mousedown to stop it bubbling and reaching dpOutsideClick
+    div.addEventListener('mousedown', e => { e.stopPropagation(); });
   }
 
   function _todayIso(){
@@ -5731,6 +5758,9 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
   }
 
   function dpOpen(triggerEl){
+    // If a popup is already open (e.g. user clicked another trigger), close
+    // it first to prevent listener duplication.
+    if(_dp) dpClose();
     dpEnsureDom();
     // Determine target scope from trigger data
     let target;
@@ -5754,22 +5784,45 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
       endIso: sr.to || '',
       selecting: sr.from && sr.to ? 'start' : (sr.from ? 'end' : 'start')
     };
-    // Position popup
+    // Position popup (smart: prefer below trigger, flip above if no room,
+    // right-align if would overflow right edge)
     const popup = document.getElementById('whtDpPopup');
-    const rect = triggerEl.getBoundingClientRect();
     popup.style.display = 'flex';
-    popup.style.top = (rect.bottom + 6) + 'px';
-    const left = Math.max(12, Math.min(window.innerWidth - popup.offsetWidth - 12, rect.left));
-    popup.style.left = left + 'px';
+    dpReposition();
     triggerEl.classList.add('is-open');
     dpRender();
-    // Outside click / Escape — defer one tick so the opening click doesn't immediately close
+    // Outside click / Escape ONLY — no scroll/resize auto-close (those were
+    // misfiring on focus-induced scroll and closing the popup before the
+    // Apply button click could be processed). Defer one tick so the opening
+    // click doesn't immediately close.
     setTimeout(() => {
       document.addEventListener('mousedown', dpOutsideClick, true);
       document.addEventListener('keydown', dpKeyHandler, true);
-      window.addEventListener('resize', dpClose);
-      window.addEventListener('scroll', dpClose, true);
     }, 0);
+  }
+
+  function dpReposition(){
+    if(!_dp || !_dp.triggerEl) return;
+    const popup = document.getElementById('whtDpPopup');
+    if(!popup) return;
+    const rect = _dp.triggerEl.getBoundingClientRect();
+    const pw = popup.offsetWidth || 680;
+    const ph = popup.offsetHeight || 360;
+    // Vertical: prefer below trigger; flip above if no room
+    let top = rect.bottom + 6;
+    if(top + ph > window.innerHeight - 12){
+      const above = rect.top - 6 - ph;
+      if(above >= 12) top = above;
+      else top = Math.max(12, window.innerHeight - ph - 12);  // clamp
+    }
+    // Horizontal: align trigger's left edge, but right-align if would overflow
+    let left = rect.left;
+    if(left + pw > window.innerWidth - 12){
+      left = Math.max(12, rect.right - pw);
+    }
+    left = Math.max(12, Math.min(window.innerWidth - pw - 12, left));
+    popup.style.top = top + 'px';
+    popup.style.left = left + 'px';
   }
 
   function dpClose(){
@@ -5778,8 +5831,6 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     if(_dp && _dp.triggerEl) _dp.triggerEl.classList.remove('is-open');
     document.removeEventListener('mousedown', dpOutsideClick, true);
     document.removeEventListener('keydown', dpKeyHandler, true);
-    window.removeEventListener('resize', dpClose);
-    window.removeEventListener('scroll', dpClose, true);
     _dp = null;
   }
 
@@ -5897,25 +5948,9 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     dpClose();
   }
 
-  // Delegated click handler INSIDE the popup
-  document.addEventListener('click', e => {
-    const popup = document.getElementById('whtDpPopup');
-    if(!popup || popup.style.display === 'none') return;
-    if(!popup.contains(e.target)) return;
-    const tgt = e.target;
-    if(tgt.dataset.dpDay){       dpSelectDay(tgt.dataset.dpDay); return; }
-    if(tgt.dataset.dpPreset){    dpApplyPreset(tgt.dataset.dpPreset); return; }
-    if(tgt.dataset.dpNav === 'prev-month'){
-      _dp.viewMonth--; if(_dp.viewMonth < 0){ _dp.viewMonth = 11; _dp.viewYear--; }
-      dpRender(); return;
-    }
-    if(tgt.dataset.dpNav === 'next-month'){
-      _dp.viewMonth++; if(_dp.viewMonth > 11){ _dp.viewMonth = 0; _dp.viewYear++; }
-      dpRender(); return;
-    }
-    if(tgt.dataset.dpAction === 'apply'){  dpApply(); return; }
-    if(tgt.dataset.dpAction === 'cancel'){ dpClose(); return; }
-  });
+  // (Popup-internal click handler is now bound DIRECTLY on the popup element
+  // in dpEnsureDom — see above. This eliminates any chance of interference
+  // from other document-level listeners.)
 
   // Trigger click — opens the popup
   document.addEventListener('click', e => {
