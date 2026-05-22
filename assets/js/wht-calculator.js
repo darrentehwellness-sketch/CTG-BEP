@@ -85,8 +85,9 @@ function round2(n){ return Math.round(Number(n) * 100) / 100; }
      Payable  = WHT + Penalty
 */
 function calcReceipt(grossAmount, sstRate){
-  const gross = Number(grossAmount) || 0;
-  const sstPct = (Number(sstRate) || 0) / 100;
+  // Clamp negative + NaN to 0 — gross amount is always ≥ 0 in WHT context.
+  const gross = Math.max(0, Number(grossAmount) || 0);
+  const sstPct = Math.max(0, Math.min(100, Number(sstRate) || 0)) / 100;
   const net  = sstPct > 0 ? gross / (1 + sstPct) : gross;
   const sst  = gross - net;
   return { gross: round2(gross), net: round2(net), sst: round2(sst) };
@@ -312,14 +313,57 @@ function defaultSession(){
 const WHT_LS_KEY = 'ctg_wht_state_v1';
 function saveLocal(session){
   try { localStorage.setItem(WHT_LS_KEY, JSON.stringify(session)); }
-  catch(e){}
+  catch(e){ console.warn('WHT saveLocal failed (quota or disabled?):', e); }
 }
 function loadLocal(){
   try {
     const raw = localStorage.getItem(WHT_LS_KEY);
     if(!raw) return null;
-    return JSON.parse(raw);
-  } catch(e){ return null; }
+    const parsed = JSON.parse(raw);
+    return normalizeSession(parsed);
+  } catch(e){
+    console.warn('WHT loadLocal failed — using defaults:', e);
+    return null;
+  }
+}
+
+/* Defensive normalization — fills in missing fields so renderAll() can't
+   throw on corrupted/partial localStorage data. */
+function normalizeSession(s){
+  if(!s || typeof s !== 'object') return null;
+  const out = {
+    payerName:   typeof s.payerName === 'string' ? s.payerName : '',
+    payerTin:    typeof s.payerTin  === 'string' ? s.payerTin  : '',
+    payerRefNo:  typeof s.payerRefNo=== 'string' ? s.payerRefNo: '',
+    period:      typeof s.period    === 'string' ? s.period    : '',
+    preparedBy:  typeof s.preparedBy=== 'string' ? s.preparedBy: '',
+    payees:      []
+  };
+  if(Array.isArray(s.payees)){
+    out.payees = s.payees.map(p => normalizePayee(p)).filter(Boolean);
+  }
+  return out;
+}
+function normalizePayee(p){
+  if(!p || typeof p !== 'object') return null;
+  return {
+    name:        typeof p.name === 'string' ? p.name : '',
+    country:     (p.country && DTA_RATES[p.country]) ? p.country : 'No DTA / Other',
+    foreignTin:  typeof p.foreignTin === 'string' ? p.foreignTin : '',
+    section:     (p.section && WHT_SECTIONS[p.section]) ? p.section : 'royalty',
+    whtRate:     Math.max(0, Math.min(100, Number(p.whtRate) || 0)),
+    sstInclusive:p.sstInclusive !== false,
+    sstRate:     Math.max(0, Math.min(100, Number(p.sstRate) || 8)),
+    latePenalty: !!p.latePenalty,
+    dateRange:   typeof p.dateRange === 'string' ? p.dateRange : '',
+    lines:       Array.isArray(p.lines)
+                   ? p.lines.map(L => ({
+                       date:      typeof L.date === 'string' ? L.date : '',
+                       receiptNo: typeof L.receiptNo === 'string' ? L.receiptNo : '',
+                       gross:     Math.max(0, Number(L.gross) || 0)
+                     }))
+                   : []
+  };
 }
 
 global.CTGWhtCalculator = {

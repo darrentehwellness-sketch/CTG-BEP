@@ -34,7 +34,7 @@
 <script src="config.js?v=22"></script>
 <script src="assets/js/supabase-client.js?v=22"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
-<script src="assets/js/wht-calculator.js?v=1"></script>
+<script src="assets/js/wht-calculator.js?v=2"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -4009,14 +4009,18 @@ document.querySelectorAll('.tab-btn').forEach(b=>{
   b.onclick = ()=> activateTab(b.dataset.tab);
 });
 // Restore last-active tab on load (skip if admin-only and user isn't admin)
-try {
-  const savedTab = localStorage.getItem(TAB_LS_KEY);
-  if(savedTab && savedTab !== 'calc'){
-    const tgtBtn = document.querySelector('.tab-btn[data-tab="'+savedTab+'"]');
-    // Don't restore admin tabs if the button is hidden (non-admin user)
-    if(tgtBtn && tgtBtn.offsetParent !== null) activateTab(savedTab, { skipScroll:true });
-  }
-} catch(e){}
+// Deferred via setTimeout(0) so all script-level `let` declarations
+// (pcState, _entitiesCache, etc.) are out of their temporal dead zone
+// before activateTab() runs the per-tab render callbacks.
+setTimeout(() => {
+  try {
+    const savedTab = localStorage.getItem(TAB_LS_KEY);
+    if(savedTab && savedTab !== 'calc'){
+      const tgtBtn = document.querySelector('.tab-btn[data-tab="'+savedTab+'"]');
+      if(tgtBtn && tgtBtn.offsetParent !== null) activateTab(savedTab, { skipScroll:true });
+    }
+  } catch(e){ console.warn('Tab restoration failed:', e); }
+}, 0);
 
 /* ============ EXPORT ============ */
 document.getElementById('btnExport').onclick = ()=>{
