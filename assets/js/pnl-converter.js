@@ -726,7 +726,110 @@ const SENIOR_RULES = [
   { any:['gain on disposal','loss on disposal','disposal of asset','fixed asset disposal'], target:'Other Income - Fixed Asset (Gain)/Loss on Disposal', conf:92, why:"Net gain/loss on disposal of PPE per MFRS 116 para 67 — disposal proceeds less carrying amount." },
   { any:['capital gain','capital loss','rpgt'], target:'Other Income - Capital (Gain)/Loss', conf:88, why:"Capital gain/loss on disposal of property/assets — Real Property Gains Tax (RPGT) may apply per RPGT Act 1976." },
   { any:['shared employee','shared service','inter-co recharge','intercompany recharge'], target:'Other Income - Shared Employees Service', conf:88, why:"Inter-co recharge for shared employee services — disclose under MFRS 124 related-party transactions." },
-  { any:['unknown fund','unidentified deposit','sundry income','miscellaneous income'], target:'Other Income - Unknown Fund Received', conf:75, why:"Unidentified/unreconciled deposits — investigate source and reclass to proper account when identified." }
+  { any:['unknown fund','unidentified deposit','sundry income','miscellaneous income'], target:'Other Income - Unknown Fund Received', conf:75, why:"Unidentified/unreconciled deposits — investigate source and reclass to proper account when identified." },
+
+  // ==================== BAHASA MALAYSIA ACCOUNTING TERMS ====================
+  // Per Malaysian SME practice, many P&Ls use Bahasa terms. Recognize the
+  // common ones the way a Malaysian senior accountant would.
+  { any:['gaji','upah'], none:['pengarah','komisen','bonus'], target:"STAFF - Employees Salaries & Wages", conf:88, why:"BM term 'Gaji'/'Upah' = salary/wages. Booked as employee benefits expense per MFRS 119, same as English 'Salary'." },
+  { any:['gaji pengarah','upah pengarah','elaun pengarah'], target:"STAFF - Director's Remuneration", conf:90, why:"BM 'Gaji pengarah' = director's salary/remuneration. Separately disclosable under Companies Act 2016 s.252." },
+  { any:['caruman kwsp','caruman majikan','caruman socso','caruman eis','caruman perkeso','caruman wajib'], none:['pengarah'], target:"STAFF - Employees Employer's Contribution", conf:90, why:"BM 'Caruman' = mandatory employer contribution (KWSP/SOCSO/EIS/PERKESO). Recognized per MFRS 119." },
+  { any:['elaun','elaun-elaun'], none:['pengarah'], target:"STAFF - Bonuses & Incentives/Allowances", conf:85, why:"BM 'Elaun' = allowance (housing/transport/meal). Short-term employee benefit per MFRS 119." },
+  { any:['bonus tahunan','bonus pekerja'], target:"STAFF - Bonuses & Incentives/Allowances", conf:88, why:"BM 'Bonus tahunan' = annual bonus. Recognized when entity has present obligation (constructive or contractual) per MFRS 137." },
+  { any:['latihan','kursus','seminar','bengkel'], target:"STAFF - Training & Development (HRDF)", conf:85, why:"BM 'Latihan/Kursus/Seminar/Bengkel' = training/course/seminar/workshop. HRDF-claimable cost per HRDC Act." },
+  { any:['kebajikan pekerja','perubatan pekerja','insurans pekerja','elaun perubatan'], target:"STAFF - Staff Benefits", conf:85, why:"BM staff welfare/medical/insurance terms — employee benefits expense per MFRS 119." },
+  { any:['pengambilan pekerja','iklan jawatan'], target:"STAFF - Recruitment Expenses", conf:85, why:"BM 'Pengambilan pekerja'/'Iklan jawatan' = recruitment / job ads. Period expense." },
+
+  { any:['sewa pejabat','sewa premis','sewa kedai','sewa bangunan'], none:['booth','acara'], target:"G&A - Office Rental", conf:90, why:"BM 'Sewa pejabat/premis/kedai' = office/premise rental. MFRS 16 lease — ROU + lease liability unless short-term/low-value." },
+  { any:['utiliti','elektrik','air','tnb','syabas'], target:"G&A - Office Utilities", conf:90, why:"BM 'Utiliti/Elektrik/Air' = utilities. Recognized when consumed per accrual basis (MFRS Conceptual Framework)." },
+  { any:['telefon','komunikasi','internet pejabat'], target:"G&A - Office Communication", conf:88, why:"BM 'Telefon/Komunikasi' = phone/communication. Period expense." },
+  { any:['alat tulis','bekalan pejabat','keperluan pejabat'], target:"G&A - Office Supplies & Logisters", conf:88, why:"BM 'Alat tulis/Bekalan pejabat' = stationery/office supplies. Consumables expense." },
+  { any:['cetakan','percetakan'], target:"G&A - Office Supplies & Logisters", conf:80, why:"BM 'Cetakan/Percetakan' = printing. Office consumable expense if for office use (marketing printing → BD&M Production)." },
+  { any:['penyelenggaraan','pembaikan'], target:"G&A - Office Repair & Maintenance", conf:85, why:"BM 'Penyelenggaraan/Pembaikan' = maintenance/repair. Expensed if it preserves the asset (MFRS 116)." },
+  { any:['susut nilai','susutnilai','pelunasan'], target:"G&A - Office Depreciation/Assets", conf:90, why:"BM 'Susut nilai' = depreciation, 'Pelunasan' = amortization. Per MFRS 116/138 over useful life." },
+  { any:['yuran audit'], target:"G&A - Audit Fees", conf:95, why:"BM 'Yuran audit' = statutory audit fee per Companies Act 2016 s.266. Fully deductible." },
+  { any:['yuran perundangan','yuran guaman','khidmat guaman'], target:"G&A - Professional Fees/Taxation Service", conf:85, why:"BM 'Yuran perundangan/guaman' = legal fees. Deductible if not capital in nature (ITA s.39)." },
+  { any:['yuran akaun','khidmat perakaunan','yuran perakaunan'], target:"G&A - Professional Fees/Taxation Service", conf:88, why:"BM 'Yuran akaun/perakaunan' = accounting fees. Distinct from audit (own account)." },
+  { any:['yuran setiausaha','setiausaha syarikat','yuran ssm'], target:"G&A - Compliance - Corp Sec & Reg Fees", conf:90, why:"BM 'Yuran setiausaha/SSM' = company secretary / SSM filing. Compliance per Companies Act 2016." },
+  { any:['duti setem','setem hasil'], target:"G&A - Stamping Fee/Filling Fee/Tax Duty", conf:92, why:"BM 'Duti setem/Setem hasil' = stamp duty per Stamp Act 1949 on agreements / loans / share transfers." },
+  { any:['denda','penalti','tunggakan'], target:"G&A - Penalty & Compound", conf:90, why:"BM 'Denda/Penalti/Tunggakan' = fine/penalty/arrears. NOT tax-deductible per ITA s.39(1)(l) — add back in tax computation." },
+  { any:['lesen','permit','sijil perniagaan'], target:"G&A - License/Certificate Fees", conf:85, why:"BM 'Lesen/Permit/Sijil' = business license/permit/certificate. Period expense." },
+  { any:['cukai jualan'], target:"G&A - Sales Service Tax (6%/8%)", conf:75, why:"BM 'Cukai jualan' = sales tax (now SST 6/8%). Output SST is a liability; the figure in P&L is typically unrecovered input SST or reclass — verify per Service Tax Act 2018." },
+  { any:['cukai perkhidmatan'], target:"BD&M - Sales Service Tax (6%/8%)", conf:75, why:"BM 'Cukai perkhidmatan' = service tax. Treatment depends on whether registered for SST; charged on taxable services per SST Act 2018." },
+
+  { any:['iklan','pengiklanan','promosi'], none:['ads','meta','google','shopee','lazada','tiktok'], target:"G&A - Advertising", conf:75, why:"BM 'Iklan/Pengiklanan/Promosi' = advertising. Generic ads (newspaper / radio / billboard) → G&A. Digital platform-specific ads → BD&M Press Release variant." },
+  { any:['penaja','penajaan'], target:"BD&M - Gift/Souvenirs/Sponsorship", conf:80, why:"BM 'Penaja/Penajaan' = sponsorship. Marketing expense; tax-deductibility depends on whether for own brand promotion or charity per LHDN PR 11/2017." },
+  { any:['hadiah','cenderamata'], none:['kakitangan','pekerja'], target:"BD&M - Gift/Souvenirs/Sponsorship", conf:75, why:"BM 'Hadiah/Cenderamata' = gift/souvenir. Marketing if external; staff gifts → STAFF Benefits." },
+
+  { any:['cukai pendapatan','peruntukan cukai','cukai semasa'], target:"Corparate Taxation @24%", conf:92, why:"BM 'Cukai pendapatan/Peruntukan cukai/Cukai semasa' = income tax / tax provision / current tax. Per MFRS 112, recognize based on substantively-enacted rates." },
+  { any:['faedah bank','pendapatan faedah','hibah'], target:'Other Income - Bank Interest/Hibah', conf:90, why:"BM 'Faedah bank/Pendapatan faedah/Hibah' = bank interest / Islamic profit-sharing. Taxable per ITA s.4(c). Recognize when receivable per MFRS 9 ECL framework." },
+  { any:['keuntungan pelupusan','kerugian pelupusan'], target:'Other Income - Fixed Asset (Gain)/Loss on Disposal', conf:88, why:"BM 'Keuntungan/Kerugian pelupusan' = gain/loss on disposal of PPE per MFRS 116 para 67." },
+
+  { any:['petrol','diesel','minyak kenderaan'], target:"BD&M Travel - Transportation", conf:75, why:"Fuel costs — usually for sales fleet/staff travel. If admin fleet → reclass to G&A. Per LHDN PR 1/2014, valid receipts required for deduction." },
+  { any:['tol','parking','toll'], target:"BD&M Travel - Transportation", conf:78, why:"Toll/parking — incidental travel cost. Same treatment rules as fuel: assign to BD&M if sales-related, G&A if admin." },
+  { any:['perjalanan','tambang'], target:"BD&M Travel - Transportation", conf:72, why:"BM 'Perjalanan/Tambang' = travel/fare. Default to BD&M (sales travel); reclass to G&A Travel for admin trips." },
+
+  // ==================== PROVISIONS & ACCRUALS (MFRS 137) ====================
+  { any:['provision for bonus','accrued bonus','bonus accrual'], target:"STAFF - Bonuses & Incentives/Allowances", conf:88, why:"Provision/accrual for staff bonus — recognized in period service rendered per MFRS 119 (constructive obligation per MFRS 137)." },
+  { any:['accrued salary','salary accrual','accrued wages'], target:"STAFF - Employees Salaries & Wages", conf:88, why:"Accrual for salaries unpaid at period-end — recognized in service period per MFRS 119, accrual basis." },
+  { any:['provision for warranty','warranty provision','warranty accrual'], target:"COGS - Purchases of Goods", conf:70, why:"Warranty provision — recognized at sale per MFRS 137 (probable + measurable). Booked to direct cost of sales as it relates to sold goods. Verify per company policy." },
+  { any:['accrued expense','expense accrual','accrual'], none:['salary','wage','bonus','warranty','tax'], target:"G&A - Others", conf:55, why:"Generic accrued expense — needs context. Default to G&A Others if not staff/warranty/tax. Senior accountant should reclass to specific account once underlying nature is known." },
+  { any:['reversal of provision','provision reversal','accrual reversal'], target:"G&A - Others", conf:55, why:"Reversal of prior provision — reduces expense in current period. Per MFRS 137, derecognize when no longer probable to occur. Reclass to original expense category if known." },
+
+  // ==================== BAD DEBTS & IMPAIRMENT (MFRS 9 ECL) ====================
+  { any:['bad debt','bad debts','debt write off','debt written off'], target:"G&A - Others", conf:75, why:"Bad debts written off — recognized when uncollectable per MFRS 9 (specific impairment). Tax-deductible if proper write-off procedures followed per ITA s.34(2)." },
+  { any:['doubtful debt','doubtful debts','provision for doubtful','allowance for doubtful'], target:"G&A - Others", conf:72, why:"Allowance for doubtful debts per MFRS 9 ECL (expected credit loss model). Specific allowance is deductible; general allowance is NOT per ITA s.34." },
+  { any:['bad debt recovered','recovery of bad debt'], target:'Other Income - Unknown Fund Received', conf:78, why:"Recovery of previously written-off debt — recognize as other income per MFRS 9. Taxable under ITA s.30." },
+  { any:['impairment loss','asset impairment'], target:"G&A - Office Depreciation/Assets", conf:75, why:"Impairment loss on assets per MFRS 136 — recognize when carrying amount exceeds recoverable amount. Booked with depreciation as it's an asset write-down." },
+
+  // ==================== INVENTORY WRITE-OFFS (MFRS 102) ====================
+  { any:['stock write off','inventory write off','stock loss','inventory loss'], target:"COGS - Purchases of Goods", conf:78, why:"Inventory write-off / loss — per MFRS 102 para 34, expense in the period when loss occurs. Tax: write-offs deductible if properly documented per LHDN PR 4/2012." },
+  { any:['stock obsolescence','obsolete inventory','slow-moving inventory'], target:"COGS - Purchases of Goods", conf:75, why:"Inventory obsolescence — measure at lower of cost and NRV per MFRS 102 para 9. Write-down expensed to COGS in period of recognition." },
+  { any:['stock take adjustment','stock variance','inventory adjustment'], target:"COGS - Purchases of Goods", conf:75, why:"Physical stock-take variance vs book inventory — adjustment to COGS per MFRS 102. Investigate cause: theft, damage, recording error." },
+  { any:['stock reserve','inventory reserve','inventory provision'], target:"COGS - Purchases of Goods", conf:72, why:"Inventory provision for obsolescence/shrinkage per MFRS 102 (lower of cost/NRV). General provisions usually NOT tax-deductible." },
+
+  // ==================== MFRS 16 LEASES (depth) ====================
+  { any:['lease interest','interest on lease','interest expense - lease'], target:"FIN - Bank Charges & Handling Fees", conf:80, why:"Interest on lease liability per MFRS 16 — recognize using effective interest method. Booked under finance costs, separate from operating lease expense." },
+  { any:['right-of-use depreciation','rou depreciation','rou amortisation'], target:"G&A - Office Depreciation/Assets", conf:85, why:"Right-of-use asset depreciation per MFRS 16 — typically straight-line over the lease term. Separate from PPE depreciation in disclosure (MFRS 16 para 53)." },
+  { any:['short-term lease','low-value lease','short term rental'], target:"G&A - Office Rental", conf:82, why:"Short-term (<12 months) or low-value lease per MFRS 16 para 5-6 — expensed on straight-line basis, NOT recognized as ROU asset." },
+  { any:['variable lease payment','variable rent'], target:"G&A - Office Rental", conf:78, why:"Variable lease payments not in initial measurement of liability (MFRS 16 para 38) — expensed when incurred." },
+
+  // ==================== DEFERRED TAX (MFRS 112) ====================
+  { any:['deferred tax','deferred income tax','timing difference tax'], target:"Corparate Taxation @24%", conf:80, why:"Deferred tax per MFRS 112 — temporary differences between book and tax base. Senior accountant note: should be DISCLOSED SEPARATELY from current tax in audited accounts." },
+  { any:['under provision tax','over provision tax','prior year tax adjustment'], target:"Corparate Taxation @24%", conf:80, why:"Prior-year tax under/over provision — adjustment to current tax expense per MFRS 112 para 80 disclosure." },
+
+  // ==================== CAPITAL ALLOWANCE vs DEPRECIATION ====================
+  { any:['capital allowance','initial allowance','annual allowance','reinvestment allowance'], target:"G&A - Office Depreciation/Assets", conf:60, why:"⚠ Capital Allowance is a TAX concept (Sch 3 ITA), NOT a P&L expense. If this appears in P&L, it's likely a typo or misclassification — should be Depreciation (MFRS 116). Verify and reclass." },
+  { any:['balancing allowance','balancing charge'], target:"G&A - Office Depreciation/Assets", conf:60, why:"⚠ Balancing allowance/charge is a TAX adjustment (Sch 3 ITA Para 35) when an asset is disposed. Does NOT belong on the P&L — typically a tax-computation adjustment only." },
+
+  // ==================== E-COMMERCE SPECIFIC PATTERNS ====================
+  { any:['chargeback','disputed payment','payment dispute'], target:"Return Inwards - COD Sales", conf:70, why:"Chargeback/disputed payment — typically reduces revenue per MFRS 15 (variable consideration). Category depends on channel; default to COD if unspecified." },
+  { any:['cancellation fee','order cancellation','refund processing fee'], target:"BD&M - Platform Merchant/Commission Fees (COD)", conf:65, why:"Order cancellation fee — usually charged by platform. Booked as marketing/platform expense if entity-borne." },
+  { any:['fulfillment fee','fulfilment fee','warehouse fee','3pl fee'], target:"COGS - Inbound Transportation Costs", conf:75, why:"3PL/fulfillment fees — direct cost of sales if for outbound logistics on sold goods (per MFRS 102 transport cost). Reclass to BD&M if it's marketplace fulfillment commission." },
+  { any:['last-mile','last mile delivery','delivery fee'], target:"COGS - Inbound Transportation Costs", conf:70, why:"Last-mile delivery — direct cost of sale if charged separately from goods. Some entities net against revenue per MFRS 15 — verify policy." },
+  { any:['stripe fee','stripe charge','stripe payout'], target:"FIN - Bank Charges & Handling Fees", conf:75, why:"Stripe processing fees on customer transactions — finance cost (gateway). Distinct from Shopify subscription (BD&M IT). Recognize at gross sales + separate fee per MFRS 15." },
+  { any:['razer pay','razer merchant','molpay'], target:"FIN - Bank Charges & Handling Fees", conf:80, why:"Razer Pay / MOLPay (now Razer Merchant Services) processing fees — payment gateway finance cost per MFRS 15." },
+  { any:['ipay88','i pay 88'], target:"FIN - Bank Charges & Handling Fees", conf:85, why:"iPay88 payment gateway fees — finance cost on customer transactions per MFRS 15. Different from listed Ahapay/EzBeli/HiPay/Atome/Payex." },
+
+  // ==================== MORE WHT NUANCES (LHDN) ====================
+  { any:['wht s.4a','withholding 4a','section 4a wht','technical service wht'], target:"BD&M - Withholding Tax (8%/10%)", conf:85, why:"WHT under ITA s.4A (special classes of income — technical fees, rent of movable property, services performed in MY) typically 10% on non-residents. Borne by payer if not deducted." },
+  { any:['wht s.109b','section 109b','royalty wht'], target:"BD&M - Withholding Tax (8%/10%)", conf:85, why:"WHT under ITA s.109B (royalties to non-residents) typically 10%. Cross-check with Double Tax Agreement rate if treaty country." },
+  { any:['wht interest','interest withholding'], target:"G&A - Withholding Tax (8%/10%)", conf:80, why:"WHT on interest to non-residents per ITA s.109 (typically 15% or treaty rate). Distinct from technical/royalty WHT." },
+
+  // ==================== MORE SST NUANCES ====================
+  { any:['sst input','input service tax'], target:"G&A - Sales Service Tax (6%/8%)", conf:75, why:"Input SST on admin/operating purchases — per Service Tax Act 2018, NOT recoverable for non-registered persons. Included in expense base." },
+  { any:['sst output','output service tax','service tax payable'], target:"BD&M - Sales Service Tax (6%/8%)", conf:75, why:"Output SST collected on taxable services — typically a liability, not an expense. If it's an unrecovered portion, booked to BD&M Sales SST. Verify per SST returns." },
+
+  // ==================== INTER-COMPANY / GROUP ====================
+  { any:['management fee paid','group recharge paid','head office recharge'], target:"CTG - Project Management Fee", conf:75, why:"Inter-company management charges paid — disclose under MFRS 124 related-party transactions. Arm's-length pricing required per ITA s.140A transfer pricing rules." },
+  { any:['management fee received','intercompany income received'], target:'Other Income - Shared Employees Service', conf:75, why:"Inter-company management charge received — MFRS 124 disclosure. Verify arm's-length per ITA s.140A transfer pricing." },
+
+  // ==================== MISC PROFESSIONAL JUDGMENT ====================
+  { any:['gst input','gst output','gst paid','gst collected'], target:"G&A - Sales Service Tax (6%/8%)", conf:55, why:"⚠ GST was repealed in Malaysia (1 Sep 2018) and replaced by SST. If GST appears in current-year P&L, verify if it's a prior-year adjustment or a system carry-over needing reclassification." },
+  { any:['petty cash','cash float'], target:"G&A - Others", conf:50, why:"Petty cash — typically balance-sheet (current asset) not P&L. If it appears in P&L it may be a write-off or rounding adjustment. Investigate." },
+  { any:['rounding','rounding adjustment','rounding difference'], target:"G&A - Others", conf:55, why:"Rounding adjustment — should be immaterial. If material, investigate per MFRS materiality concept (Conceptual Framework para QC11)." },
+  { any:['donation','charity'], target:"G&A - Others", conf:65, why:"Donations to approved institutions per ITA s.44(6) are deductible up to 10% of aggregate income. Donations to non-approved bodies are NOT deductible — tax addback." },
+  { any:['zakat'], target:"G&A - Others", conf:70, why:"Zakat paid by company — deductible per ITA s.44(11A) (up to 2.5% of aggregate income). Tax treatment per LHDN PR 6/2018." }
 ];
 
 /* Evaluate SENIOR_RULES against a source name. Returns matching rule or null. */

@@ -33,7 +33,7 @@
 <script>if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
 <script src="config.js?v=21"></script>
 <script src="assets/js/supabase-client.js?v=21"></script>
-<script src="assets/js/pnl-converter.js?v=13"></script>
+<script src="assets/js/pnl-converter.js?v=14"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -1950,7 +1950,7 @@
     <!-- Step 4: AI Thinking — per-row reasoning -->
     <div class="card" id="pnlAiCard" style="display:none;">
       <h2><span class="ic">🎓</span><span data-i18n="pnl_ai_title">AI Thinking — ACCA Senior Accountant</span><span class="badge" data-i18n="pnl_ai_badge">30-yr experience · MFRS · LHDN</span></h2>
-      <p class="note" data-i18n="pnl_ai_intro">Three-pass document-aware AI trained as an <b>ACCA-qualified Senior Accountant / Finance Controller with 30 years of experience</b>. <b>Pass 1</b> reads the whole document — section headers, naming style, source layout. <b>Pass 2</b> classifies each row with that context (4 reasoning layers: exact-name → keyword → 117 ACCA professional rules → fuzzy fallback). <b>Pass 3</b> does a final senior-reviewer audit — cross-checks every decision against 10 professional sanity rules and issues a formal opinion.</p>
+      <p class="note" data-i18n="pnl_ai_intro">Three-pass document-aware AI trained as an <b>ACCA-qualified Senior Accountant / Finance Controller with 30 years of experience</b>. <b>Pass 1</b> reads the whole document — section headers, naming style, source layout. <b>Pass 2</b> classifies each row with that context (4 reasoning layers: exact-name → keyword → <b>190+ ACCA professional rules</b> covering MFRS / LHDN / Companies Act, Bahasa Malaysia terms, accruals & provisions, MFRS 9 ECL bad debts, MFRS 16 leases, MFRS 102 inventory, MFRS 112 deferred tax, capital allowance vs depreciation, WHT / SST nuances, and e-commerce-specific patterns — then fuzzy fallback). <b>Pass 3</b> does a final senior-reviewer audit — cross-checks every decision against 10 professional sanity rules and issues a formal opinion.</p>
 
       <!-- Pass-3 Audit Opinion banner -->
       <div id="pnlAuditPanel" style="margin:12px 0 16px;border-radius:10px;display:none;overflow:hidden;border:1px solid var(--border);">
