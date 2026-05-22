@@ -1470,11 +1470,10 @@
       </div>
     </div>
 
-    <!-- KPI Strip -->
-    <div class="grid-4" style="margin-bottom:20px;">
+    <!-- KPI Strip — Product Cost KPI removed (the Product cost type was retired) -->
+    <div class="grid-3" style="margin-bottom:20px;">
       <div class="kpi"><div class="label"><span class="dot"></span><span data-i18n="kpi_fixed">Total Fixed Cost</span></div><div class="value" id="kFixed">—</div><div class="sub">SUMIF Type=Fixed</div></div>
       <div class="kpi warn"><div class="label"><span class="dot"></span><span data-i18n="kpi_var">Total Variable Cost</span></div><div class="value" id="kVar">—</div><div class="sub">SUMIF Type=Variable</div></div>
-      <div class="kpi success"><div class="label"><span class="dot"></span><span data-i18n="kpi_prod">Total Product Cost</span></div><div class="value" id="kProd">—</div><div class="sub">Inventory rows</div></div>
       <div class="kpi danger"><div class="label"><span class="dot"></span><span data-i18n="kpi_cm">Contribution Margin %</span></div><div class="value" id="kCM">—</div><div class="sub" data-i18n="kpi_cm_sub">After product+variable</div></div>
     </div>
 
@@ -1582,13 +1581,11 @@
         <tfoot>
           <tr><td colspan="6" style="text-align:right;" data-i18n="tf_fix">Total Fixed Cost:</td><td class="num" id="totFixed">—</td><td></td></tr>
           <tr><td colspan="6" style="text-align:right;" data-i18n="tf_var">Total Variable Cost:</td><td class="num" id="totVar">—</td><td></td></tr>
-          <tr><td colspan="6" style="text-align:right;" data-i18n="tf_prod">Total Product Cost (Inventory):</td><td class="num" id="totProd">—</td><td></td></tr>
         </tfoot>
       </table>
       </div>
       <div class="add-row">
         <button id="btnAddCost">+ <span data-i18n="add_cost">Add Cost Item</span></button>
-        <button class="ghost" id="btnAddInventoryRow">+ <span data-i18n="add_inv">Add Inventory Row</span></button>
       </div>
     </div>
   </div>
@@ -2732,13 +2729,10 @@ const DEFAULT_PRODUCTS = [
   {name:'Product_5', qty:1, purchase:22,   selling:118},
 ];
 const CATEGORIES = ['Inventory','Transportation','Packaging Cost','Marketing Expenses','Exhibition Expenses','Man Power Cost','Other'];
-const TYPES = ['Fixed','Variable','Product'];
+const TYPES = ['Fixed','Variable'];
 const DEFAULT_COSTS = [
-  {item:'Product_1', category:'Inventory', type:'Product', qty:1, unit:12,   productIndex:0},
-  {item:'Product_2', category:'Inventory', type:'Product', qty:1, unit:32.4, productIndex:1},
-  {item:'Product_3', category:'Inventory', type:'Product', qty:1, unit:24,   productIndex:2},
-  {item:'Product_4', category:'Inventory', type:'Product', qty:1, unit:42.5, productIndex:3},
-  {item:'Product_5', category:'Inventory', type:'Product', qty:1, unit:22,   productIndex:4},
+  // Product-type rows removed — they duplicated the Product Costing Control table above.
+  // Only Fixed and Variable line items below.
   {item:'Inventory Transportation Cost', category:'Transportation', type:'Fixed', qty:1, unit:6500},
   {item:'Inventory Packaging Cost', category:'Packaging Cost', type:'Fixed', qty:1, unit:2000},
   {item:'Gift/Souvenirs', category:'Marketing Expenses', type:'Variable', qty:1, unit:2000},
@@ -2776,7 +2770,12 @@ function normalizeBepState(s){
     });
   }
   if(Array.isArray(s.costs)){
+    // Legacy: rows saved with type='Product' should now be treated as 'Variable'
+    // (the Product type was retired because it duplicated the Product Costing
+    // Control table). Silently migrate to keep old scenarios working.
+    s.costs = s.costs.filter(c => c && (c.type !== 'Product' || (c.category || '').toLowerCase() !== 'inventory'));
     s.costs.forEach((c,i) => {
+      if(c.type === 'Product') c.type = 'Variable';
       c.item = (c.item && String(c.item).trim()) || ('Cost item ' + (i+1));
       c.qty = clampNum(c.qty);
       c.unit = clampNum(c.unit);
@@ -2886,13 +2885,14 @@ function renderSummary(){
   document.getElementById('prodTotSelling').textContent  = fmt(r.totSelling);
   document.getElementById('prodTotMargin').textContent   = fmtPct(r.margin);
   document.getElementById('prodCostPct').textContent     = fmtPct(r.costRatio);
-  document.getElementById('totFixed').textContent = fmt(r.totalFixed);
-  document.getElementById('totVar').textContent   = fmt(r.totalVariable);
-  document.getElementById('totProd').textContent  = fmt(r.totalProduct);
-  document.getElementById('kFixed').textContent = fmt(r.totalFixed);
-  document.getElementById('kVar').textContent   = fmt(r.totalVariable);
-  document.getElementById('kProd').textContent  = fmt(r.totalProduct);
-  document.getElementById('kCM').textContent    = fmtPct(r.D31);
+  const setIfExists = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+  setIfExists('totFixed', fmt(r.totalFixed));
+  setIfExists('totVar',   fmt(r.totalVariable));
+  setIfExists('totProd',  fmt(r.totalProduct));   // legacy DOM no longer present — harmless
+  setIfExists('kFixed',   fmt(r.totalFixed));
+  setIfExists('kVar',     fmt(r.totalVariable));
+  setIfExists('kProd',    fmt(r.totalProduct));   // legacy KPI removed — harmless
+  setIfExists('kCM',      fmtPct(r.D31));
 
   const rows = [
     {no:1,key:'r_sales',b:r.sales,a:r.actual},
@@ -3323,10 +3323,8 @@ document.getElementById('btnAddCost').onclick = ()=>{
   state.costs.push({item:'New Cost Item', category:'Other', type:'Fixed', qty:1, unit:0});
   render();
 };
-document.getElementById('btnAddInventoryRow').onclick = ()=>{
-  state.costs.push({item:'Inventory Item', category:'Inventory', type:'Product', qty:1, unit:0, productIndex:null});
-  render();
-};
+// btnAddInventoryRow removed — the Product type was retired (it duplicated
+// the Product Costing Control table).
 document.getElementById('btnReset').onclick = ()=>{
   if(confirm(t('confirm_reset'))){
     state={salesTarget:75000,actualSales:0,products:deepCopy(DEFAULT_PRODUCTS),costs:deepCopy(DEFAULT_COSTS)};
