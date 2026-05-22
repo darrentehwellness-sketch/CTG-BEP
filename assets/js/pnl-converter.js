@@ -258,6 +258,216 @@ function mapAccount(sourceName){
   }
   return null;
 }
+
+/* ============================================================
+   AI THINKING — multi-signal classifier with reasoning
+   ============================================================
+   Scores each source line against every canonical COA account
+   using a weighted blend of:
+     - Exact-name match           (100% confidence — instant win)
+     - Keyword dictionary hit     (85-95% — strong signal)
+     - Section-prefix alignment   (e.g. STAFF/CTG/BD&M match)
+     - Token overlap (Jaccard-ish on non-stop words)
+     - Substring match (any direction)
+     - Semantic-bucket hints      (epf → STAFF, ads → BD&M, etc.)
+   Then picks the highest-scoring canonical bucket and produces a
+   human-readable explanation of WHY it picked that bucket.
+   ============================================================ */
+
+// Stop words ignored in token matching
+const STOP_WORDS = new Set(['the','a','an','of','at','to','for','in','on','with','and','&','-','&amp;','&m','m','&a','fee','fees','cost','costs','expense','expenses','income','revenue']);
+
+// Known financial sections — prefix-match boost
+const SECTIONS = ['staff','ctg','bd&m','g&a','fin','cogs','revenue','other income','stocks','discount voucher'];
+
+// Semantic anchors — tokens that strongly suggest a section
+const SEMANTIC_HINTS = [
+  // STAFF cues
+  { tokens:['salary','salaries','wage','wages','gaji','payroll','remuneration'], section:'staff' },
+  { tokens:['epf','kwsp','socso','perkeso','eis','hrdf','hrd','contribution'],   section:'staff' },
+  { tokens:['bonus','incentive','allowance','allowances'],                       section:'staff' },
+  { tokens:['benefit','welfare','medical','insurance','training'],               section:'staff' },
+  // BD&M cues
+  { tokens:['ads','advertis','marketing','press','release','adwords','sem'],     section:'bd&m' },
+  { tokens:['shopee','lazada','tiktok','meta','facebook','instagram','google'],  section:'bd&m' },
+  { tokens:['photography','videography','photoshoot','design','studio'],         section:'bd&m' },
+  { tokens:['exhibition','expo','event','booth','venue','sponsorship'],          section:'bd&m' },
+  { tokens:['koc','kol','influencer','referral','affiliate'],                    section:'bd&m' },
+  // G&A cues
+  { tokens:['office','stationery','utilities','communication','rental','rent'],  section:'g&a' },
+  { tokens:['audit','accounting','tax','agent','secretary','ssm'],               section:'g&a' },
+  { tokens:['stamp','stamping','filing','penalty','compound','fine'],            section:'g&a' },
+  { tokens:['depreciation','amortisation','amortization','asset'],               section:'g&a' },
+  // FIN cues
+  { tokens:['bank','charge','charges','transfer','handling','gateway','gatewway'],section:'fin' },
+  { tokens:['atome','payex','hipay','ipay88','fiuu','stripe','ezbeli','ahapay'], section:'fin' },
+  { tokens:['fx','forex','currency','foreign','exchange','realised','realized','unrealised','unrealized','revaluation'], section:'fin' },
+  // CTG (inter-co) cues
+  { tokens:['ctg','management'],                                                  section:'ctg' },
+  // COGS cues
+  { tokens:['cogs','purchase','purchases','packaging','packing','souvenir','souvenirs','inbound','freight','duty','duties','customs','kastam','stocks','inventory'], section:'cogs' },
+  // Revenue cues
+  { tokens:['sales','revenue','retail','webstore','shopify','o2o','cod','sales)'], section:'revenue' }
+];
+
+function tokenize(s){
+  return normalizeName(s)
+    .replace(/[\(\)\-\/\.]/g,' ')
+    .split(/\s+/)
+    .filter(t => t.length > 0 && !STOP_WORDS.has(t));
+}
+
+// Edit-distance (Levenshtein) — used for typo tolerance
+function levenshtein(a, b){
+  if(a === b) return 0;
+  const al = a.length, bl = b.length;
+  if(al === 0) return bl;
+  if(bl === 0) return al;
+  const v0 = new Array(bl + 1);
+  const v1 = new Array(bl + 1);
+  for(let i=0; i<=bl; i++) v0[i] = i;
+  for(let i=0; i<al; i++){
+    v1[0] = i + 1;
+    for(let j=0; j<bl; j++){
+      const cost = a.charCodeAt(i) === b.charCodeAt(j) ? 0 : 1;
+      v1[j+1] = Math.min(v1[j] + 1, v0[j+1] + 1, v0[j] + cost);
+    }
+    for(let j=0; j<=bl; j++) v0[j] = v1[j];
+  }
+  return v0[bl];
+}
+
+function detectSection(tokens){
+  // Walk source tokens, see which semantic section gets the most hits
+  const hits = {};
+  for(const t of tokens){
+    for(const hint of SEMANTIC_HINTS){
+      for(const tk of hint.tokens){
+        if(t === tk || t.indexOf(tk) !== -1 || tk.indexOf(t) !== -1){
+          hits[hint.section] = (hits[hint.section] || 0) + 1;
+          break;
+        }
+      }
+    }
+  }
+  let bestSection = null, bestCount = 0;
+  Object.keys(hits).forEach(s => { if(hits[s] > bestCount){ bestSection = s; bestCount = hits[s]; } });
+  return { section: bestSection, count: bestCount };
+}
+
+function targetSection(canonicalName){
+  const n = canonicalName.toLowerCase();
+  if(n.startsWith('staff'))      return 'staff';
+  if(n.startsWith('ctg'))        return 'ctg';
+  if(n.startsWith('bd&m'))       return 'bd&m';
+  if(n.startsWith('g&a'))        return 'g&a';
+  if(n.startsWith('fin'))        return 'fin';
+  if(n.startsWith('cogs'))       return 'cogs';
+  if(n.startsWith('revenue'))    return 'revenue';
+  if(n.startsWith('other income'))return 'other income';
+  if(n.startsWith('stocks'))     return 'cogs';   // stock movements live in COS
+  if(n.startsWith('discount'))   return 'revenue';
+  return null;
+}
+
+/* The AI-thinking classifier.
+   Returns { target, confidence (0-100), reason, signals[] } */
+function mapAccountAI(sourceName){
+  if(!sourceName){
+    return { target:null, confidence:0, reason:'Empty source name', signals:[] };
+  }
+  const n = normalizeName(sourceName);
+  const srcTokens = tokenize(sourceName);
+  const signals = [];
+
+  // === Signal 1: Exact-name match against canonical COA ===
+  for(const item of COA){
+    if(item.kind !== 'account') continue;
+    if(normalizeName(item.name) === n){
+      return {
+        target: item.name,
+        confidence: 100,
+        reason: 'Exact match — source name is identical to the canonical COA account.',
+        signals: ['exact-name']
+      };
+    }
+  }
+
+  // === Signal 2: Keyword-dictionary hit (longest-match-wins) ===
+  for(const { kw, target } of KEYWORD_INDEX){
+    if(n.indexOf(kw) !== -1){
+      signals.push('keyword:"' + kw + '"');
+      return {
+        target,
+        confidence: Math.min(95, 70 + kw.length),  // longer keyword = more specific = higher confidence
+        reason: 'Matched canonical keyword "' + kw + '" inside the source name.',
+        signals
+      };
+    }
+  }
+
+  // === Signal 3: Multi-signal fuzzy scoring ===
+  const srcSection = detectSection(srcTokens);
+  if(srcSection.section) signals.push('section-hint:' + srcSection.section);
+
+  let best = null;
+  const accountItems = COA.filter(it => it.kind === 'account');
+
+  for(const item of accountItems){
+    const tgtName = item.name;
+    const tgtTokens = tokenize(tgtName);
+    if(tgtTokens.length === 0) continue;
+
+    // (a) Token overlap (Jaccard-style)
+    const common = srcTokens.filter(t => tgtTokens.some(tt => tt === t || tt.indexOf(t) !== -1 || t.indexOf(tt) !== -1));
+    const union = new Set([...srcTokens, ...tgtTokens]);
+    const overlap = union.size > 0 ? common.length / union.size : 0;
+
+    // (b) Section-prefix alignment bonus
+    const tgtSec = targetSection(tgtName);
+    const sectionBonus = (srcSection.section && tgtSec && srcSection.section === tgtSec) ? 0.25 : 0;
+
+    // (c) Levenshtein similarity on full strings (typo tolerance)
+    const editDist = levenshtein(n.substring(0, 60), normalizeName(tgtName).substring(0, 60));
+    const maxLen = Math.max(n.length, tgtName.length, 1);
+    const editSim = 1 - editDist / maxLen;
+
+    // (d) Substring containment
+    const tgtNorm = normalizeName(tgtName);
+    const containBonus = (n.indexOf(tgtNorm) !== -1 || tgtNorm.indexOf(n) !== -1) ? 0.20 : 0;
+
+    // Weighted blend
+    const score = (overlap * 0.45) + (sectionBonus) + (editSim * 0.15) + containBonus;
+
+    if(!best || score > best.score){
+      best = { score, target: tgtName, overlap, sectionBonus, editSim, containBonus, common };
+    }
+  }
+
+  // Only accept best match if score is high enough
+  const THRESHOLD = 0.40;
+  if(best && best.score >= THRESHOLD){
+    const reasons = [];
+    if(best.common && best.common.length > 0) reasons.push('shared keywords {' + best.common.slice(0,4).join(', ') + '}');
+    if(best.sectionBonus > 0) reasons.push('same section prefix (' + srcSection.section.toUpperCase() + ')');
+    if(best.containBonus > 0) reasons.push('substring containment');
+    if(best.editSim > 0.5)    reasons.push('low edit distance');
+    signals.push('fuzzy-score:' + best.score.toFixed(2));
+    return {
+      target: best.target,
+      confidence: Math.min(80, Math.round(best.score * 100)),
+      reason: 'Fuzzy match — ' + (reasons.join(' · ') || 'weighted token overlap') + '.',
+      signals
+    };
+  }
+
+  return {
+    target: null,
+    confidence: 0,
+    reason: 'No confident match — confidence ' + (best ? Math.round(best.score * 100) : 0) + '% (threshold ' + Math.round(THRESHOLD * 100) + '%). Best guess: "' + (best ? best.target : '—') + '".',
+    signals
+  };
+}
 function parseNumeric(v){
   if(v == null || v === '') return null;
   if(typeof v === 'number') return v;
@@ -456,21 +666,30 @@ async function parsePdf(arrayBuffer){
   };
 }
 
-/* ============ AUTO-MAP ============ */
+/* ============ AUTO-MAP (with AI thinking) ============ */
 function autoMap(parsed){
   const monthCount = parsed.months.length;
   const mapped = {};
   const unmapped = [];
+  const decisions = [];   // [{ source, target, confidence, reason, signals }]
   parsed.rows.forEach(r => {
-    const target = mapAccount(r.name);
-    if(target){
-      if(!mapped[target]) mapped[target] = new Array(monthCount).fill(0);
-      for(let i=0;i<monthCount;i++) mapped[target][i] += (Number(r.values[i])||0);
+    const decision = mapAccountAI(r.name);
+    decisions.push({
+      source: r.name,
+      target: decision.target,
+      confidence: decision.confidence,
+      reason: decision.reason,
+      signals: decision.signals || [],
+      values: r.values
+    });
+    if(decision.target){
+      if(!mapped[decision.target]) mapped[decision.target] = new Array(monthCount).fill(0);
+      for(let i=0;i<monthCount;i++) mapped[decision.target][i] += (Number(r.values[i])||0);
     } else {
       unmapped.push(r);
     }
   });
-  return { mapped, unmapped };
+  return { mapped, unmapped, decisions };
 }
 
 /* ============ OUTPUT BUILDER ============ */
@@ -694,6 +913,42 @@ function buildOutputWorkbook({ source, mapped, unmapped, entityOverride }){
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Profit and Loss');
 
+  // === AI Decisions sheet — full reasoning trail ===
+  if(decisions && decisions.length > 0){
+    const aiHead = ['Source Account', 'Confidence', 'Mapped To', 'AI Reasoning'];
+    const aiRows = decisions.map(d => [
+      d.source,
+      (d.confidence || 0) + '%',
+      d.target || '(unmapped)',
+      d.reason || ''
+    ]);
+    const aiWs = XLSX.utils.aoa_to_sheet([aiHead].concat(aiRows));
+    aiWs['!cols'] = [{ wch: 50 }, { wch: 12 }, { wch: 55 }, { wch: 80 }];
+    // Style header row
+    for(let c=0; c<aiHead.length; c++){
+      const addr = XLSX.utils.encode_cell({ r:0, c });
+      if(aiWs[addr]) aiWs[addr].s = {
+        font: { name:'Calibri', sz:10, bold:true, color:{ rgb:'FFFFFF' } },
+        fill: { fgColor:{ rgb:'1F3A5F' } },
+        alignment: { vertical:'center' }
+      };
+    }
+    // Color-code confidence cells
+    for(let r=1; r<=aiRows.length; r++){
+      const conf = decisions[r-1].confidence || 0;
+      const cAddr = XLSX.utils.encode_cell({ r, c:1 });
+      const tAddr = XLSX.utils.encode_cell({ r, c:2 });
+      let fill = null;
+      if(conf >= 90)      fill = { fgColor:{ rgb:'D4F5DC' } };  // green
+      else if(conf >= 60) fill = { fgColor:{ rgb:'FFF3CD' } };  // amber
+      else if(conf > 0)   fill = { fgColor:{ rgb:'FFE0E0' } };  // light red
+      else                fill = { fgColor:{ rgb:'F0F0F0' } };  // grey
+      if(aiWs[cAddr]) aiWs[cAddr].s = { font:{ name:'Calibri', sz:10, bold:true }, fill, alignment:{ horizontal:'center' } };
+      if(aiWs[tAddr]) aiWs[tAddr].s = { font:{ name:'Calibri', sz:10 }, fill };
+    }
+    XLSX.utils.book_append_sheet(wb, aiWs, 'AI Decisions');
+  }
+
   // === Unmapped sheet ===
   if(unmapped && unmapped.length > 0){
     const head = ['Source Account'].concat(months);
@@ -728,10 +983,17 @@ async function convertFile(file, entityName){
   if(!source || !source.rows || source.rows.length === 0){
     throw new Error('No data rows detected in the file. Please check the format.');
   }
-  const { mapped, unmapped } = autoMap(source);
-  const wb = buildOutputWorkbook({ source, mapped, unmapped, entityOverride: entityName });
+  const { mapped, unmapped, decisions } = autoMap(source);
+  const wb = buildOutputWorkbook({ source, mapped, unmapped, decisions, entityOverride: entityName });
   const out = XLSX.write(wb, { bookType:'xlsx', type:'array' });
   const blob = new Blob([out], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+  // Confidence summary
+  const highConf   = decisions.filter(d => d.confidence >= 90).length;
+  const medConf    = decisions.filter(d => d.confidence >= 60 && d.confidence < 90).length;
+  const lowConf    = decisions.filter(d => d.confidence > 0  && d.confidence < 60).length;
+  const noConf     = decisions.filter(d => d.confidence === 0).length;
+
   return {
     blob,
     report: {
@@ -741,11 +1003,21 @@ async function convertFile(file, entityName){
       mappedRows:    source.rows.length - unmapped.length,
       unmappedRows:  unmapped.length,
       unmappedNames: unmapped.map(u => u.name),
-      coaAccounts:   Object.keys(mapped).length
+      coaAccounts:   Object.keys(mapped).length,
+      // AI thinking output
+      decisions:     decisions,
+      highConfCount: highConf,
+      medConfCount:  medConf,
+      lowConfCount:  lowConf,
+      noConfCount:   noConf
     }
   };
 }
 
-global.CTGPnLConverter = { convertFile, parseExcel, parsePdf, autoMap, mapAccount, COA, COA_KEYWORDS };
+global.CTGPnLConverter = {
+  convertFile, parseExcel, parsePdf,
+  autoMap, mapAccount, mapAccountAI,
+  COA, COA_KEYWORDS
+};
 
 })(window);

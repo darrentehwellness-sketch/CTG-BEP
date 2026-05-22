@@ -33,7 +33,7 @@
 <script>if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
 <script src="config.js?v=21"></script>
 <script src="assets/js/supabase-client.js?v=21"></script>
-<script src="assets/js/pnl-converter.js?v=6"></script>
+<script src="assets/js/pnl-converter.js?v=7"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -1193,6 +1193,51 @@
     }
   }
 
+  /* ============ AI THINKING PANEL (P&L Converter) ============ */
+  .ai-decision{
+    padding:10px 14px;margin:4px 0;
+    background:rgba(255,255,255,.02);
+    border:1px solid var(--border);
+    border-left:3px solid var(--muted);
+    border-radius:8px;
+    display:grid;grid-template-columns:1fr auto;gap:8px;
+    transition:.15s var(--ease);
+  }
+  .ai-decision:hover{ background:rgba(91,155,213,.06); }
+  .ai-decision.conf-high  { border-left-color:#10b981; }
+  .ai-decision.conf-med   { border-left-color:#5B9BD5; }
+  .ai-decision.conf-low   { border-left-color:#f59e0b; }
+  .ai-decision.conf-none  { border-left-color:#ef4444; }
+  .ai-decision .src{
+    font-size:12.5px;font-weight:700;color:#fff;
+    font-family:Consolas,Menlo,monospace;
+    word-break:break-word;
+  }
+  .ai-decision .arrow{ font-size:11px;color:var(--muted);margin:2px 0; }
+  .ai-decision .tgt{
+    font-size:12.5px;color:var(--sky-soft);
+    font-family:Consolas,Menlo,monospace;
+    word-break:break-word;
+  }
+  .ai-decision.conf-none .tgt{ color:#fca5a5; font-style:italic; }
+  .ai-decision .reason{
+    font-size:11.5px;color:var(--text-soft);
+    margin-top:6px;line-height:1.5;
+  }
+  .ai-decision .conf-pill{
+    align-self:start;
+    padding:3px 9px;border-radius:999px;
+    font-size:10.5px;font-weight:800;letter-spacing:.4px;
+    white-space:nowrap;
+  }
+  .ai-decision.conf-high .conf-pill { background:rgba(16,185,129,.18); color:#6ee7b7; border:1px solid rgba(16,185,129,.40); }
+  .ai-decision.conf-med  .conf-pill { background:rgba(91,155,213,.18); color:#93c5fd; border:1px solid rgba(91,155,213,.40); }
+  .ai-decision.conf-low  .conf-pill { background:rgba(245,158,11,.16); color:#fcd34d; border:1px solid rgba(245,158,11,.36); }
+  .ai-decision.conf-none .conf-pill { background:rgba(239,68,68,.16);  color:#fca5a5; border:1px solid rgba(239,68,68,.36); }
+  .ai-filter{ background:rgba(255,255,255,.04) !important; border:1px solid var(--border) !important; }
+  .ai-filter.active{ background:rgba(232,93,60,.16) !important; color:#fff !important; border-color:rgba(232,93,60,.50) !important; }
+  .ai-empty{ text-align:center; color:var(--muted); padding:30px 16px; font-style:italic; }
+
   /* ============ P&L CONVERTER ============ */
   .pnl-drop{
     border:2px dashed rgba(91,155,213,.30);
@@ -1888,10 +1933,33 @@
         <div class="kpi danger"><div class="label"><span class="dot"></span><span data-i18n="pnl_rep_months">Months detected</span></div><div class="value" id="pnlRepMonths">—</div><div class="sub" id="pnlRepMonthsSub">—</div></div>
       </div>
       <p class="note" data-i18n="pnl_rep_canonical_msg">✓ Output uses your canonical SKINDAE COA exactly — same account list, same order, same structure. Any source line we couldn't classify is listed in the "— Unmapped —" sheet so you can review and add to the keyword dictionary later.</p>
-      <details style="margin-top:10px;">
-        <summary style="cursor:pointer;font-size:13px;color:var(--sky-soft);font-weight:700;" data-i18n="pnl_rep_show_unmapped">📋 Show unmapped source lines</summary>
-        <div id="pnlUnmappedList" style="margin-top:10px;font-size:12.5px;color:var(--text-soft);"></div>
-      </details>
+    </div>
+
+    <!-- Step 4: AI Thinking — per-row reasoning -->
+    <div class="card" id="pnlAiCard" style="display:none;">
+      <h2><span class="ic">🧠</span><span data-i18n="pnl_ai_title">AI Thinking</span><span class="badge" data-i18n="pnl_ai_badge">Per-row reasoning</span></h2>
+      <p class="note" data-i18n="pnl_ai_intro">For each source row, the AI scored every canonical COA account on 5 signals — exact-name, keyword dictionary, section-prefix alignment, token overlap, and edit-distance — then picked the highest-confidence match and wrote out its reasoning. Below is the decision trail.</p>
+
+      <!-- Confidence breakdown KPIs -->
+      <div class="grid-4" style="margin:14px 0;">
+        <div class="kpi success"><div class="label"><span class="dot"></span><span data-i18n="pnl_ai_high">High confidence</span></div><div class="value" id="pnlAiHigh">—</div><div class="sub" data-i18n="pnl_ai_high_sub">≥90% certainty</div></div>
+        <div class="kpi"><div class="label"><span class="dot"></span><span data-i18n="pnl_ai_med">Medium</span></div><div class="value" id="pnlAiMed">—</div><div class="sub" data-i18n="pnl_ai_med_sub">60-89% (fuzzy match)</div></div>
+        <div class="kpi warn"><div class="label"><span class="dot"></span><span data-i18n="pnl_ai_low">Low</span></div><div class="value" id="pnlAiLow">—</div><div class="sub" data-i18n="pnl_ai_low_sub">below 60% — review</div></div>
+        <div class="kpi danger"><div class="label"><span class="dot"></span><span data-i18n="pnl_ai_none">No match</span></div><div class="value" id="pnlAiNone">—</div><div class="sub" data-i18n="pnl_ai_none_sub">Sent to Unmapped sheet</div></div>
+      </div>
+
+      <!-- Filter chips -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0;">
+        <button class="ghost ai-filter active" data-ai-filter="all" type="button" style="padding:6px 14px;font-size:12px;" data-i18n="pnl_ai_filter_all">All</button>
+        <button class="ghost ai-filter" data-ai-filter="high" type="button" style="padding:6px 14px;font-size:12px;" data-i18n="pnl_ai_filter_high">High ≥90%</button>
+        <button class="ghost ai-filter" data-ai-filter="med" type="button" style="padding:6px 14px;font-size:12px;" data-i18n="pnl_ai_filter_med">Medium 60-89%</button>
+        <button class="ghost ai-filter" data-ai-filter="low" type="button" style="padding:6px 14px;font-size:12px;" data-i18n="pnl_ai_filter_low">Low &lt;60%</button>
+        <button class="ghost ai-filter" data-ai-filter="none" type="button" style="padding:6px 14px;font-size:12px;" data-i18n="pnl_ai_filter_none">Unmapped</button>
+      </div>
+
+      <!-- Decision log (scrollable) -->
+      <div id="pnlAiLog" style="max-height:420px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;background:rgba(7,13,23,.30);padding:6px;"></div>
+      <p class="note" style="margin-top:10px;" data-i18n="pnl_ai_export_note">A full copy of this reasoning trail is also embedded in your downloaded Excel as a sheet named "AI Decisions".</p>
     </div>
   </div>
 
@@ -2400,6 +2468,19 @@ const I18N = {
     pnl_rep_months:"Months detected",
     pnl_rep_canonical_msg:"✓ Output uses your canonical SKINDAE COA exactly — same account list, same order, same structure. Any source line we couldn't classify is listed in the \"— Unmapped —\" sheet so you can review and add to the keyword dictionary later.",
     pnl_rep_show_unmapped:"📋 Show unmapped source lines",
+    // AI Thinking panel
+    pnl_ai_title:"AI Thinking", pnl_ai_badge:"Per-row reasoning",
+    pnl_ai_intro:"For each source row, the AI scored every canonical COA account on 5 signals — exact-name, keyword dictionary, section-prefix alignment, token overlap, and edit-distance — then picked the highest-confidence match and wrote out its reasoning. Below is the decision trail.",
+    pnl_ai_high:"High confidence", pnl_ai_high_sub:"≥90% certainty",
+    pnl_ai_med:"Medium",           pnl_ai_med_sub:"60-89% (fuzzy match)",
+    pnl_ai_low:"Low",              pnl_ai_low_sub:"below 60% — review",
+    pnl_ai_none:"No match",        pnl_ai_none_sub:"Sent to Unmapped sheet",
+    pnl_ai_filter_all:"All",
+    pnl_ai_filter_high:"High ≥90%",
+    pnl_ai_filter_med:"Medium 60-89%",
+    pnl_ai_filter_low:"Low <60%",
+    pnl_ai_filter_none:"Unmapped",
+    pnl_ai_export_note:"A full copy of this reasoning trail is also embedded in your downloaded Excel as a sheet named \"AI Decisions\".",
     // Page header subtitles per tab
     page_sub_calc:"Build budgets and compute break-even in real-time",
     page_sub_setup:"Manage products and cost line items",
@@ -4549,6 +4630,54 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     fileInput.value = '';
     setFile(null);
     reportCard.style.display = 'none';
+    const aiCard = document.getElementById('pnlAiCard');
+    if(aiCard) aiCard.style.display = 'none';
+  });
+
+  // ====== AI Thinking — render log with filter chips ======
+  function renderAiLog(filter){
+    const aiLog = document.getElementById('pnlAiLog');
+    if(!aiLog) return;
+    const decisions = window._lastPnlDecisions || [];
+    const buckets = {
+      high: d => d.confidence >= 90,
+      med:  d => d.confidence >= 60 && d.confidence < 90,
+      low:  d => d.confidence > 0   && d.confidence < 60,
+      none: d => d.confidence === 0,
+      all:  () => true
+    };
+    const test = buckets[filter] || buckets.all;
+    const filtered = decisions.filter(test);
+    if(filtered.length === 0){
+      aiLog.innerHTML = '<div class="ai-empty">No decisions in this category.</div>';
+      return;
+    }
+    aiLog.innerHTML = filtered.map(d => {
+      const cls = d.confidence >= 90 ? 'conf-high'
+                : d.confidence >= 60 ? 'conf-med'
+                : d.confidence > 0   ? 'conf-low'
+                : 'conf-none';
+      return '<div class="ai-decision ' + cls + '">' +
+        '<div>' +
+          '<div class="src">' + escapeHtml(d.source || '') + '</div>' +
+          '<div class="arrow">→ mapped to</div>' +
+          '<div class="tgt">' + escapeHtml(d.target || '(unmapped)') + '</div>' +
+          '<div class="reason">💭 ' + escapeHtml(d.reason || '') + '</div>' +
+        '</div>' +
+        '<div class="conf-pill">' + (d.confidence || 0) + '%</div>' +
+      '</div>';
+    }).join('');
+  }
+  // Make renderAiLog available to the convert handler
+  window.renderAiLog = renderAiLog;
+
+  // Filter chip handlers
+  document.addEventListener('click', e => {
+    const btn = e.target.closest && e.target.closest('.ai-filter');
+    if(!btn) return;
+    document.querySelectorAll('.ai-filter').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderAiLog(btn.dataset.aiFilter || 'all');
   });
 
   // Convert
@@ -4576,19 +4705,26 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
       // Show report — defensive against malformed report objects
       const setT = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = (val == null ? '—' : val); };
       const months = Array.isArray(report.months) ? report.months : [];
-      const unmappedNames = Array.isArray(report.unmappedNames) ? report.unmappedNames : [];
       setT('pnlRepMapped',    report.mappedRows   || 0);
       setT('pnlRepUnmapped',  report.unmappedRows || 0);
       setT('pnlRepBuckets',   report.coaAccounts  || 0);
       setT('pnlRepMonths',    months.length);
       setT('pnlRepMonthsSub', months.join(' · ') || '—');
-      const umList = document.getElementById('pnlUnmappedList');
-      if(umList){
-        umList.innerHTML = (report.unmappedRows || 0) === 0
-          ? '<div class="note">✓ Every source line was mapped to a canonical COA bucket.</div>'
-          : unmappedNames.map(n => '<div class="um-line">' + escapeHtml(n) + '</div>').join('');
-      }
       reportCard.style.display = 'block';
+
+      // Show AI Thinking panel
+      setT('pnlAiHigh', report.highConfCount || 0);
+      setT('pnlAiMed',  report.medConfCount  || 0);
+      setT('pnlAiLow',  report.lowConfCount  || 0);
+      setT('pnlAiNone', report.noConfCount   || 0);
+      const aiCard = document.getElementById('pnlAiCard');
+      const aiLog  = document.getElementById('pnlAiLog');
+      if(aiCard && aiLog){
+        const decisions = Array.isArray(report.decisions) ? report.decisions : [];
+        window._lastPnlDecisions = decisions;
+        renderAiLog('all');
+        aiCard.style.display = 'block';
+      }
       showStatus(t('pnl_done'), 'success');
     } catch (err) {
       console.error(err);
