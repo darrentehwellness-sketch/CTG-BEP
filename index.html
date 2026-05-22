@@ -5715,15 +5715,35 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
       '</div>';
     document.body.appendChild(div);
 
-    // ===== Bind click handlers DIRECTLY on the popup (not on document) =====
-    // This prevents any conflict with other document-level listeners and
-    // guarantees the Apply/Cancel buttons fire reliably. Each handler calls
-    // stopPropagation so the click doesn't bubble up and accidentally
-    // re-trigger the date-range trigger or close the popup prematurely.
-    // We use mousedown for outside-detection ELSEWHERE, but inside the popup
-    // we listen on 'click' (works for both mouse + keyboard activation).
+    // ===== BULLETPROOF button bindings =====
+    // Day cells + presets + nav use event delegation (they're re-rendered on
+    // each dpRender so direct handlers would get lost). Apply + Cancel buttons
+    // are STATIC (never re-rendered) so we bind onclick DIRECTLY to them —
+    // this completely bypasses any delegation/event-bubbling issues that
+    // could prevent Apply from firing.
+    const applyBtn  = div.querySelector('[data-dp-action="apply"]');
+    const cancelBtn = div.querySelector('[data-dp-action="cancel"]');
+    if(applyBtn){
+      applyBtn.onclick = e => {
+        e.preventDefault();
+        e.stopPropagation();
+        try { dpApply(); }
+        catch(err){ console.error('[WHT date picker] dpApply failed:', err); dpClose(); }
+      };
+    }
+    if(cancelBtn){
+      cancelBtn.onclick = e => {
+        e.preventDefault();
+        e.stopPropagation();
+        dpClose();
+      };
+    }
+
+    // Delegated handler for day cells + presets + nav arrows (these get
+    // re-rendered as innerHTML each time the calendar redraws, so they need
+    // delegation rather than direct bindings).
     div.addEventListener('click', e => {
-      const tgt = e.target.closest('[data-dp-day], [data-dp-preset], [data-dp-nav], [data-dp-action]');
+      const tgt = e.target.closest('[data-dp-day], [data-dp-preset], [data-dp-nav]');
       if(!tgt) return;
       e.stopPropagation();
       if(tgt.dataset.dpDay){
@@ -5742,11 +5762,7 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
         _dp.viewMonth++; if(_dp.viewMonth > 11){ _dp.viewMonth = 0; _dp.viewYear++; }
         dpRender(); return;
       }
-      if(tgt.dataset.dpAction === 'apply'){  dpApply();  return; }
-      if(tgt.dataset.dpAction === 'cancel'){ dpClose();  return; }
     });
-    // Also catch mousedown to stop it bubbling and reaching dpOutsideClick
-    div.addEventListener('mousedown', e => { e.stopPropagation(); });
   }
 
   function _todayIso(){
@@ -5921,28 +5937,57 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
   }
 
   function dpApply(){
-    if(!_dp) return;
+    if(!_dp){ console.warn('[WHT dp] Apply called but _dp is null'); return; }
     const dr = (_dp.startIso && _dp.endIso) ? joinDateRange(_dp.startIso, _dp.endIso) : '';
     const target = _dp.target;
+    console.log('[WHT dp] Apply →', { target, dr, _dp });
     if(target.kind === 'period'){
       whtState.period = dr;
       persist();
       const pw = document.getElementById('whtPeriodWidget');
-      if(pw) pw.innerHTML = buildDateRangeWidget(dr, { whtPeriodScope: '1' });
+      if(pw){
+        pw.innerHTML = buildDateRangeWidget(dr, { whtPeriodScope: '1' });
+      } else {
+        console.warn('[WHT dp] whtPeriodWidget element not found — falling back to renderAll');
+        try { renderAll(); } catch(e){ console.error(e); }
+      }
     } else if(target.kind === 'payee'){
       const p = whtState.payees[target.i];
-      if(p){
-        p.dateRange = dr;
-        persist();
-        const card = document.querySelector('[data-pi="' + target.i + '"]');
-        if(card){
-          const oldTrigger = card.querySelector('.wht-dr-trigger');
-          if(oldTrigger){
+      if(!p){
+        console.warn('[WHT dp] Payee not found at index', target.i, '— closing without save');
+        dpClose();
+        return;
+      }
+      p.dateRange = dr;
+      persist();
+      // Surgical DOM update of the trigger inside the payee's card. If that
+      // path fails for any reason, fall back to a full renderAll() so the
+      // user's change is at least reflected in the UI.
+      let domUpdated = false;
+      const card = document.querySelector('[data-pi="' + target.i + '"]');
+      if(card){
+        const oldTrigger = card.querySelector('.wht-dr-trigger');
+        if(oldTrigger){
+          try {
             const wrap = document.createElement('div');
             wrap.innerHTML = buildDateRangeWidget(dr, { wpf: target.i });
-            oldTrigger.replaceWith(wrap.firstChild);
+            const newTrigger = wrap.firstChild;
+            if(newTrigger){
+              oldTrigger.replaceWith(newTrigger);
+              domUpdated = true;
+            }
+          } catch(err){
+            console.error('[WHT dp] Surgical trigger update failed:', err);
           }
+        } else {
+          console.warn('[WHT dp] .wht-dr-trigger not found inside card[data-pi="' + target.i + '"]');
         }
+      } else {
+        console.warn('[WHT dp] card[data-pi="' + target.i + '"] not found');
+      }
+      if(!domUpdated){
+        console.warn('[WHT dp] Falling back to renderAll() to reflect state change');
+        try { renderAll(); } catch(e){ console.error(e); }
       }
     }
     dpClose();
