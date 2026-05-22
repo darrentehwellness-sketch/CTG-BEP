@@ -33,7 +33,7 @@
 <script>if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
 <script src="config.js?v=21"></script>
 <script src="assets/js/supabase-client.js?v=21"></script>
-<script src="assets/js/pnl-converter.js?v=11"></script>
+<script src="assets/js/pnl-converter.js?v=12"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -1193,6 +1193,18 @@
     }
   }
 
+  /* ============ AUDIT REVIEW (Pass 3) PANEL ============ */
+  #pnlAuditPanel.op-clean    #pnlAuditOpinion { background:linear-gradient(135deg, #047857, #065f46); }
+  #pnlAuditPanel.op-minor    #pnlAuditOpinion { background:linear-gradient(135deg, #b45309, #92400e); }
+  #pnlAuditPanel.op-material #pnlAuditOpinion { background:linear-gradient(135deg, #b91c1c, #7f1d1d); }
+  .audit-finding{
+    padding:9px 12px;border-radius:7px;font-size:12.5px;line-height:1.55;
+    border-left:3px solid var(--muted);background:rgba(255,255,255,.02);
+  }
+  .audit-finding.sev-critical{ border-left-color:#ef4444; background:rgba(239,68,68,.07); color:#fca5a5; }
+  .audit-finding.sev-warning { border-left-color:#f59e0b; background:rgba(245,158,11,.07); color:#fcd34d; }
+  .audit-finding.sev-info    { border-left-color:#5B9BD5; background:rgba(91,155,213,.06); color:var(--text); }
+
   /* ============ AI THINKING PANEL (P&L Converter) ============ */
   .ai-decision{
     padding:10px 14px;margin:4px 0;
@@ -1937,8 +1949,21 @@
 
     <!-- Step 4: AI Thinking — per-row reasoning -->
     <div class="card" id="pnlAiCard" style="display:none;">
-      <h2><span class="ic">🎓</span><span data-i18n="pnl_ai_title">AI Thinking — ACCA Senior Accountant</span><span class="badge" data-i18n="pnl_ai_badge">MFRS · LHDN · ACCA</span></h2>
-      <p class="note" data-i18n="pnl_ai_intro">Two-pass document-aware AI trained as an <b>ACCA-qualified Senior Accountant / Finance Controller</b>. <b>Pass 1</b> reads the whole document — detects section headers, recognizes the source system's naming style, tags each row with its source section. <b>Pass 2</b> classifies each row using that context (4 reasoning layers: exact-name → keyword → 117 ACCA professional rules → fuzzy fallback). Below: document findings, then the per-row decision trail.</p>
+      <h2><span class="ic">🎓</span><span data-i18n="pnl_ai_title">AI Thinking — ACCA Senior Accountant</span><span class="badge" data-i18n="pnl_ai_badge">30-yr experience · MFRS · LHDN</span></h2>
+      <p class="note" data-i18n="pnl_ai_intro">Three-pass document-aware AI trained as an <b>ACCA-qualified Senior Accountant / Finance Controller with 30 years of experience</b>. <b>Pass 1</b> reads the whole document — section headers, naming style, source layout. <b>Pass 2</b> classifies each row with that context (4 reasoning layers: exact-name → keyword → 117 ACCA professional rules → fuzzy fallback). <b>Pass 3</b> does a final senior-reviewer audit — cross-checks every decision against 10 professional sanity rules and issues a formal opinion.</p>
+
+      <!-- Pass-3 Audit Opinion banner -->
+      <div id="pnlAuditPanel" style="margin:12px 0 16px;border-radius:10px;display:none;overflow:hidden;border:1px solid var(--border);">
+        <div id="pnlAuditOpinion" style="padding:14px 18px;display:flex;align-items:center;gap:14px;font-weight:700;">
+          <span id="pnlAuditIcon" style="font-size:24px;">🔍</span>
+          <div style="flex:1;">
+            <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#fff;font-weight:800;opacity:.95;">Senior Accountant Audit Opinion (Pass 3)</div>
+            <div id="pnlAuditOpinionText" style="font-size:14.5px;color:#fff;margin-top:3px;">—</div>
+          </div>
+          <div id="pnlAuditCounts" style="font-size:11.5px;color:rgba(255,255,255,.85);text-align:right;line-height:1.6;">—</div>
+        </div>
+        <div id="pnlAuditFindings" style="background:rgba(7,13,23,.30);padding:12px 16px;display:flex;flex-direction:column;gap:6px;"></div>
+      </div>
 
       <!-- Pass-1 Document Analysis findings -->
       <div id="pnlDocPanel" style="margin:12px 0 16px;padding:12px 16px;background:rgba(91,155,213,.08);border:1px solid rgba(91,155,213,.30);border-radius:10px;display:none;">
@@ -4638,6 +4663,10 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     reportCard.style.display = 'none';
     const aiCard = document.getElementById('pnlAiCard');
     if(aiCard) aiCard.style.display = 'none';
+    const auditPanel = document.getElementById('pnlAuditPanel');
+    if(auditPanel) auditPanel.style.display = 'none';
+    const docPanel = document.getElementById('pnlDocPanel');
+    if(docPanel) docPanel.style.display = 'none';
   });
 
   // ====== AI Thinking — render log with filter chips ======
@@ -4731,6 +4760,37 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
         renderAiLog('all');
         aiCard.style.display = 'block';
       }
+      // Pass-3 Audit Review panel
+      const auditPanel = document.getElementById('pnlAuditPanel');
+      if(auditPanel && report.audit){
+        const a = report.audit;
+        const opinion = a.opinion || 'clean';
+        auditPanel.classList.remove('op-clean','op-minor','op-material');
+        auditPanel.classList.add('op-' + opinion);
+        const opIcon = opinion === 'clean' ? '✅' : opinion === 'minor' ? '⚠️' : '🚨';
+        const opText = opinion === 'clean'    ? 'CLEAN — No material issues. Mapping ready to use.'
+                     : opinion === 'minor'    ? 'MINOR ADJUSTMENTS NEEDED — Review the warnings below before finalising.'
+                     :                          'MATERIAL REVIEW REQUIRED — Critical issues need attention before signing off.';
+        const setT2 = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+        setT2('pnlAuditIcon', opIcon);
+        setT2('pnlAuditOpinionText', opText);
+        const cts = a.counts || {};
+        document.getElementById('pnlAuditCounts').innerHTML =
+          '🔴 ' + (cts.critical||0) + ' critical · 🟠 ' + (cts.warning||0) + ' warning · 🔵 ' + (cts.info||0) + ' info';
+        const findEl = document.getElementById('pnlAuditFindings');
+        if(findEl){
+          if(!Array.isArray(a.findings) || a.findings.length === 0){
+            findEl.innerHTML = '<div class="audit-finding sev-info">No findings — every check passed. As your AI Senior Accountant I would sign off this mapping.</div>';
+          } else {
+            findEl.innerHTML = a.findings.map(f =>
+              '<div class="audit-finding sev-' + (f.severity || 'info') + '"><b>' +
+                escapeHtml(f.area || '') + ':</b> ' + escapeHtml(f.message || '') + '</div>'
+            ).join('');
+          }
+        }
+        auditPanel.style.display = 'block';
+      }
+
       // Pass-1 Document Analysis findings panel
       const docPanel = document.getElementById('pnlDocPanel');
       const docFindings = document.getElementById('pnlDocFindings');

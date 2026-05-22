@@ -1119,6 +1119,152 @@ async function parsePdf(arrayBuffer){
   };
 }
 
+/* ============================================================
+   STAGE 3 — SENIOR ACCOUNTANT AUDIT REVIEW
+   ============================================================
+   After Pass 1 (read) + Pass 2 (classify), this final pass plays the
+   role of a 30-year ACCA-qualified Senior Accountant / Finance
+   Controller doing a final review of the entire mapping. It applies
+   professional sanity rules learned over decades of audit experience:
+
+     • Did we find revenue? (P&L without revenue is suspicious)
+     • Are contra-accounts (discounts, returns) correctly signed?
+     • Closing stock should be negative in COS
+     • Director's contribution appears but no director salary?
+     • EPF appears but no employee salaries? — incomplete data
+     • Material consolidations (many source rows → one bucket)
+     • Section mismatch concentration
+     • Magnitude sanity (sum of mapped revenue vs costs)
+     • Low-confidence cluster (>20% needs review)
+     • Tax provision present but no profit?
+
+   Returns:
+     { findings:[{severity, area, message}], opinion: 'clean'|'minor'|'material' }
+   ============================================================ */
+function auditDecisions(parsed, decisions, mapped, docContext){
+  const findings = [];
+  const flag = (severity, area, message) => findings.push({ severity, area, message });
+  const monthCount = parsed.months.length;
+  const sumMonths = arr => (arr || []).reduce((s,v) => s + (Number(v) || 0), 0);
+
+  // ----- (1) Revenue detection -----
+  const revenueTargets = Object.keys(mapped).filter(t => canonicalSectionOf(t) === 'Trading Income');
+  const revenueRows = revenueTargets.length;
+  if(revenueRows === 0){
+    flag('critical','Revenue','📌 CRITICAL: No source rows were mapped to any Trading Income account. A P&L without revenue is highly unusual — either the source has no revenue lines, or the AI missed them. Suggest reviewing the source file column for any "Sales", "Revenue", "Income" rows that should map.');
+  }
+
+  // ----- (2) Multiple source rows → same canonical (consolidation alert) -----
+  const tgtSources = {};   // target -> [source names]
+  decisions.forEach(d => {
+    if(!d.target) return;
+    (tgtSources[d.target] = tgtSources[d.target] || []).push(d.source);
+  });
+  Object.keys(tgtSources).forEach(t => {
+    const srcs = tgtSources[t];
+    if(srcs.length >= 3){
+      flag('info','Consolidation','📊 ' + srcs.length + ' source rows consolidated into "' + t + '": ' + srcs.map(s => '"' + s + '"').join(', ') + '. As a senior accountant I would verify these are indeed the same nature of transaction before final approval.');
+    }
+  });
+
+  // ----- (3) Contra-account sign anomalies -----
+  // Discount Voucher, Return Inwards, Stocks At End of Year — should typically be NEGATIVE
+  decisions.forEach(d => {
+    if(!d.target) return;
+    const isContra = /(discount voucher|return inwards|stocks at the end)/i.test(d.target);
+    if(isContra && d.values){
+      const total = sumMonths(d.values);
+      if(total > 0){
+        flag('warning','Sign Check','⚠ "' + d.source + '" → "' + d.target + '" has POSITIVE values (' + total.toFixed(2) + ') but this is a contra-revenue / contra-cost account. Senior accountant note: contras should reduce their parent line — expect NEGATIVE figures. Review source data direction.');
+      }
+    }
+  });
+
+  // ----- (4) Director contribution without director remuneration (or vice versa) -----
+  const hasDirSal = !!mapped["STAFF - Director's Remuneration"];
+  const hasDirEpf = !!mapped["STAFF - Director Employer's Contribution"];
+  if(hasDirEpf && !hasDirSal){
+    flag('warning','Completeness','⚠ Director EPF contribution detected but NO director remuneration — usually they come together. Check if director salary is buried under "STAFF - Employees Salaries" by mistake.');
+  }
+  if(hasDirSal && !hasDirEpf){
+    flag('info','Completeness','📋 Director remuneration present but no director employer EPF detected — verify if director is exempt (Companies Act 2016 / personal preference) or if it just maps to general EPF.');
+  }
+
+  // ----- (5) Employee salaries without EPF (or vice versa) -----
+  const hasEmpSal = !!mapped["STAFF - Employees Salaries & Wages"];
+  const hasEmpEpf = !!mapped["STAFF - Employees Employer's Contribution"];
+  if(hasEmpSal && !hasEmpEpf){
+    flag('warning','Completeness','⚠ Employee salaries present but no employer EPF/SOCSO/EIS — by Employment Act 1955 + EPF Act 1991 these are mandatory. Either source missed it or it landed under a different target. Investigate.');
+  }
+  if(hasEmpEpf && !hasEmpSal){
+    flag('warning','Completeness','⚠ Employer contribution present but no employee salaries detected — incomplete data. Source likely has a "Salary" line that did not map.');
+  }
+
+  // ----- (6) Section-mismatch concentration -----
+  const sectionConflictRows = decisions.filter(d => d.reason && /section mismatch|⚠ note: source places/i.test(d.reason)).length;
+  if(sectionConflictRows > 0){
+    flag('warning','Section Audit','⚠ ' + sectionConflictRows + ' row(s) have a section conflict between the source layout and the canonical destination — AI placed them per name but my professional judgment is to manually verify these against the source PDF / Excel.');
+  }
+
+  // ----- (7) Confidence cluster — many low-confidence rows means uncertain mapping -----
+  const total = decisions.length;
+  const lowConf = decisions.filter(d => d.confidence > 0 && d.confidence < 60).length;
+  if(total > 0 && lowConf / total >= 0.20){
+    flag('warning','Confidence','⚠ ' + lowConf + ' of ' + total + ' rows (' + Math.round(100*lowConf/total) + '%) classified at LOW confidence. As a senior reviewer I would not sign off on this mapping without a line-by-line spot check.');
+  }
+
+  // ----- (8) Unmapped concentration — significant data loss risk -----
+  const unmappedCount = decisions.filter(d => !d.target).length;
+  if(total > 0 && unmappedCount / total >= 0.10){
+    flag('warning','Unmapped','⚠ ' + unmappedCount + ' rows (' + Math.round(100*unmappedCount/total) + '%) could not be mapped to any canonical bucket — listed in the "— Unmapped —" sheet. Best practice: add their names + intended COA targets to the keyword dictionary so future conversions auto-classify.');
+  }
+
+  // ----- (9) Magnitude sanity — gross margin reasonable -----
+  if(revenueTargets.length > 0){
+    let totalRevenue = 0, totalCOS = 0;
+    Object.keys(mapped).forEach(t => {
+      const s = canonicalSectionOf(t);
+      const total = sumMonths(mapped[t]);
+      if(s === 'Trading Income') totalRevenue += total;
+      if(s === 'Cost of Sales')  totalCOS += total;
+    });
+    if(totalRevenue > 0 && totalCOS > totalRevenue * 1.5){
+      flag('warning','Magnitude','⚠ Total COS (' + totalCOS.toFixed(2) + ') exceeds total Revenue (' + totalRevenue.toFixed(2) + ') by >50% — gross margin is materially negative. Either the business is making losses (possible) or COS lines got over-classified. Review.');
+    }
+    if(totalRevenue > 0 && totalCOS < 0){
+      flag('info','Magnitude','📋 Net COS is NEGATIVE — this typically means closing stock outweighs purchases, or there are net stock recoveries. Verify per MFRS 102.');
+    }
+  }
+
+  // ----- (10) Taxation present but no profit -----
+  const hasTax = !!mapped["Corparate Taxation @24%"];
+  if(hasTax){
+    let totalRev = 0, totalCOS = 0, totalOpEx = 0;
+    Object.keys(mapped).forEach(t => {
+      const s = canonicalSectionOf(t);
+      const total = sumMonths(mapped[t]);
+      if(s === 'Trading Income')      totalRev += total;
+      if(s === 'Cost of Sales')       totalCOS += total;
+      if(s === 'Operating Expenses')  totalOpEx += total;
+    });
+    const profitBeforeTax = totalRev - totalCOS - totalOpEx;
+    if(profitBeforeTax <= 0){
+      flag('warning','Taxation','⚠ Corporate Tax @24% is provided but Profit Before Tax appears non-positive (' + profitBeforeTax.toFixed(2) + ') — verify per ITA s.6: tax is only chargeable on profits. Check if this is an underprovision or deferred tax.');
+    }
+  }
+
+  // ----- Final opinion -----
+  const criticals = findings.filter(f => f.severity === 'critical').length;
+  const warnings  = findings.filter(f => f.severity === 'warning').length;
+  let opinion;
+  if(criticals > 0)              opinion = 'material';
+  else if(warnings >= 3)         opinion = 'minor';
+  else if(warnings > 0)          opinion = 'minor';
+  else                           opinion = 'clean';
+
+  return { findings, opinion, counts: { critical: criticals, warning: warnings, info: findings.length - criticals - warnings } };
+}
+
 /* ============ AUTO-MAP — two-pass document-aware AI ============
    Pass 1: analyseDocument() builds document-level intelligence
            (naming style, section context, etc.)
@@ -1163,7 +1309,7 @@ function autoMap(parsed){
 }
 
 /* ============ OUTPUT BUILDER ============ */
-function buildOutputWorkbook({ source, mapped, unmapped, decisions, entityOverride }){
+function buildOutputWorkbook({ source, mapped, unmapped, decisions, audit, entityOverride }){
   if(typeof XLSX === 'undefined') throw new Error('SheetJS not loaded');
   const { title, entity, period, months } = source;
   const monthCount = months.length;
@@ -1422,6 +1568,56 @@ function buildOutputWorkbook({ source, mapped, unmapped, decisions, entityOverri
     XLSX.utils.book_append_sheet(wb, aiWs, 'AI Decisions');
   }
 
+  // === Audit Findings sheet (Pass 3) ===
+  if(audit && Array.isArray(audit.findings) && audit.findings.length > 0){
+    const auditHead = ['Severity', 'Area', 'Finding'];
+    const opinionText = audit.opinion === 'clean'    ? 'CLEAN — No material issues'
+                      : audit.opinion === 'minor'    ? 'MINOR ADJUSTMENTS NEEDED — Review warnings below'
+                      :                                'MATERIAL REVIEW REQUIRED — Critical issues';
+    const auditRows = [];
+    auditRows.push(['Audit Opinion', '', opinionText]);
+    auditRows.push(['Generated By',  '', '🎓 AI Senior Accountant (ACCA-trained, 30-yr experience persona)']);
+    auditRows.push(['', '', '']);
+    audit.findings.forEach(f => {
+      const sev = f.severity === 'critical' ? '🔴 CRITICAL'
+                : f.severity === 'warning'  ? '🟠 WARNING'
+                :                             '🔵 INFO';
+      auditRows.push([sev, f.area || '', f.message || '']);
+    });
+    const auditWs = XLSX.utils.aoa_to_sheet([auditHead].concat(auditRows));
+    auditWs['!cols'] = [{ wch: 14 }, { wch: 18 }, { wch: 110 }];
+    // Style header row
+    for(let c=0; c<auditHead.length; c++){
+      const addr = XLSX.utils.encode_cell({ r:0, c });
+      if(auditWs[addr]) auditWs[addr].s = {
+        font: { name:'Calibri', sz:10, bold:true, color:{ rgb:'FFFFFF' } },
+        fill: { fgColor:{ rgb:'8B1A1A' } },
+        alignment: { vertical:'center' }
+      };
+    }
+    // Opinion row
+    const opAddr = XLSX.utils.encode_cell({ r:1, c:2 });
+    if(auditWs[opAddr]){
+      const opFill = audit.opinion === 'clean'  ? { fgColor:{ rgb:'D4F5DC' } }
+                   : audit.opinion === 'minor'  ? { fgColor:{ rgb:'FFF3CD' } }
+                   :                              { fgColor:{ rgb:'FFE0E0' } };
+      auditWs[opAddr].s = { font:{ name:'Calibri', sz:11, bold:true }, fill:opFill };
+    }
+    // Color-code finding rows
+    for(let r=4; r<=auditRows.length; r++){
+      const sevCell = XLSX.utils.encode_cell({ r, c:0 });
+      const findCell = XLSX.utils.encode_cell({ r, c:2 });
+      const f = audit.findings[r-4];
+      if(!f) continue;
+      const fill = f.severity === 'critical' ? { fgColor:{ rgb:'FFE0E0' } }
+                 : f.severity === 'warning'  ? { fgColor:{ rgb:'FFF3CD' } }
+                 :                              { fgColor:{ rgb:'E0F2FF' } };
+      if(auditWs[sevCell])  auditWs[sevCell].s  = { font:{ name:'Calibri', sz:10, bold:true }, fill };
+      if(auditWs[findCell]) auditWs[findCell].s = { font:{ name:'Calibri', sz:10 }, alignment:{ wrapText:true, vertical:'top' }, fill };
+    }
+    XLSX.utils.book_append_sheet(wb, auditWs, '🔍 Audit Findings');
+  }
+
   // === Unmapped sheet ===
   if(unmapped && unmapped.length > 0){
     const head = ['Source Account'].concat(months);
@@ -1457,7 +1653,9 @@ async function convertFile(file, entityName){
     throw new Error('No data rows detected in the file. Please check the format.');
   }
   const { mapped, unmapped, decisions, docContext } = autoMap(source);
-  const wb = buildOutputWorkbook({ source, mapped, unmapped, decisions, entityOverride: entityName });
+  // === PASS 3 — Senior Accountant audit review ===
+  const audit = auditDecisions(source, decisions, mapped, docContext);
+  const wb = buildOutputWorkbook({ source, mapped, unmapped, decisions, audit, entityOverride: entityName });
   const out = XLSX.write(wb, { bookType:'xlsx', type:'array' });
   const blob = new Blob([out], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 
@@ -1484,7 +1682,9 @@ async function convertFile(file, entityName){
       lowConfCount:  lowConf,
       noConfCount:   noConf,
       // Pass-1 document analysis output
-      docContext:    docContext
+      docContext:    docContext,
+      // Pass-3 senior accountant audit review output
+      audit:         audit
     }
   };
 }
