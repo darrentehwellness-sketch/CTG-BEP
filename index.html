@@ -2062,12 +2062,6 @@
           <input type="text" id="whtPeriod" placeholder="e.g. 17 Jan 2026 - 31 Jan 2026"/>
         </div>
       </div>
-      <div class="grid-3">
-        <div class="input-group">
-          <label data-i18n="wht_prepared">Prepared By</label>
-          <input type="text" id="whtPreparedBy" placeholder="e.g. Janet Ooi"/>
-        </div>
-      </div>
     </div>
 
     <!-- Step 2: Payees list (dynamically rendered) -->
@@ -5056,10 +5050,9 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
           '</div>' +
           '<button class="danger" data-wht-del-payee="' + i + '" style="padding:6px 12px;font-size:11.5px;">' + t('wht_remove_payee') + '</button>' +
         '</div>' +
-        '<div class="grid-3">' +
+        '<div class="grid-2">' +
           '<div class="input-group"><label>' + t('wht_payee_name') + '</label><input type="text" value="' + escapeHtml(p.name||'') + '" data-wpf="' + i + '" data-field="name"></div>' +
           '<div class="input-group"><label>' + t('wht_payee_country') + '</label><select data-wpf="' + i + '" data-field="country" style="width:100%;padding:11px 14px;border:1px solid var(--border-strong);border-radius:8px;background:rgba(7,13,23,.6);color:var(--text);font:inherit;">' + buildCountryOptions(p.country) + '</select></div>' +
-          '<div class="input-group"><label>' + t('wht_payee_tin') + '</label><input type="text" value="' + escapeHtml(p.foreignTin||'') + '" data-wpf="' + i + '" data-field="foreignTin"></div>' +
         '</div>' +
         '<div class="grid-3">' +
           '<div class="input-group"><label>' + t('wht_payee_section') + '</label><select data-wpf="' + i + '" data-field="section" style="width:100%;padding:11px 14px;border:1px solid var(--border-strong);border-radius:8px;background:rgba(7,13,23,.6);color:var(--text);font:inherit;">' + buildSectionOptions(p.section) + '</select></div>' +
