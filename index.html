@@ -2051,7 +2051,12 @@
       <div class="grid-3">
         <div class="input-group">
           <label data-i18n="wht_payer_name">Payer Name</label>
-          <input type="text" id="whtPayerName" placeholder="e.g. SKINDAE SDN BHD"/>
+          <select id="whtPayerEntitySelect" style="width:100%;padding:11px 14px;border:1px solid var(--border-strong);border-radius:8px;background:rgba(7,13,23,.6);color:var(--text);font:inherit;">
+            <option value="">— Select entity —</option>
+            <option value="__custom__">— Type custom name —</option>
+          </select>
+          <input type="text" id="whtPayerName" placeholder="e.g. SKINDAE SDN BHD" style="margin-top:8px;display:none;"/>
+          <div class="note" style="margin-top:6px;font-size:11px;" data-i18n="wht_payer_name_hint">Pick from your Entities list (Admin → Entities) — name + TIN auto-fill.</div>
         </div>
         <div class="input-group">
           <label data-i18n="wht_payer_tin">Tax Identification No. (TIN)</label>
@@ -3983,7 +3988,14 @@ function activateTab(id, opts){
   if(id==='entities') renderEntitiesTab();
   if(id==='users') renderUsersTab();
   if(id==='pcalc') { pcEnsureChannels(); pcRender(); pcRefreshSaved(); }
-  if(id==='wht' && typeof window._whtRefresh === 'function') window._whtRefresh();
+  if(id==='wht' && typeof window._whtRefresh === 'function'){
+    // Refresh entities first so the Payer dropdown is up to date, then render.
+    if(typeof refreshEntitiesCache === 'function'){
+      refreshEntitiesCache().then(() => window._whtRefresh()).catch(() => window._whtRefresh());
+    } else {
+      window._whtRefresh();
+    }
+  }
   // Scroll content back to top so the user starts at the page header
   if(!opts.skipScroll){
     const main = document.querySelector('.main-content');
@@ -5145,17 +5157,80 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     setT('whtTfPayable', W.fmt(result.totals.payable));
   }
 
+  // Build the entity dropdown options from the global _entitiesCache.
+  function buildPayerEntityOptions(){
+    const sel = document.getElementById('whtPayerEntitySelect');
+    if(!sel) return;
+    const active = (Array.isArray(_entitiesCache) ? _entitiesCache : []).filter(e => e && e.is_active !== false);
+    let html = '<option value="">— Select entity —</option>';
+    active.forEach(e => {
+      html += '<option value="' + escapeHtml(e.id || '') + '">' + escapeHtml(e.name || '') + '</option>';
+    });
+    html += '<option value="__custom__">— Type custom name —</option>';
+    sel.innerHTML = html;
+
+    // Try to match current payerName to an entity. If matched → select it.
+    // If not but state.payerName is set → custom mode. Otherwise blank.
+    const matched = active.find(e => e.name === whtState.payerName);
+    if(matched){
+      sel.value = matched.id;
+      const inp = document.getElementById('whtPayerName');
+      if(inp) inp.style.display = 'none';
+    } else if(whtState.payerName){
+      sel.value = '__custom__';
+      const inp = document.getElementById('whtPayerName');
+      if(inp){ inp.style.display = ''; if(document.activeElement !== inp) inp.value = whtState.payerName; }
+    } else {
+      sel.value = '';
+      const inp = document.getElementById('whtPayerName');
+      if(inp) inp.style.display = 'none';
+    }
+  }
+
   function renderAll(){
     // sync payer block
     const setVal = (id, val) => { const el = document.getElementById(id); if(el && document.activeElement !== el) el.value = val || ''; };
     setVal('whtPayerName',  whtState.payerName);
     setVal('whtPayerTin',   whtState.payerTin);
     setVal('whtPeriod',     whtState.period);
-    setVal('whtPreparedBy', whtState.preparedBy);
+    buildPayerEntityOptions();
     renderPayees();
     renderMaster();
     persist();
   }
+
+  // Entity dropdown change → set payerName (+ TIN if entity has tax_number)
+  document.addEventListener('change', e => {
+    if(e.target.id !== 'whtPayerEntitySelect') return;
+    const v = e.target.value;
+    const customInput = document.getElementById('whtPayerName');
+    if(v === '__custom__'){
+      // Custom mode — reveal text input, keep current name
+      if(customInput){
+        customInput.style.display = '';
+        customInput.focus();
+      }
+    } else if(v === ''){
+      // Cleared
+      whtState.payerName = '';
+      if(customInput) customInput.style.display = 'none';
+      persist(); renderMaster();
+    } else {
+      // Picked an entity by id — copy name (+ tax_number → TIN if present)
+      const entity = (_entitiesCache || []).find(en => String(en.id) === String(v));
+      if(entity){
+        whtState.payerName = entity.name || '';
+        // Auto-fill TIN if the entity has a tax_number AND the user hasn't already typed one
+        if(entity.tax_number && !whtState.payerTin){
+          whtState.payerTin = entity.tax_number;
+        }
+        const tinInp = document.getElementById('whtPayerTin');
+        if(tinInp && document.activeElement !== tinInp) tinInp.value = whtState.payerTin || '';
+        if(customInput) customInput.style.display = 'none';
+        persist(); renderMaster();
+      }
+    }
+  });
 
   // ---- Add / remove handlers ----
   function addPayee(){
