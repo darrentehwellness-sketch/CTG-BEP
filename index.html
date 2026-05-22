@@ -1644,8 +1644,13 @@
                box-shadow .18s var(--ease), transform .12s var(--ease),
                border-color .18s var(--ease), filter .18s var(--ease);
   }
-  button:focus-visible{ outline:none; box-shadow:var(--ring); }
-  button.ghost:focus-visible{ box-shadow:var(--ring-sky); }
+  /* Generic focus ring fallback for buttons that don't have a specific
+     ring defined earlier in the cascade (line ~1037). DON'T override
+     the carefully tuned coral/sky/success/danger rings above — they're
+     intentional. This rule only fires for buttons that don't match any
+     of the earlier rules. */
+  /* (Specific rules at lines ~1037-1049 already cover all named button
+     variants — no override needed here.) */
   button:hover{ transform:translateY(-1px); }
   button:active{ transform:translateY(0); filter:brightness(.96); }
   button:disabled{ filter:grayscale(.4); transform:none !important; }
@@ -6281,11 +6286,19 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
         whtState.payerName = entity.name || '';
         // Auto-fill TIN: prefer dedicated tin_number column, fall back to tax_number
         // for legacy entities. Only overwrite if the user hasn't already typed one.
+        // Check BOTH the in-memory state AND the live DOM input value, because a
+        // pasted/typed TIN may not have fired its 'input' event yet (e.g. user
+        // pasted then immediately changed the entity dropdown).
         const entityTin = entity.tin_number || entity.tax_number || '';
-        if(entityTin && !whtState.payerTin){
-          whtState.payerTin = entityTin;
-        }
         const tinInp = document.getElementById('whtPayerTin');
+        const liveTin = (tinInp && tinInp.value || '').trim();
+        const existingTin = (whtState.payerTin || '').trim() || liveTin;
+        if(entityTin && !existingTin){
+          whtState.payerTin = entityTin;
+        } else if(liveTin && !whtState.payerTin){
+          // User typed but state out-of-sync — adopt the typed value
+          whtState.payerTin = liveTin;
+        }
         if(tinInp && document.activeElement !== tinInp) tinInp.value = whtState.payerTin || '';
         if(customInput) customInput.style.display = 'none';
         persist(); renderMaster();
@@ -6320,15 +6333,8 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     renderAll();
   }
 
-  // ---- Helper: re-sync the two date inputs of a date-range widget after a
-  // preset is applied (so the user sees their picked dates immediately)
-  function syncDateRangeWidget(scopeEl, fromIso, toIso){
-    if(!scopeEl) return;
-    const fromInp = scopeEl.querySelector('input[data-field="dateRangeFrom"]');
-    const toInp   = scopeEl.querySelector('input[data-field="dateRangeTo"]');
-    if(fromInp) fromInp.value = fromIso || '';
-    if(toInp)   toInp.value   = toIso   || '';
-  }
+  // (syncDateRangeWidget removed — dead code from the earlier compound-widget
+  // implementation; the calendar popup picker doesn't need it.)
 
   // ---- Input handlers (delegated) ----
   document.addEventListener('input', e => {
