@@ -272,6 +272,9 @@ async function parsePdf(arrayBuffer){
      - Row 3: period description
      - Row 4: column headers — "Account" | Month1 | "%" | Month2 | "%" | ...
      - Following rows: section headers + accounts + totals + GP + NP
+   Also applies Excel cell styles (bold section headers, bold totals,
+   top border on subtotals, double underline on GP/NP, etc.) so the
+   output looks like the source.
 */
 function buildOutputWorkbook({ source, entityOverride }){
   if(typeof XLSX === 'undefined') throw new Error('SheetJS not loaded');
@@ -297,16 +300,21 @@ function buildOutputWorkbook({ source, entityOverride }){
 
   // === Build aoa ===
   const aoa = [];
+  const rowKinds = [];  // parallel array — tracks the row's kind for styling
   const empty = () => new Array(totalCols).fill(null);
-  const push = (row) => { aoa.push(row); return aoa.length; };  // returns 1-indexed sheet row
+  const push = (row, kind) => {
+    aoa.push(row);
+    rowKinds.push(kind || 'plain');
+    return aoa.length;  // 1-indexed sheet row
+  };
 
   // Rows 1-3: title block
-  const r1 = empty(); r1[0] = title || 'Profit and Loss'; push(r1);
-  const r2 = empty(); r2[0] = entityName;                  push(r2);
+  const r1 = empty(); r1[0] = title || 'Profit and Loss'; push(r1, 'title');
+  const r2 = empty(); r2[0] = entityName;                  push(r2, 'entity');
   const r3 = empty(); r3[0] = period ||
     (months.length > 1 ? ('From ' + months[months.length-1] + ' to ' + months[0])
                        : ('For the period ' + (months[0] || '')));
-  push(r3);
+  push(r3, 'period');
   // Row 4: column headers
   const r4 = empty();
   r4[0] = 'Account';
@@ -314,7 +322,7 @@ function buildOutputWorkbook({ source, entityOverride }){
     r4[valueColIdx(m)] = months[m];
     r4[pctColIdx(m)] = '%';
   }
-  push(r4);
+  push(r4, 'colhead');
 
   // === Walk items, building section ranges so totals can SUM ===
   // We treat each SECTION header as starting a new account-range.
@@ -337,23 +345,24 @@ function buildOutputWorkbook({ source, entityOverride }){
   items.forEach(item => {
     if(item.kind === KIND.BLANK){
       // Preserve blank row for spacing
-      push(empty());
+      push(empty(), 'blank');
       return;
     }
     const row = empty();
     if(item.kind === KIND.SECTION){
       row[0] = item.name;
-      const rowIdx = push(row);
+      const rowIdx = push(row, 'section');
       beginSection(rowIdx, item.name);
       return;
     }
     if(item.kind === KIND.ACCOUNT){
-      row[0] = '    ' + item.name;
+      // No leading spaces — indentation comes from Excel cell style (alignment.indent)
+      row[0] = item.name;
       for(let m=0; m<monthCount; m++){
         const v = item.values && item.values[m];
         row[valueColIdx(m)] = (v == null) ? 0 : v;
       }
-      const rowIdx = push(row);
+      const rowIdx = push(row, 'account');
       if(cur){
         if(cur.firstAcctRow == null) cur.firstAcctRow = rowIdx;
         cur.lastAcctRow = rowIdx;
@@ -367,20 +376,18 @@ function buildOutputWorkbook({ source, entityOverride }){
           const c = colLetter(valueColIdx(m));
           row[valueColIdx(m)] = { f: 'SUM(' + c + cur.firstAcctRow + ':' + c + cur.lastAcctRow + ')' };
         } else {
-          // No accounts seen — fall back to literal value from source
           const v = item.values && item.values[m];
           row[valueColIdx(m)] = (v == null) ? 0 : v;
         }
       }
-      const rowIdx = push(row);
+      const rowIdx = push(row, 'subtotal');
       if(cur) cur.totalRow = rowIdx;
-      // Remember commonly-referenced totals by section name
       const low = item.name.toLowerCase();
       if(/trading income|sales\s+revenue|^total\s+revenue$/i.test(low))     tradingIncomeTotalRow = rowIdx;
       else if(/cost of sales|cost of goods|cogs/i.test(low))                costOfSalesTotalRow = rowIdx;
       else if(/other income/i.test(low))                                    otherIncomeTotalRow = rowIdx;
       else if(/operating expense|administrative expense|expenses?$/i.test(low)) operatingExpensesTotalRow = rowIdx;
-      cur = null;  // close the section
+      cur = null;
       return;
     }
     if(item.kind === KIND.GP){
@@ -394,7 +401,7 @@ function buildOutputWorkbook({ source, entityOverride }){
           row[valueColIdx(m)] = (v == null) ? 0 : v;
         }
       }
-      const rowIdx = push(row);
+      const rowIdx = push(row, 'gp');
       grossProfitRow = rowIdx;
       cur = null;
       return;
@@ -403,7 +410,6 @@ function buildOutputWorkbook({ source, entityOverride }){
       row[0] = item.name;
       for(let m=0; m<monthCount; m++){
         const c = colLetter(valueColIdx(m));
-        // OP = GP + Other Income - Operating Expenses
         const parts = [];
         if(grossProfitRow) parts.push(c + grossProfitRow);
         if(otherIncomeTotalRow) parts.push('+' + c + otherIncomeTotalRow);
@@ -415,7 +421,7 @@ function buildOutputWorkbook({ source, entityOverride }){
           row[valueColIdx(m)] = (v == null) ? 0 : v;
         }
       }
-      const rowIdx = push(row);
+      const rowIdx = push(row, 'op');
       operatingProfitRow = rowIdx;
       cur = null;
       return;
@@ -424,8 +430,6 @@ function buildOutputWorkbook({ source, entityOverride }){
       row[0] = item.name;
       for(let m=0; m<monthCount; m++){
         const c = colLetter(valueColIdx(m));
-        // If we already computed Operating Profit, NP = OP (or use the same formula).
-        // Otherwise compute NP = GP + Other Income - Operating Expenses
         const parts = [];
         if(operatingProfitRow){
           parts.push(c + operatingProfitRow);
@@ -441,19 +445,18 @@ function buildOutputWorkbook({ source, entityOverride }){
           row[valueColIdx(m)] = (v == null) ? 0 : v;
         }
       }
-      const rowIdx = push(row);
+      const rowIdx = push(row, 'np');
       netProfitRow = rowIdx;
       cur = null;
       return;
     }
     if(item.kind === KIND.EBITDA){
-      // Keep as literal — we don't try to derive EBITDA
       row[0] = item.name;
       for(let m=0; m<monthCount; m++){
         const v = item.values && item.values[m];
         row[valueColIdx(m)] = (v == null) ? 0 : v;
       }
-      push(row);
+      push(row, 'subtotal');
       cur = null;
       return;
     }
@@ -463,7 +466,7 @@ function buildOutputWorkbook({ source, entityOverride }){
       const v = item.values && item.values[m];
       row[valueColIdx(m)] = (v == null) ? 0 : v;
     }
-    push(row);
+    push(row, 'plain');
   });
 
   // === Second pass: % formulas (divide by Trading Income total) ===
@@ -487,24 +490,96 @@ function buildOutputWorkbook({ source, entityOverride }){
   const PCT_COLS = new Set();
   for(let m=0; m<monthCount; m++) PCT_COLS.add(pctColIdx(m));
 
+  // ----- Cell style presets (Calibri 10 base, matches SKINDAE/Xero style) -----
+  const FONT_BASE  = { name:'Calibri', sz:10, color:{ rgb:'333333' } };
+  const FONT_BOLD  = { name:'Calibri', sz:10, color:{ rgb:'000000' }, bold:true };
+  const FONT_TITLE = { name:'Calibri', sz:16, color:{ rgb:'1F3A5F' }, bold:true };
+  const FONT_ENT   = { name:'Calibri', sz:12, color:{ rgb:'000000' }, bold:true };
+  const FONT_PER   = { name:'Calibri', sz:10, color:{ rgb:'666666' }, italic:true };
+  const FONT_COL   = { name:'Calibri', sz:9,  color:{ rgb:'333333' }, bold:true };
+  const FONT_SECT  = { name:'Calibri', sz:11, color:{ rgb:'1F3A5F' }, bold:true };
+
+  const BORDER_THIN_TOP    = { top:    { style:'thin',   color:{ rgb:'000000' } } };
+  const BORDER_THIN_BOTTOM = { bottom: { style:'thin',   color:{ rgb:'000000' } } };
+  const BORDER_DOUBLE_BOT  = { bottom: { style:'double', color:{ rgb:'000000' } } };
+  const BORDER_TOPLINE     = { top:    { style:'thin',   color:{ rgb:'000000' } } };
+  const BORDER_GP_NP       = { top:    { style:'thin',   color:{ rgb:'000000' } },
+                                bottom: { style:'double', color:{ rgb:'000000' } } };
+
+  const ALIGN_LEFT   = { horizontal:'left',  vertical:'center' };
+  const ALIGN_RIGHT  = { horizontal:'right', vertical:'center' };
+  const ALIGN_INDENT = { horizontal:'left',  vertical:'center', indent:1 };
+
+  function styleForKind(kind, isCol0, isPctCol){
+    const s = {};
+    if(kind === 'title'){
+      s.font = FONT_TITLE;
+      s.alignment = ALIGN_LEFT;
+    } else if(kind === 'entity'){
+      s.font = FONT_ENT;
+      s.alignment = ALIGN_LEFT;
+    } else if(kind === 'period'){
+      s.font = FONT_PER;
+      s.alignment = ALIGN_LEFT;
+    } else if(kind === 'colhead'){
+      s.font = FONT_COL;
+      s.alignment = isCol0 ? ALIGN_LEFT : ALIGN_RIGHT;
+      s.border = { ...BORDER_THIN_BOTTOM };
+    } else if(kind === 'section'){
+      s.font = FONT_SECT;
+      s.alignment = ALIGN_LEFT;
+    } else if(kind === 'account'){
+      s.font = FONT_BASE;
+      s.alignment = isCol0 ? ALIGN_INDENT : ALIGN_RIGHT;
+    } else if(kind === 'subtotal'){
+      s.font = FONT_BOLD;
+      s.alignment = isCol0 ? ALIGN_LEFT : ALIGN_RIGHT;
+      s.border = { ...BORDER_TOPLINE };
+    } else if(kind === 'gp' || kind === 'np'){
+      s.font = FONT_BOLD;
+      s.alignment = isCol0 ? ALIGN_LEFT : ALIGN_RIGHT;
+      s.border = { ...BORDER_GP_NP };
+    } else if(kind === 'op'){
+      s.font = FONT_BOLD;
+      s.alignment = isCol0 ? ALIGN_LEFT : ALIGN_RIGHT;
+      s.border = { ...BORDER_TOPLINE };
+    } else {
+      s.font = FONT_BASE;
+      s.alignment = isCol0 ? ALIGN_LEFT : ALIGN_RIGHT;
+    }
+    return s;
+  }
+
   for(let r=0; r<aoa.length; r++){
     const rowVals = aoa[r];
+    const kind = rowKinds[r] || 'plain';
     for(let c=0; c<rowVals.length; c++){
       const v = rowVals[c];
       if(v == null) continue;
       const addr = XLSX.utils.encode_cell({ r, c });
+      const isCol0 = (c === 0);
+      const isPctCol = PCT_COLS.has(c);
+      const baseStyle = styleForKind(kind, isCol0, isPctCol);
       if(typeof v === 'object' && v.f){
-        const z = PCT_COLS.has(c) ? '0.0%;(0.0%);"-"' : '#,##0.00;(#,##0.00);"-"';
-        ws[addr] = { t:'n', f: v.f, z };
+        const z = isPctCol ? '0.0%;(0.0%);"-"' : '#,##0.00;(#,##0.00);"-"';
+        ws[addr] = { t:'n', f: v.f, z, s: baseStyle };
       } else if(typeof v === 'number'){
-        ws[addr] = { t:'n', v, z:'#,##0.00;(#,##0.00);"-"' };
+        ws[addr] = { t:'n', v, z:'#,##0.00;(#,##0.00);"-"', s: baseStyle };
       } else {
-        ws[addr] = { t:'s', v: String(v) };
+        ws[addr] = { t:'s', v: String(v), s: baseStyle };
       }
     }
   }
   ws['!ref']  = XLSX.utils.encode_range({ s:{r:0,c:0}, e:{r:aoa.length-1, c:totalCols-1} });
   ws['!cols'] = COL_WIDTHS;
+
+  // Row heights — title row a bit taller
+  ws['!rows'] = [
+    { hpt: 22 }, // row 1 - title
+    { hpt: 16 }, // row 2 - entity
+    { hpt: 14 }, // row 3 - period
+    { hpt: 16 }  // row 4 - column headers
+  ];
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Profit and Loss');
