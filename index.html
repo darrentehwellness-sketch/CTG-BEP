@@ -5480,6 +5480,67 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     setT('whtTfPayable', W.fmt(result.totals.payable));
   }
 
+  // ---- Surgical refresh: update computed numbers inside one payee card WITHOUT
+  // rebuilding any <input>/<select> elements. Critical for preserving keyboard
+  // focus while the user types — calling renderAll() on every keystroke wipes
+  // focus after each character ("ddd cannot type" bug). Only call renderAll
+  // for select changes (country/section), which need to refresh the WHT rate
+  // input's displayed value.
+  function refreshPayeeTotals(i){
+    const p = whtState.payees[i]; if(!p) return;
+    const card = document.querySelector('[data-pi="' + i + '"]'); if(!card) return;
+    const c = W.calcPayee(p);
+
+    // Per-line Net + SST cells (td.num inside tbody)
+    const tbody = card.querySelector('tbody');
+    if(tbody){
+      tbody.querySelectorAll('tr').forEach((tr, li) => {
+        const L = p.lines[li]; if(!L) return;
+        const r = W.calcReceipt(L.gross || 0, p.sstInclusive ? (p.sstRate || 8) : 0);
+        const cells = tr.querySelectorAll('td.num');
+        if(cells[0]) cells[0].textContent = W.fmt(r.net);
+        if(cells[1]) cells[1].textContent = W.fmt(r.sst);
+      });
+    }
+    // Subtotal footer cells
+    const ftCells = card.querySelectorAll('tfoot td.num');
+    if(ftCells.length >= 3){
+      ftCells[0].textContent = W.fmt(c.subtotal.gross);
+      ftCells[1].textContent = W.fmt(c.subtotal.net);
+      ftCells[2].textContent = W.fmt(c.subtotal.sst);
+    }
+    // 4 total tiles at the bottom of the card
+    const tiles = card.querySelectorAll('.wht-totals .box');
+    if(tiles[0]){
+      const v = tiles[0].querySelector('.value'); if(v) v.textContent = W.fmt(c.subtotal.net);
+    }
+    if(tiles[1]){
+      const l = tiles[1].querySelector('.label'); if(l) l.textContent = t('wht_wht_calc') + ' (' + (Number(p.whtRate)||0) + '%)';
+      const v = tiles[1].querySelector('.value'); if(v) v.textContent = W.fmt(c.wht);
+    }
+    if(tiles[2]){
+      const v = tiles[2].querySelector('.value'); if(v) v.textContent = W.fmt(c.penalty);
+    }
+    if(tiles[3]){
+      const v = tiles[3].querySelector('.value'); if(v) v.textContent = W.fmt(c.payable);
+    }
+
+    // Master summary KPIs + table — text-only, safe to call any time
+    renderMaster();
+  }
+
+  // ---- Surgical refresh: update only the chip title text in one payee card
+  // header (used when the user types into the Payee Name field).
+  function refreshPayeeHeader(i){
+    const p = whtState.payees[i]; if(!p) return;
+    const card = document.querySelector('[data-pi="' + i + '"]'); if(!card) return;
+    const ttl = card.querySelector('.ttl'); if(!ttl) return;
+    const sec = W.WHT_SECTIONS[p.section] || {};
+    ttl.innerHTML = escapeHtml(p.name || 'Payee ' + (i+1)) +
+      '<div class="sub">' + escapeHtml(p.country || '—') + ' · ' +
+      escapeHtml(sec.label || '—') + ' · Code ' + (sec.code || '—') + '</div>';
+  }
+
   // Build the entity dropdown options from the global _entitiesCache.
   function buildPayerEntityOptions(){
     const sel = document.getElementById('whtPayerEntitySelect');
@@ -5597,37 +5658,54 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     if(tgt.id === 'whtPayerTin'){  whtState.payerTin  = tgt.value; persist(); return; }
     if(tgt.id === 'whtPeriod'){    whtState.period    = tgt.value; persist(); return; }
     if(tgt.id === 'whtPreparedBy'){whtState.preparedBy= tgt.value; persist(); return; }
-    // Payee field
+    // Payee field — surgical updates only, NEVER renderAll() on text-typing
+    // (that destroys the input you're typing in and wipes focus)
     if(tgt.dataset.wpf !== undefined){
       const i = +tgt.dataset.wpf, f = tgt.dataset.field;
       const p = whtState.payees[i]; if(!p) return;
       if(f === 'sstInclusive' || f === 'latePenalty'){
         p[f] = tgt.checked;
+        persist();
+        refreshPayeeTotals(i);          // checkbox → totals only, no input rebuild
       } else if(f === 'whtRate' || f === 'sstRate'){
         p[f] = Math.max(0, Math.min(100, Number(tgt.value) || 0));
+        persist();
+        refreshPayeeTotals(i);          // numeric — keeps focus on the input
       } else if(f === 'section'){
         p.section = tgt.value;
-        // Auto-refresh suggested rate when section changes
         const newRate = W.rateForCountrySection(p.country, p.section);
         if(newRate != null) p.whtRate = newRate;
+        persist();
+        renderAll();                    // <select> change — rebuild needed to refresh whtRate input + header
       } else if(f === 'country'){
         p.country = tgt.value;
-        // Auto-refresh suggested rate when country changes
         const newRate = W.rateForCountrySection(p.country, p.section);
         if(newRate != null) p.whtRate = newRate;
+        persist();
+        renderAll();                    // <select> change — rebuild needed
       } else {
+        // name, dateRange, foreignTin — text inputs typed character-by-character
         p[f] = tgt.value;
+        persist();
+        if(f === 'name') refreshPayeeHeader(i);  // live-update chip title
+        // No renderAll — preserves typing focus
       }
-      renderAll();
       return;
     }
-    // Line field
+    // Line field — same rule: surgical updates only
     if(tgt.dataset.wpl !== undefined){
       const i = +tgt.dataset.wpl, li = +tgt.dataset.line, f = tgt.dataset.field;
       const p = whtState.payees[i]; if(!p || !p.lines[li]) return;
-      if(f === 'gross') p.lines[li][f] = Math.max(0, Number(tgt.value) || 0);
-      else              p.lines[li][f] = tgt.value;
-      renderAll();
+      if(f === 'gross'){
+        p.lines[li][f] = Math.max(0, Number(tgt.value) || 0);
+        persist();
+        refreshPayeeTotals(i);          // recalc this payee's totals
+      } else {
+        // date, receiptNo — text inputs
+        p.lines[li][f] = tgt.value;
+        persist();
+        // No render — preserves typing focus
+      }
       return;
     }
   });
