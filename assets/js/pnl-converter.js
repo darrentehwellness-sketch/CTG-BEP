@@ -693,7 +693,7 @@ function autoMap(parsed){
 }
 
 /* ============ OUTPUT BUILDER ============ */
-function buildOutputWorkbook({ source, mapped, unmapped, entityOverride }){
+function buildOutputWorkbook({ source, mapped, unmapped, decisions, entityOverride }){
   if(typeof XLSX === 'undefined') throw new Error('SheetJS not loaded');
   const { title, entity, period, months } = source;
   const monthCount = months.length;
