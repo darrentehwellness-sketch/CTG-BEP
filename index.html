@@ -1230,6 +1230,85 @@
   .wht-totals .box.hilite .value{color:var(--coral-soft);}
   @media (max-width:900px){ .wht-totals{ grid-template-columns:repeat(2,1fr); } }
 
+  /* ============ WHT DATE RANGE PICKER (compound widget) ============ */
+  .wht-daterange{
+    display:flex; align-items:center; gap:6px; flex-wrap:nowrap;
+    background:rgba(7,13,23,.6);
+    border:1px solid var(--border-strong);
+    border-radius:8px;
+    padding:3px;
+    transition:border-color .15s var(--ease), box-shadow .15s var(--ease);
+  }
+  .wht-daterange:focus-within{
+    border-color:var(--coral);
+    box-shadow:0 0 0 3px rgba(232,93,60,.20);
+    background:rgba(7,13,23,.85);
+  }
+  .wht-daterange .wht-dr-preset{
+    flex:0 0 auto; width:auto !important;
+    padding:7px 8px !important;
+    background:transparent !important;
+    border:none !important;
+    color:var(--sky-soft) !important;
+    font-size:11.5px !important; font-weight:600;
+    cursor:pointer;
+    border-right:1px solid var(--border) !important;
+    border-radius:0 !important;
+    box-shadow:none !important;
+  }
+  .wht-daterange .wht-dr-preset:hover{ color:#fff !important; }
+  .wht-daterange .wht-dr-preset:focus{ outline:none; }
+  .wht-daterange input[type="date"]{
+    flex:1; min-width:0;
+    padding:7px 8px !important;
+    background:transparent !important;
+    border:none !important;
+    color:var(--text) !important;
+    font:inherit;
+    font-variant-numeric:tabular-nums;
+    box-shadow:none !important;
+  }
+  .wht-daterange input[type="date"]:focus{ outline:none; box-shadow:none !important; }
+  .wht-daterange input[type="date"]::-webkit-calendar-picker-indicator{
+    filter:invert(.7) sepia(.3) saturate(2) hue-rotate(335deg);
+    cursor:pointer; opacity:.7; transition:opacity .15s;
+  }
+  .wht-daterange input[type="date"]::-webkit-calendar-picker-indicator:hover{ opacity:1; }
+  .wht-daterange .wht-dr-arrow{
+    color:var(--muted); font-weight:700; font-size:12px;
+    padding:0 2px; user-select:none;
+  }
+  .wht-daterange .wht-dr-clear{
+    flex:0 0 auto;
+    background:transparent !important; border:none !important;
+    color:var(--muted) !important; padding:4px 8px !important;
+    font-size:14px !important; cursor:pointer;
+    box-shadow:none !important; border-radius:4px !important;
+  }
+  .wht-daterange .wht-dr-clear:hover{
+    background:rgba(239,68,68,.16) !important;
+    color:#fca5a5 !important; transform:none !important;
+  }
+  /* Mobile stack: preset dropdown on top, dates below */
+  @media (max-width:600px){
+    .wht-daterange{ flex-wrap:wrap; }
+    .wht-daterange .wht-dr-preset{ flex:1 1 100%; border-right:none !important; border-bottom:1px solid var(--border) !important; }
+    .wht-daterange input[type="date"]{ flex:1 1 40%; }
+  }
+  /* Line table date input — native picker styling consistent with other table inputs */
+  td input[type="date"]{
+    width:100%; padding:5px 7px;
+    background:transparent; border:1px solid transparent;
+    color:var(--text); font:inherit;
+    font-variant-numeric:tabular-nums;
+    border-radius:6px;
+  }
+  td input[type="date"]::-webkit-calendar-picker-indicator{
+    filter:invert(.7) sepia(.3) saturate(2) hue-rotate(335deg);
+    cursor:pointer; opacity:.6; transition:opacity .15s;
+  }
+  td input[type="date"]::-webkit-calendar-picker-indicator:hover{ opacity:1; }
+
   /* ============ AUDIT REVIEW (Pass 3) PANEL ============ */
   #pnlAuditPanel.op-clean    #pnlAuditOpinion { background:linear-gradient(135deg, #047857, #065f46); }
   #pnlAuditPanel.op-minor    #pnlAuditOpinion { background:linear-gradient(135deg, #b45309, #92400e); }
@@ -2370,7 +2449,7 @@
         </div>
         <div class="input-group">
           <label data-i18n="wht_period">Period</label>
-          <input type="text" id="whtPeriod" placeholder="e.g. 17 Jan 2026 - 31 Jan 2026"/>
+          <div id="whtPeriodWidget"></div>
         </div>
       </div>
     </div>
@@ -2930,6 +3009,10 @@ const I18N = {
     wht_payee_rate:"WHT Rate (%)", wht_payee_sst:"SST-inclusive",
     wht_payee_sst_rate:"SST Rate (%)", wht_payee_penalty:"Apply 10% penalty (late)",
     wht_payee_period:"Date Range",
+    wht_dr_quick:"Quick", wht_dr_from:"From", wht_dr_to:"To", wht_dr_clear:"Clear",
+    wht_dr_this_month:"This month", wht_dr_last_month:"Last month",
+    wht_dr_this_quarter:"This quarter", wht_dr_last_quarter:"Last quarter",
+    wht_dr_ytd:"Year to date", wht_dr_this_year:"This year",
     wht_lines_title:"Invoice Receipts",
     wht_th_no:"No", wht_th_date:"Payment Date", wht_th_receipt:"Receipt No",
     wht_th_gross:"Gross (MYR)", wht_th_net2:"Net", wht_th_sst:"SST",
@@ -5351,6 +5434,89 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
 
   function persist(){ W.saveLocal(whtState); }
 
+  // ---- Date helpers — state stays in DD/MM/YYYY for back-compat with saved
+  // scenarios + Excel export. Native <input type="date"> always uses ISO
+  // (yyyy-mm-dd), so we convert at the input boundary.
+  function isoToDmy(iso){
+    if(!iso) return '';
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso));
+    return m ? (m[3] + '/' + m[2] + '/' + m[1]) : '';
+  }
+  function dmyToIso(dmy){
+    if(!dmy) return '';
+    const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(dmy).trim());
+    return m ? (m[3] + '-' + m[2].padStart(2,'0') + '-' + m[1].padStart(2,'0')) : '';
+  }
+  function splitDateRange(dr){
+    // "17/01/2026 - 31/01/2026" → { from:'2026-01-17', to:'2026-01-31' }
+    if(!dr) return { from:'', to:'' };
+    const parts = String(dr).split(/\s*[-–—]\s*/);
+    return { from: dmyToIso(parts[0]||''), to: dmyToIso(parts[1]||'') };
+  }
+  function joinDateRange(fromIso, toIso){
+    const f = isoToDmy(fromIso), tt = isoToDmy(toIso);
+    if(f && tt) return f + ' - ' + tt;
+    return f || tt || '';
+  }
+  function applyPreset(key){
+    const now = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    const toIso = d => d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+    let from, to;
+    switch(key){
+      case 'this_month':
+        from = new Date(now.getFullYear(), now.getMonth(), 1);
+        to   = new Date(now.getFullYear(), now.getMonth()+1, 0); break;
+      case 'last_month':
+        from = new Date(now.getFullYear(), now.getMonth()-1, 1);
+        to   = new Date(now.getFullYear(), now.getMonth(), 0); break;
+      case 'this_quarter': {
+        const q = Math.floor(now.getMonth()/3)*3;
+        from = new Date(now.getFullYear(), q, 1);
+        to   = new Date(now.getFullYear(), q+3, 0); break;
+      }
+      case 'last_quarter': {
+        const q = Math.floor(now.getMonth()/3)*3 - 3;
+        from = new Date(now.getFullYear(), q, 1);
+        to   = new Date(now.getFullYear(), q+3, 0); break;
+      }
+      case 'ytd':
+        from = new Date(now.getFullYear(), 0, 1);
+        to   = now; break;
+      case 'this_year':
+        from = new Date(now.getFullYear(), 0, 1);
+        to   = new Date(now.getFullYear(), 11, 31); break;
+      default: return null;
+    }
+    return { from: toIso(from), to: toIso(to) };
+  }
+  function presetOptionsHtml(){
+    return '<option value="">' + t('wht_dr_quick') + '…</option>' +
+           '<option value="this_month">'   + t('wht_dr_this_month')   + '</option>' +
+           '<option value="last_month">'   + t('wht_dr_last_month')   + '</option>' +
+           '<option value="this_quarter">' + t('wht_dr_this_quarter') + '</option>' +
+           '<option value="last_quarter">' + t('wht_dr_last_quarter') + '</option>' +
+           '<option value="ytd">'          + t('wht_dr_ytd')          + '</option>' +
+           '<option value="this_year">'    + t('wht_dr_this_year')    + '</option>';
+  }
+  function buildDateRangeWidget(dr, attrs){
+    // attrs: object — e.g. { dataWpf: i } produces data-wpf="i". Used so the
+    // global input handler can dispatch on data-field of the inner elements.
+    const { from, to } = splitDateRange(dr);
+    const dsAttrs = Object.keys(attrs||{}).map(k =>
+      ' data-' + k.replace(/[A-Z]/g, c => '-' + c.toLowerCase()) + '="' + escapeHtml(attrs[k]) + '"'
+    ).join('');
+    return '<div class="wht-daterange">' +
+      '<select class="wht-dr-preset"' + dsAttrs + ' data-field="dateRangePreset" title="' + t('wht_dr_quick') + '">' +
+        presetOptionsHtml() +
+      '</select>' +
+      '<input type="date" value="' + escapeHtml(from) + '"' + dsAttrs + ' data-field="dateRangeFrom" title="' + t('wht_dr_from') + '">' +
+      '<span class="wht-dr-arrow">→</span>' +
+      '<input type="date" value="' + escapeHtml(to) + '"' + dsAttrs + ' data-field="dateRangeTo" title="' + t('wht_dr_to') + '">' +
+      '<button class="wht-dr-clear"' + dsAttrs + ' data-field="dateRangeClear" title="' + t('wht_dr_clear') + '" type="button">✕</button>' +
+    '</div>';
+  }
+
   // ---- Helpers ----
   function buildCountryOptions(selected){
     return W.COUNTRY_LIST.map(c =>
@@ -5392,7 +5558,9 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
         '<div class="grid-3">' +
           '<div class="input-group"><label>' + t('wht_payee_section') + '</label><select data-wpf="' + i + '" data-field="section" style="width:100%;padding:11px 14px;border:1px solid var(--border-strong);border-radius:8px;background:rgba(7,13,23,.6);color:var(--text);font:inherit;">' + buildSectionOptions(p.section) + '</select></div>' +
           '<div class="input-group"><label>' + t('wht_payee_rate') + '</label><input type="number" min="0" max="100" step="0.1" value="' + (Number(p.whtRate)||0) + '" data-wpf="' + i + '" data-field="whtRate"></div>' +
-          '<div class="input-group"><label>' + t('wht_payee_period') + '</label><input type="text" value="' + escapeHtml(p.dateRange||'') + '" data-wpf="' + i + '" data-field="dateRange" placeholder="DD/MM/YYYY - DD/MM/YYYY"></div>' +
+          '<div class="input-group"><label>' + t('wht_payee_period') + '</label>' +
+            buildDateRangeWidget(p.dateRange||'', { wpf: i }) +
+          '</div>' +
         '</div>' +
         '<div class="opts">' +
           '<label><input type="checkbox" data-wpf="' + i + '" data-field="sstInclusive" ' + sstChecked + '> ' + t('wht_payee_sst') + '</label>' +
@@ -5416,7 +5584,7 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
                 const r = W.calcReceipt(L.gross || 0, p.sstInclusive ? (p.sstRate || 8) : 0);
                 return '<tr>' +
                   '<td>' + (li+1) + '</td>' +
-                  '<td><input type="text" value="' + escapeHtml(L.date||'') + '" data-wpl="' + i + '" data-line="' + li + '" data-field="date" placeholder="DD/MM/YYYY"></td>' +
+                  '<td><input type="date" value="' + escapeHtml(dmyToIso(L.date)) + '" data-wpl="' + i + '" data-line="' + li + '" data-field="date" title="' + escapeHtml(L.date||'') + '"></td>' +
                   '<td><input type="text" value="' + escapeHtml(L.receiptNo||'') + '" data-wpl="' + i + '" data-line="' + li + '" data-field="receiptNo"></td>' +
                   '<td><input type="number" min="0" step="0.01" value="' + (Number(L.gross)||0) + '" data-wpl="' + i + '" data-line="' + li + '" data-field="gross"></td>' +
                   '<td class="num">' + W.fmt(r.net) + '</td>' +
@@ -5581,7 +5749,12 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     const setVal = (id, val) => { const el = document.getElementById(id); if(el && document.activeElement !== el) el.value = val || ''; };
     setVal('whtPayerName',  whtState.payerName);
     setVal('whtPayerTin',   whtState.payerTin);
-    setVal('whtPeriod',     whtState.period);
+    // Period: render the compound date range widget into its placeholder div.
+    // Only re-mount if the user isn't actively typing in one of its inputs.
+    const pw = document.getElementById('whtPeriodWidget');
+    if(pw && !pw.contains(document.activeElement)){
+      pw.innerHTML = buildDateRangeWidget(whtState.period || '', { whtPeriodScope: '1' });
+    }
     buildPayerEntityOptions();
     renderPayees();
     renderMaster();
@@ -5650,14 +5823,43 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     renderAll();
   }
 
+  // ---- Helper: re-sync the two date inputs of a date-range widget after a
+  // preset is applied (so the user sees their picked dates immediately)
+  function syncDateRangeWidget(scopeEl, fromIso, toIso){
+    if(!scopeEl) return;
+    const fromInp = scopeEl.querySelector('input[data-field="dateRangeFrom"]');
+    const toInp   = scopeEl.querySelector('input[data-field="dateRangeTo"]');
+    if(fromInp) fromInp.value = fromIso || '';
+    if(toInp)   toInp.value   = toIso   || '';
+  }
+
   // ---- Input handlers (delegated) ----
   document.addEventListener('input', e => {
     const tgt = e.target;
-    // Payer block
+    // Payer block (text inputs)
     if(tgt.id === 'whtPayerName'){ whtState.payerName = tgt.value; persist(); return; }
     if(tgt.id === 'whtPayerTin'){  whtState.payerTin  = tgt.value; persist(); return; }
-    if(tgt.id === 'whtPeriod'){    whtState.period    = tgt.value; persist(); return; }
     if(tgt.id === 'whtPreparedBy'){whtState.preparedBy= tgt.value; persist(); return; }
+    // Top "Period" compound date range widget (data-wht-period-scope marker)
+    if(tgt.dataset.whtPeriodScope !== undefined){
+      const f = tgt.dataset.field;
+      const pw = document.getElementById('whtPeriodWidget');
+      if(f === 'dateRangePreset'){
+        const preset = applyPreset(tgt.value);
+        if(preset){
+          whtState.period = joinDateRange(preset.from, preset.to);
+          syncDateRangeWidget(pw, preset.from, preset.to);
+          persist();
+        }
+        tgt.value = '';  // reset preset back to "Quick…"
+      } else if(f === 'dateRangeFrom' || f === 'dateRangeTo'){
+        const fromInp = pw && pw.querySelector('input[data-field="dateRangeFrom"]');
+        const toInp   = pw && pw.querySelector('input[data-field="dateRangeTo"]');
+        whtState.period = joinDateRange(fromInp ? fromInp.value : '', toInp ? toInp.value : '');
+        persist();
+      }
+      return;
+    }
     // Payee field — surgical updates only, NEVER renderAll() on text-typing
     // (that destroys the input you're typing in and wipes focus)
     if(tgt.dataset.wpf !== undefined){
@@ -5683,8 +5885,29 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
         if(newRate != null) p.whtRate = newRate;
         persist();
         renderAll();                    // <select> change — rebuild needed
+      } else if(f === 'dateRangePreset'){
+        // Quick preset → set both From & To, recompose payee.dateRange
+        const preset = applyPreset(tgt.value);
+        if(preset){
+          p.dateRange = joinDateRange(preset.from, preset.to);
+          const card = document.querySelector('[data-pi="' + i + '"]');
+          syncDateRangeWidget(card && card.querySelector('.wht-daterange'), preset.from, preset.to);
+          persist();
+        }
+        tgt.value = '';  // reset preset back to "Quick…"
+      } else if(f === 'dateRangeFrom' || f === 'dateRangeTo'){
+        // Native <input type="date"> value is ISO; recompose DD/MM/YYYY range
+        const card = document.querySelector('[data-pi="' + i + '"]');
+        const fromInp = card && card.querySelector('input[data-wpf="'+i+'"][data-field="dateRangeFrom"]');
+        const toInp   = card && card.querySelector('input[data-wpf="'+i+'"][data-field="dateRangeTo"]');
+        p.dateRange = joinDateRange(fromInp ? fromInp.value : '', toInp ? toInp.value : '');
+        persist();
+      } else if(f === 'dateRange'){
+        // Legacy text input (kept for any saved-scenario rehydration path)
+        p.dateRange = tgt.value;
+        persist();
       } else {
-        // name, dateRange, foreignTin — text inputs typed character-by-character
+        // name, foreignTin — plain text inputs typed character-by-character
         p[f] = tgt.value;
         persist();
         if(f === 'name') refreshPayeeHeader(i);  // live-update chip title
@@ -5700,8 +5923,12 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
         p.lines[li][f] = Math.max(0, Number(tgt.value) || 0);
         persist();
         refreshPayeeTotals(i);          // recalc this payee's totals
+      } else if(f === 'date'){
+        // <input type="date"> value is ISO; convert to DD/MM/YYYY for storage
+        p.lines[li][f] = isoToDmy(tgt.value);
+        persist();
       } else {
-        // date, receiptNo — text inputs
+        // receiptNo — text input
         p.lines[li][f] = tgt.value;
         persist();
         // No render — preserves typing focus
@@ -5722,6 +5949,27 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     if(tgt.dataset.whtDelLine  !== undefined){
       const [i, li] = tgt.dataset.whtDelLine.split(':').map(Number);
       delLine(i, li); return;
+    }
+    // Clear (✕) button inside any date-range widget
+    if(tgt.dataset.field === 'dateRangeClear'){
+      e.preventDefault();
+      // Payee scope
+      if(tgt.dataset.wpf !== undefined){
+        const i = +tgt.dataset.wpf;
+        const p = whtState.payees[i]; if(!p) return;
+        p.dateRange = '';
+        const card = document.querySelector('[data-pi="' + i + '"]');
+        syncDateRangeWidget(card && card.querySelector('.wht-daterange'), '', '');
+        persist();
+        return;
+      }
+      // Top "Period" scope
+      if(tgt.dataset.whtPeriodScope !== undefined){
+        whtState.period = '';
+        syncDateRangeWidget(document.getElementById('whtPeriodWidget'), '', '');
+        persist();
+        return;
+      }
     }
   });
 
