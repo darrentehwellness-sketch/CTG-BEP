@@ -5162,7 +5162,12 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
   function buildPayerEntityOptions(){
     const sel = document.getElementById('whtPayerEntitySelect');
     if(!sel) return;
-    const active = (Array.isArray(_entitiesCache) ? _entitiesCache : []).filter(e => e && e.is_active !== false);
+    // Defensive — _entitiesCache is a `let` declared further down the script;
+    // could be in temporal dead zone if this fn is called too early.
+    let cache = [];
+    try { cache = Array.isArray(_entitiesCache) ? _entitiesCache : []; }
+    catch(e){ cache = []; }
+    const active = cache.filter(e => e && e.is_active !== false);
     let html = '<option value="">— Select entity —</option>';
     active.forEach(e => {
       html += '<option value="' + escapeHtml(e.id || '') + '">' + escapeHtml(e.name || '') + '</option>';
@@ -5415,11 +5420,17 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     }
   };
 
-  // Initial render
-  renderAll();
-  refreshSavedList();
-  // expose for activateTab() hook
-  window._whtRefresh = () => { renderAll(); refreshSavedList(); };
+  // Expose to activateTab() hook
+  window._whtRefresh = () => { try { renderAll(); refreshSavedList(); } catch(e){ console.error('wht refresh failed:', e); } };
+  // Defer initial render — script-level `let` declarations (_entitiesCache,
+  // _isAdminCache, etc.) further down the page are still in their temporal
+  // dead zone when this IIFE executes. setTimeout(0) defers until after they
+  // initialize, otherwise renderAll() throws ReferenceError and crashes the
+  // rest of the script (including renderAuthUI → empty header).
+  setTimeout(() => {
+    try { renderAll(); refreshSavedList(); }
+    catch(e){ console.error('wht initial render failed:', e); }
+  }, 0);
 })();
 
 /* ============ SETTINGS TAB ============ */
