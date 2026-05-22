@@ -455,6 +455,72 @@ function targetSection(canonicalName){
 }
 
 /* ============================================================
+   DOCUMENT ANALYSIS (Pass 1)
+   ============================================================
+   Before classifying each row, walk the whole document to build
+   intelligence — section context, naming style, anomalies. That
+   context then feeds into the per-row classifier in Pass 2.
+   ============================================================ */
+
+// Match a row name to a canonical P&L section
+function detectSourceSection(name){
+  const n = String(name||'').toLowerCase().trim();
+  if(!n) return null;
+  if(/^(trading income|sales|revenue|turnover|operating revenue)$/i.test(n)) return 'Trading Income';
+  if(/^(cost of sales|cost of goods sold|cogs|direct cost|direct costs)$/i.test(n)) return 'Cost of Sales';
+  if(/^(gross profit)/i.test(n)) return null;       // computed, not a section
+  if(/^(other income|miscellaneous income|sundry income|non[-\s]?operating income)$/i.test(n)) return 'Other Income';
+  if(/^(operating expenses|administrative expenses|expenses|less:.*expenses|overhead)$/i.test(n)) return 'Operating Expenses';
+  if(/^(finance (cost|costs|expenses|income)|finance|interest expense)$/i.test(n)) return 'Operating Expenses';
+  if(/^(staff (costs|cost|expenses)|payroll)$/i.test(n)) return 'Operating Expenses';
+  if(/^(taxation|tax expense|income tax|provision for taxation|corporate tax)$/i.test(n)) return 'Taxation';
+  return null;
+}
+
+// What canonical section does this CANONICAL COA name belong to?
+function canonicalSectionOf(canonicalName){
+  for(const item of COA){
+    if(item.kind === 'account' && item.name === canonicalName){
+      return item.group;  // 'Trading Income' | 'Cost of Sales' | etc.
+    }
+  }
+  return null;
+}
+
+// Pass 1 — analyze the whole document, return context per source row +
+// document-level intelligence used in Pass 2.
+function analyzeDocument(parsed){
+  const rows = parsed.rows || [];
+  // Count how many rows look like canonical names (prefix match)
+  const canonicalNameRe = /^(staff|ctg|bd&m|g&a|fin|cogs|revenue|return inwards|discount voucher|stocks|other income|purchases return|corparate)/i;
+  const canonicalHits = rows.filter(r => canonicalNameRe.test(r.name)).length;
+  const total = Math.max(rows.length, 1);
+  const canonicalRatio = canonicalHits / total;
+  // Naming style heuristic — over 50% canonical = source uses our COA format
+  const namingStyle = canonicalRatio >= 0.5 ? 'canonical' : 'generic';
+
+  // Did the parser find any section headers at all?
+  const sectionsFound = new Set();
+  rows.forEach(r => { if(r.sourceSection) sectionsFound.add(r.sourceSection); });
+
+  // Negative-value rows — likely contra-accounts (returns / discounts / stock adjustments)
+  const negativeIdx = new Set();
+  rows.forEach((r, idx) => {
+    const allNeg = r.values && r.values.length > 0 && r.values.every(v => v <= 0) && r.values.some(v => v < 0);
+    if(allNeg) negativeIdx.add(idx);
+  });
+
+  return {
+    namingStyle,           // 'canonical' or 'generic'
+    canonicalRatio,        // 0..1
+    sectionsFound: Array.from(sectionsFound),
+    hasStructuredSections: sectionsFound.size > 0,
+    negativeIdx,           // Set of row indices with all-negative values
+    rowCount: rows.length
+  };
+}
+
+/* ============================================================
    SENIOR ACCOUNTANT RULE ENGINE
    ============================================================
    Each rule encodes professional judgment from an ACCA-qualified
@@ -678,24 +744,43 @@ function evalSeniorRules(sourceName, normName, srcTokens){
   return null;
 }
 
-/* The AI-thinking classifier — now with ACCA Senior Accountant reasoning.
+/* The AI-thinking classifier — now document-aware.
+   ctx (optional) carries Pass-1 document analysis + per-row context:
+     { docContext: {namingStyle, hasStructuredSections, ...},
+       row:        {sourceSection, prevName, values, ...} }
    Returns { target, confidence (0-100), reason, signals[] } */
-function mapAccountAI(sourceName){
+function mapAccountAI(sourceName, ctx){
   if(!sourceName){
     return { target:null, confidence:0, reason:'Empty source name', signals:[] };
   }
   const n = normalizeName(sourceName);
   const srcTokens = tokenize(sourceName);
   const signals = [];
+  const doc = (ctx && ctx.docContext) || {};
+  const row = (ctx && ctx.row) || {};
+  const sourceSection = row.sourceSection || null;
+  const docHints = [];
+  if(doc.namingStyle === 'canonical') docHints.push('source uses canonical naming style');
+  if(sourceSection) docHints.push('source section context: "' + sourceSection + '"');
+
+  // ---- Helper: is `target`'s canonical section compatible with sourceSection? ----
+  function sectionMatches(target){
+    if(!sourceSection) return null;  // no context — can't judge
+    const tgtSection = canonicalSectionOf(target);
+    if(!tgtSection) return null;
+    // Operating Expenses, Other Income, Trading Income, Cost of Sales, Taxation, Net Profit
+    return tgtSection === sourceSection;
+  }
 
   // === Signal 1: Exact-name match against canonical COA ===
   for(const item of COA){
     if(item.kind !== 'account') continue;
     if(normalizeName(item.name) === n){
+      const ctxNote = docHints.length ? '  Document context: ' + docHints.join(' · ') + '.' : '';
       return {
         target: item.name,
         confidence: 100,
-        reason: 'Exact match — source name is identical to the canonical COA account.',
+        reason: 'Exact match — source name is identical to the canonical COA account.' + ctxNote,
         signals: ['exact-name']
       };
     }
@@ -704,11 +789,18 @@ function mapAccountAI(sourceName){
   // === Signal 2: Keyword-dictionary hit (longest-match-wins) ===
   for(const { kw, target } of KEYWORD_INDEX){
     if(n.indexOf(kw) !== -1){
+      const sectionOk = sectionMatches(target);
+      let conf = Math.min(95, 70 + kw.length);
+      let extra = '';
+      // Document context can boost or reduce confidence
+      if(sectionOk === true){ conf = Math.min(98, conf + 5); extra = ' Section context "' + sourceSection + '" confirms.'; }
+      else if(sectionOk === false){ conf = Math.max(40, conf - 25); extra = ' ⚠ Section mismatch — source places this under "' + sourceSection + '", but the matched bucket is in canonical "' + canonicalSectionOf(target) + '". Keyword wins but review recommended.'; }
       signals.push('keyword:"' + kw + '"');
+      if(sourceSection) signals.push('source-section:' + sourceSection);
       return {
         target,
-        confidence: Math.min(95, 70 + kw.length),
-        reason: 'Matched canonical keyword "' + kw + '" inside the source name.',
+        confidence: conf,
+        reason: 'Matched canonical keyword "' + kw + '" inside the source name.' + extra,
         signals
       };
     }
@@ -720,11 +812,17 @@ function mapAccountAI(sourceName){
   // cites MFRS/LHDN basis, and explains substance-over-form decisions.
   const rule = evalSeniorRules(sourceName, n, srcTokens);
   if(rule){
+    const sectionOk = sectionMatches(rule.target);
+    let conf = rule.conf;
+    let extra = '';
+    if(sectionOk === true){ conf = Math.min(98, conf + 5); extra = '  Section context "' + sourceSection + '" confirms the classification.'; }
+    else if(sectionOk === false){ conf = Math.max(40, conf - 20); extra = '  ⚠ Note: source places this row under "' + sourceSection + '" but professional judgment maps it to canonical "' + canonicalSectionOf(rule.target) + '". Review recommended.'; }
     signals.push('senior-rule');
+    if(sourceSection) signals.push('source-section:' + sourceSection);
     return {
       target: rule.target,
-      confidence: rule.conf,
-      reason: '🎓 ACCA Senior Accountant: ' + rule.why,
+      confidence: conf,
+      reason: '🎓 ACCA Senior Accountant: ' + rule.why + extra,
       signals
     };
   }
@@ -759,11 +857,15 @@ function mapAccountAI(sourceName){
     const tgtNorm = normalizeName(tgtName);
     const containBonus = (n.indexOf(tgtNorm) !== -1 || tgtNorm.indexOf(n) !== -1) ? 0.20 : 0;
 
+    // (e) Document-aware bonus — source section matches canonical section
+    const tgtGroup = canonicalSectionOf(tgtName);
+    const sourceSectionBonus = (sourceSection && tgtGroup && sourceSection === tgtGroup) ? 0.20 : 0;
+
     // Weighted blend
-    const score = (overlap * 0.45) + (sectionBonus) + (editSim * 0.15) + containBonus;
+    const score = (overlap * 0.40) + (sectionBonus) + (editSim * 0.15) + containBonus + sourceSectionBonus;
 
     if(!best || score > best.score){
-      best = { score, target: tgtName, overlap, sectionBonus, editSim, containBonus, common };
+      best = { score, target: tgtName, overlap, sectionBonus, editSim, containBonus, sourceSectionBonus, common };
     }
   }
 
@@ -775,7 +877,9 @@ function mapAccountAI(sourceName){
     if(best.sectionBonus > 0) reasons.push('same section prefix (' + srcSection.section.toUpperCase() + ')');
     if(best.containBonus > 0) reasons.push('substring containment');
     if(best.editSim > 0.5)    reasons.push('low edit distance');
+    if(best.sourceSectionBonus > 0) reasons.push('document section context "' + sourceSection + '" matches');
     signals.push('fuzzy-score:' + best.score.toFixed(2));
+    if(sourceSection) signals.push('source-section:' + sourceSection);
     return {
       target: best.target,
       confidence: Math.min(80, Math.round(best.score * 100)),
@@ -787,7 +891,7 @@ function mapAccountAI(sourceName){
   return {
     target: null,
     confidence: 0,
-    reason: 'No confident match — confidence ' + (best ? Math.round(best.score * 100) : 0) + '% (threshold ' + Math.round(THRESHOLD * 100) + '%). Best guess: "' + (best ? best.target : '—') + '".',
+    reason: 'No confident match — confidence ' + (best ? Math.round(best.score * 100) : 0) + '% (threshold ' + Math.round(THRESHOLD * 100) + '%). Best guess: "' + (best ? best.target : '—') + '". Source section: "' + (sourceSection || 'unknown') + '".',
     signals
   };
 }
@@ -879,20 +983,36 @@ function parseExcel(arrayBuffer){
     else if(!period) period = v;
   }
 
-  // Extract data rows (skip totals/sections — only map accounts)
+  // Extract data rows — TRACK section context per row.
+  // A row is a section header if it has a name but no values AND its name
+  // matches a known section pattern OR is short and capitalized.
   const rows = [];
+  let currentSection = null;       // tracks which P&L section we're currently inside
+  let lastAccountIdx = -1;          // for sibling-context detection
   for(let i=headerRowIdx+1; i<aoa.length; i++){
     const row = aoa[i] || [];
     const name = (row[0] == null ? '' : String(row[0])).trim();
     if(!name) continue;
-    // Skip subtotal/computed lines
+    const values = monthCols.map(mc => parseNumeric(row[mc.col]) || 0);
+    const hasAny = values.some(v => v !== 0);
+    // --- Section header detection ---
+    if(!hasAny){
+      const detected = detectSourceSection(name);
+      if(detected){
+        currentSection = detected;
+        continue;
+      }
+      // Could be a sub-heading inside a section — track but don't change section
+      continue;
+    }
+    // --- Skip subtotal / computed lines (they're recomputed in output) ---
     if(/^total\s+/i.test(name)) continue;
     if(/^gross\s+profit$/i.test(name) || /^net\s+profit(\/?\(loss\))?$/i.test(name) ||
        /^operating\s+profit/i.test(name) || /^ebitda$/i.test(name)) continue;
-    const values = monthCols.map(mc => parseNumeric(row[mc.col]) || 0);
-    const hasAny = values.some(v => v !== 0);
-    if(!hasAny) continue;
-    rows.push({ name, values });
+    // --- Real account row ---
+    const prev = lastAccountIdx >= 0 ? rows[lastAccountIdx] : null;
+    rows.push({ name, values, sourceSection: currentSection, prevName: prev ? prev.name : null });
+    lastAccountIdx = rows.length - 1;
   }
 
   return {
@@ -954,6 +1074,8 @@ async function parsePdf(arrayBuffer){
 
   const rows = [];
   const numRe = /^\(?-?[\d,]+\.?\d*\)?$/;
+  let currentSection = null;
+  let lastAccountIdx = -1;
   for(let i=headerLineIdx+1; i<lines.length; i++){
     const L = lines[i];
     const nameParts = [];
@@ -975,9 +1097,17 @@ async function parsePdf(arrayBuffer){
     }
     const name = nameParts.join(' ').trim();
     if(!name) continue;
+    const hasAny = vals.some(v => v !== 0);
+    // Section header detection
+    if(!hasAny){
+      const detected = detectSourceSection(name);
+      if(detected) currentSection = detected;
+      continue;
+    }
     if(/^total\s+/i.test(name) || /^gross\s+profit$/i.test(name) || /^net\s+profit/i.test(name) || /^operating\s+profit/i.test(name)) continue;
-    if(vals.every(v => v === 0)) continue;
-    rows.push({ name, values: vals });
+    const prev = lastAccountIdx >= 0 ? rows[lastAccountIdx] : null;
+    rows.push({ name, values: vals, sourceSection: currentSection, prevName: prev ? prev.name : null });
+    lastAccountIdx = rows.length - 1;
   }
 
   return {
@@ -989,16 +1119,33 @@ async function parsePdf(arrayBuffer){
   };
 }
 
-/* ============ AUTO-MAP (with AI thinking) ============ */
+/* ============ AUTO-MAP — two-pass document-aware AI ============
+   Pass 1: analyseDocument() builds document-level intelligence
+           (naming style, section context, etc.)
+   Pass 2: classify each row WITH that context, so e.g. a row labeled
+           "Office Rental" appearing under source's "Cost of Sales"
+           section gets the section-mismatch flag in its reasoning. */
 function autoMap(parsed){
   const monthCount = parsed.months.length;
   const mapped = {};
   const unmapped = [];
-  const decisions = [];   // [{ source, target, confidence, reason, signals }]
+  const decisions = [];
+  // === PASS 1 — analyse the document ===
+  const docContext = analyzeDocument(parsed);
+  // === PASS 2 — classify each row with full context ===
   parsed.rows.forEach(r => {
-    const decision = mapAccountAI(r.name);
+    const ctx = {
+      docContext,
+      row: {
+        sourceSection: r.sourceSection || null,
+        prevName: r.prevName || null,
+        values: r.values
+      }
+    };
+    const decision = mapAccountAI(r.name, ctx);
     decisions.push({
       source: r.name,
+      sourceSection: r.sourceSection || null,
       target: decision.target,
       confidence: decision.confidence,
       reason: decision.reason,
@@ -1012,7 +1159,7 @@ function autoMap(parsed){
       unmapped.push(r);
     }
   });
-  return { mapped, unmapped, decisions };
+  return { mapped, unmapped, decisions, docContext };
 }
 
 /* ============ OUTPUT BUILDER ============ */
@@ -1309,7 +1456,7 @@ async function convertFile(file, entityName){
   if(!source || !source.rows || source.rows.length === 0){
     throw new Error('No data rows detected in the file. Please check the format.');
   }
-  const { mapped, unmapped, decisions } = autoMap(source);
+  const { mapped, unmapped, decisions, docContext } = autoMap(source);
   const wb = buildOutputWorkbook({ source, mapped, unmapped, decisions, entityOverride: entityName });
   const out = XLSX.write(wb, { bookType:'xlsx', type:'array' });
   const blob = new Blob([out], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -1335,7 +1482,9 @@ async function convertFile(file, entityName){
       highConfCount: highConf,
       medConfCount:  medConf,
       lowConfCount:  lowConf,
-      noConfCount:   noConf
+      noConfCount:   noConf,
+      // Pass-1 document analysis output
+      docContext:    docContext
     }
   };
 }
