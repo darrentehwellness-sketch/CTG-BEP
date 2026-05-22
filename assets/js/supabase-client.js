@@ -220,7 +220,7 @@
 
   // ---------- entities (company profiles) ----------
   // All authenticated users can read (for dropdown); writes are admin-only via RLS.
-  const ENTITY_FIELDS = 'id,name,legal_name,registration_number,tax_number,address_line1,address_line2,city,state,postcode,country,contact_person,contact_email,contact_phone,notes,is_active,created_at,updated_at';
+  const ENTITY_FIELDS = 'id,name,legal_name,registration_number,tax_number,tin_number,address_line1,address_line2,city,state,postcode,country,contact_person,contact_email,contact_phone,notes,is_active,created_at,updated_at';
 
   async function listEntities({ activeOnly = false } = {}) {
     if (!sb || !currentUser) return [];

@@ -32,7 +32,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
 <script src="config.js?v=22"></script>
-<script src="assets/js/supabase-client.js?v=22"></script>
+<script src="assets/js/supabase-client.js?v=23"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
 <script src="assets/js/wht-calculator.js?v=2"></script>
 <script>
@@ -2605,11 +2605,12 @@
               <th data-i18n="ent_th_name">Name</th>
               <th data-i18n="ent_th_legal">Legal Name</th>
               <th data-i18n="ent_th_reg">SSM / Reg No</th>
+              <th data-i18n="ent_th_tin">TIN</th>
               <th data-i18n="ent_th_contact">Contact</th>
               <th data-i18n="ent_th_active">Active</th>
               <th style="width:120px;text-align:center;" data-i18n="ent_th_actions">Actions</th>
             </tr></thead>
-            <tbody><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">Loading…</td></tr></tbody>
+            <tbody><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px;">Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -2638,9 +2639,17 @@
             <input type="text" id="entRegNo" placeholder="202401012345"/>
           </div>
           <div class="input-group">
+            <label data-i18n="ent_f_tin">TIN (LHDN Income Tax)</label>
+            <input type="text" id="entTin" placeholder="C 58427907080"/>
+            <div class="note" style="margin-top:4px;" data-i18n="ent_f_tin_note">Auto-fills the Payer TIN field in the Withholding Tax Calculator.</div>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="input-group">
             <label data-i18n="ent_f_tax">Tax No (SST)</label>
             <input type="text" id="entTaxNo" placeholder="W10-1234-56789012"/>
           </div>
+          <div class="input-group"></div>
         </div>
 
         <div class="input-group">
@@ -3072,8 +3081,10 @@ const I18N = {
     entities_title:"Entities (Companies)",
     entities_help:"Maintain the list of JV partner companies. Users pick from this list when saving a scenario.",
     entities_new:"New Entity", entities_form_new:"New Entity", entities_form_edit:"Edit Entity",
-    ent_th_name:"Name", ent_th_legal:"Legal Name", ent_th_reg:"SSM / Reg No", ent_th_contact:"Contact",
+    ent_th_name:"Name", ent_th_legal:"Legal Name", ent_th_reg:"SSM / Reg No", ent_th_tin:"TIN", ent_th_contact:"Contact",
     ent_th_active:"Active", ent_th_actions:"Actions",
+    ent_f_tin:"TIN (LHDN Income Tax)",
+    ent_f_tin_note:"Auto-fills the Payer TIN field in the Withholding Tax Calculator.",
     ent_f_name:"Display Name *", ent_f_legal:"Legal Name", ent_f_reg:"SSM / Reg No",
     ent_f_tax:"Tax No (SST)", ent_f_addr1:"Address Line 1", ent_f_addr2:"Address Line 2",
     ent_f_city:"City", ent_f_state:"State", ent_f_postcode:"Postcode", ent_f_country:"Country",
@@ -3257,8 +3268,10 @@ const I18N = {
     entities_title:"公司实体",
     entities_help:"维护合资公司清单。用户保存方案时从此清单中选择。",
     entities_new:"新增实体", entities_form_new:"新增实体", entities_form_edit:"编辑实体",
-    ent_th_name:"名称", ent_th_legal:"法律名称", ent_th_reg:"SSM / 注册号", ent_th_contact:"联络",
+    ent_th_name:"名称", ent_th_legal:"法律名称", ent_th_reg:"SSM / 注册号", ent_th_tin:"税务识别号", ent_th_contact:"联络",
     ent_th_active:"启用", ent_th_actions:"操作",
+    ent_f_tin:"TIN (LHDN 所得税编号)",
+    ent_f_tin_note:"将自动填入预扣税计算器中的付款方 TIN 字段。",
     ent_f_name:"显示名称 *", ent_f_legal:"法律全名", ent_f_reg:"SSM / 注册号",
     ent_f_tax:"税号 (SST)", ent_f_addr1:"地址 1", ent_f_addr2:"地址 2",
     ent_f_city:"城市", ent_f_state:"州属", ent_f_postcode:"邮编", ent_f_country:"国家",
@@ -5531,13 +5544,15 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
       if(customInput) customInput.style.display = 'none';
       persist(); renderMaster();
     } else {
-      // Picked an entity by id — copy name (+ tax_number → TIN if present)
+      // Picked an entity by id — copy name (+ TIN from tin_number, fall back to tax_number for legacy data)
       const entity = (_entitiesCache || []).find(en => String(en.id) === String(v));
       if(entity){
         whtState.payerName = entity.name || '';
-        // Auto-fill TIN if the entity has a tax_number AND the user hasn't already typed one
-        if(entity.tax_number && !whtState.payerTin){
-          whtState.payerTin = entity.tax_number;
+        // Auto-fill TIN: prefer dedicated tin_number column, fall back to tax_number
+        // for legacy entities. Only overwrite if the user hasn't already typed one.
+        const entityTin = entity.tin_number || entity.tax_number || '';
+        if(entityTin && !whtState.payerTin){
+          whtState.payerTin = entityTin;
         }
         const tinInp = document.getElementById('whtPayerTin');
         if(tinInp && document.activeElement !== tinInp) tinInp.value = whtState.payerTin || '';
@@ -5944,15 +5959,17 @@ async function renderEntitiesTab(){
   await refreshEntitiesCache();
   const tbody = document.querySelector('#entitiesTable tbody');
   if(_entitiesCache.length === 0){
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">' + t('ent_none') + '</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px;">' + t('ent_none') + '</td></tr>';
     return;
   }
   tbody.innerHTML = _entitiesCache.map(e => {
     const contact = [e.contact_person, e.contact_email, e.contact_phone].filter(Boolean).join(' · ');
+    const tin = e.tin_number || '';
     return '<tr>' +
       '<td><b style="color:#fff;">' + escapeHtml(e.name) + '</b></td>' +
       '<td style="color:var(--text-soft);">' + escapeHtml(e.legal_name || '') + '</td>' +
       '<td style="color:var(--text-soft);font-family:Consolas,Menlo,monospace;font-size:12px;">' + escapeHtml(e.registration_number || '') + '</td>' +
+      '<td style="color:var(--coral-soft);font-family:Consolas,Menlo,monospace;font-size:12px;font-weight:600;" title="' + escapeHtml(tin ? 'LHDN TIN — auto-fills WHT Payer TIN' : 'No TIN — set in Edit') + '">' + (tin ? escapeHtml(tin) : '<span style="color:var(--muted);font-weight:400;">—</span>') + '</td>' +
       '<td style="color:var(--text-soft);font-size:12px;">' + escapeHtml(contact) + '</td>' +
       '<td>' + (e.is_active ? '<span class="pos">✓</span>' : '<span class="neg">✗</span>') + '</td>' +
       '<td style="text-align:center;">' +
@@ -5974,6 +5991,7 @@ function openEntityForm(entity){
     document.getElementById('entLegalName').value      = entity.legal_name || '';
     document.getElementById('entRegNo').value          = entity.registration_number || '';
     document.getElementById('entTaxNo').value          = entity.tax_number || '';
+    document.getElementById('entTin').value            = entity.tin_number || '';
     document.getElementById('entAddr1').value          = entity.address_line1 || '';
     document.getElementById('entAddr2').value          = entity.address_line2 || '';
     document.getElementById('entCity').value           = entity.city || '';
@@ -6031,6 +6049,7 @@ document.getElementById('formEntity').addEventListener('submit', async e=>{
     legal_name:          document.getElementById('entLegalName').value.trim() || null,
     registration_number: document.getElementById('entRegNo').value.trim() || null,
     tax_number:          document.getElementById('entTaxNo').value.trim() || null,
+    tin_number:          document.getElementById('entTin').value.trim() || null,
     address_line1:       document.getElementById('entAddr1').value.trim() || null,
     address_line2:       document.getElementById('entAddr2').value.trim() || null,
     city:                document.getElementById('entCity').value.trim() || null,
