@@ -1219,15 +1219,29 @@
 
   /* ============ PRINT ============ */
   @media print{
-    header,.tabs,.toolbar,.add-row,.action,button,.toast-stack,.migrate-banner{display:none !important;}
-    .tab-panel{display:block !important;}
+    header,.tabs,.toolbar,.add-row,.action,button,.toast-stack,.migrate-banner,.page-header-actions,.sidebar-toggle{display:none !important;}
+    /* Print only the active tab (was: all tab panels stacked — wrong) */
+    .tab-panel{display:none !important;}
+    .tab-panel.active{display:block !important;}
+    /* Layout: drop the sidebar gutter and give the content full width */
+    .app-layout{display:block !important;padding:8px !important;}
+    .main-content{padding:0 !important;}
     body, body::before, body::after{background:#fff !important;color:#000 !important;}
+    body::after{display:none !important;}  /* grain overlay */
     .card,.kpi,.compare-card,.chart-box{background:#fff !important;color:#000 !important;border:1px solid #ccc !important;box-shadow:none !important;page-break-inside:avoid;}
     .card h2, .kpi .value, td.num, .compare-card h4, .compare-row .val{color:#000 !important;}
+    .card h2 .ic{background:#E85D3C !important;color:#fff !important;}
     th{background:#eee !important;color:#000 !important;}
     .breakeven-banner{background:#fff !important;color:#000 !important;border:2px solid #E85D3C !important;}
     .breakeven-banner::before,.breakeven-banner::after{display:none !important;}
     .breakeven-banner .value,.breakeven-banner .title,.breakeven-banner .sub{color:#000 !important;-webkit-text-fill-color:#000 !important;background:none !important;}
+    /* Page header readable in print */
+    .page-header{border-bottom:2px solid #E85D3C !important;}
+    .page-header h1{color:#000 !important;}
+    .page-header p{color:#444 !important;}
+    /* Margin pills + KPI rings stay readable */
+    .pc-margin-cell{background:#f3f4f6 !important;color:#000 !important;border:1px solid #aaa !important;}
+    .kpi::before{display:none !important;}
   }
 </style>
 </head>
@@ -1836,7 +1850,7 @@
           <input type="file" id="pnlFileInput" accept=".xlsx,.xls,.pdf" style="display:none;"/>
         </div>
       </div>
-      <div id="pnlFileInfo" style="display:none;margin-top:14px;padding:12px 16px;background:rgba(91,155,213,.10);border:1px solid rgba(91,155,213,.30);border-radius:10px;display:none;">
+      <div id="pnlFileInfo" style="display:none;margin-top:14px;padding:12px 16px;background:rgba(91,155,213,.10);border:1px solid rgba(91,155,213,.30);border-radius:10px;">
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
           <span style="font-size:24px;line-height:1;" id="pnlFileIcon">📊</span>
           <div style="flex:1;min-width:200px;">
@@ -3537,6 +3551,7 @@ let cmpChart;
 function drawCompareChart(sel){
   const ctx = document.getElementById('cmpChart');
   if(!ctx) return;
+  if(typeof Chart === 'undefined') return;  // CDN failed to load — bail gracefully
   if(cmpChart) cmpChart.destroy();
   const labels = [t('sales_target'),t('kpi_fixed'),t('kpi_var'),t('be_8'),t('target_np')];
   cmpChart = new Chart(ctx,{
@@ -3566,6 +3581,9 @@ function renderSensitivity(){
   document.getElementById('sCurSales').textContent = 'MYR '+fmt(r.sales);
   document.getElementById('sCurBE').textContent = 'MYR '+fmt(r.C32);
   document.getElementById('sCurNP').textContent = 'MYR '+fmt(r.C30);
+  // Bail out of chart rendering if Chart.js CDN failed to load. KPI numbers
+  // + sensitivity table above still work fine.
+  if(typeof Chart === 'undefined') return;
 
   const steps = [];
   for(let pct=-50; pct<=50; pct+=10){ steps.push(pct); }
@@ -4492,7 +4510,7 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     fileName.textContent = f.name;
     fileSize.textContent = fmtBytes(f.size);
     fileIcon.textContent = nm.endsWith('.pdf') ? '📑' : '📊';
-    fileInfo.style.display = 'flex';
+    fileInfo.style.display = 'block';  // the inner div is flex; outer just needs to be visible
     btnConvert.disabled = false;
     showStatus('');
   }
@@ -4501,9 +4519,14 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
   dropZone.addEventListener('click', e => {
     // Only trigger when clicking the empty area, not the button itself
     if(e.target === btnChoose || (e.target.closest && e.target.closest('button'))) return;
+    fileInput.value = '';  // allow re-selecting the same file later
     fileInput.click();
   });
-  btnChoose.addEventListener('click', e => { e.stopPropagation(); fileInput.click(); });
+  btnChoose.addEventListener('click', e => {
+    e.stopPropagation();
+    fileInput.value = '';  // allow re-selecting the same file later
+    fileInput.click();
+  });
   ['dragenter','dragover'].forEach(ev => {
     dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
   });

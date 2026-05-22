@@ -280,12 +280,37 @@ function parseExcel(arrayBuffer){
     } else {
       label = String(v).trim();
     }
-    // Skip percentage columns (Xero has alternating $ / % columns)
-    if(label === '%' || label === 'YTD %') continue;
-    // Skip narrow spacer columns (no header text)
+    // Skip percentage / variance / narrow spacer columns
     if(!label) continue;
+    if(label === '%' || label === 'YTD %' || /^%$/.test(label)) continue;
+    if(/^variance|^var\.?$|^change$|^diff(erence)?$/i.test(label)) continue;
     months.push(label);
     monthCols.push(j);
+  }
+  // Fallback: if strict detection found 0 months, treat any column whose
+  // header is non-empty AND whose data rows are mostly numeric as a month.
+  if(months.length === 0){
+    for(let j=1; j<headerRow.length; j++){
+      const v = headerRow[j];
+      if(v == null || v === '') continue;
+      const label = String(v).trim();
+      if(!label || label === '%') continue;
+      let numericCount = 0, dataCount = 0;
+      for(let i=headerRowIdx+1; i<Math.min(aoa.length, headerRowIdx + 30); i++){
+        const cv = (aoa[i] || [])[j];
+        if(cv == null || cv === '') continue;
+        dataCount++;
+        const n = Number(String(cv).replace(/[,\s]/g,'').replace(/^\((.*)\)$/,'-$1'));
+        if(isFinite(n)) numericCount++;
+      }
+      if(dataCount >= 3 && numericCount / dataCount > 0.6){
+        months.push(label);
+        monthCols.push(j);
+      }
+    }
+  }
+  if(months.length === 0){
+    throw new Error('No month/period columns detected in the source. Make sure your header row has month labels (e.g. "Jan 2026") in row 1.');
   }
 
   // Extract data rows
@@ -552,6 +577,11 @@ function buildOutputWorkbook({ months, mapped, sourceFilename, entityName }){
   // ----- Build SheetJS worksheet -----
   const ws = XLSX.utils.aoa_to_sheet([], { dateNF:'yyyy-mm-dd' });
 
+  // Pre-compute the set of % columns so we can apply percent format
+  // (not the MYR format) to formula cells in those columns.
+  const PCT_COLS = new Set();
+  for(let m=0;m<monthCount;m++) PCT_COLS.add(pctColIdx(m));
+
   // Write cells one at a time so we can attach formulas + types properly
   for(let r = 0; r < aoa.length; r++){
     const rowVals = aoa[r];
@@ -560,7 +590,10 @@ function buildOutputWorkbook({ months, mapped, sourceFilename, entityName }){
       if(v == null) continue;
       const addr = XLSX.utils.encode_cell({ r, c });
       if(typeof v === 'object' && v.f){
-        ws[addr] = { t: 'n', f: v.f };
+        // Formula cell — also apply the appropriate number format so
+        // Excel doesn't show raw decimals.
+        const z = PCT_COLS.has(c) ? '0.0%;(0.0%);"-"' : '#,##0.00;(#,##0.00);"-"';
+        ws[addr] = { t: 'n', f: v.f, z: z };
       } else if(typeof v === 'number'){
         ws[addr] = { t: 'n', v: v, z: '#,##0.00;(#,##0.00);"-"' };
       } else {
