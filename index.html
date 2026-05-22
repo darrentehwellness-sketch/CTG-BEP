@@ -33,7 +33,7 @@
 <script>if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
 <script src="config.js?v=21"></script>
 <script src="assets/js/supabase-client.js?v=21"></script>
-<script src="assets/js/pnl-converter.js?v=12"></script>
+<script src="assets/js/pnl-converter.js?v=13"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -4601,6 +4601,31 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
 
   function showStatus(msg, kind){
     if(!statusEl) return;
+    // Multi-line diagnostic errors get preserved formatting; short
+    // status lines stay inline.
+    if(msg && msg.indexOf('\n') !== -1){
+      statusEl.style.whiteSpace = 'pre-line';
+      statusEl.style.display    = 'block';
+      statusEl.style.width      = '100%';
+      statusEl.style.marginTop  = '8px';
+      statusEl.style.padding    = '10px 12px';
+      statusEl.style.background = 'rgba(239,68,68,.08)';
+      statusEl.style.border     = '1px solid rgba(239,68,68,.30)';
+      statusEl.style.borderRadius='8px';
+      statusEl.style.fontSize   = '12px';
+      statusEl.style.lineHeight = '1.6';
+    } else {
+      statusEl.style.whiteSpace = '';
+      statusEl.style.display    = '';
+      statusEl.style.width      = '';
+      statusEl.style.marginTop  = '';
+      statusEl.style.padding    = '';
+      statusEl.style.background = '';
+      statusEl.style.border     = '';
+      statusEl.style.borderRadius='';
+      statusEl.style.fontSize   = '';
+      statusEl.style.lineHeight = '';
+    }
     statusEl.textContent = msg || '';
     statusEl.style.color = kind === 'error' ? '#fca5a5'
                          : kind === 'success' ? '#6ee7b7'

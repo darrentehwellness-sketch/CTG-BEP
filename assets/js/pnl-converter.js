@@ -983,36 +983,61 @@ function parseExcel(arrayBuffer){
     else if(!period) period = v;
   }
 
-  // Extract data rows — TRACK section context per row.
-  // A row is a section header if it has a name but no values AND its name
-  // matches a known section pattern OR is short and capitalized.
+  // Extract data rows. Be CONSERVATIVE about dropping rows — only skip if
+  // the row is clearly a section header (matches a known pattern) or a
+  // subtotal/computed line. Real account rows with zero values are kept
+  // so empty-period entries don't go missing.
   const rows = [];
-  let currentSection = null;       // tracks which P&L section we're currently inside
-  let lastAccountIdx = -1;          // for sibling-context detection
+  let currentSection = null;
+  let lastAccountIdx = -1;
+  let dropped = { emptyName: 0, section: 0, total: 0, computed: 0 };
+  let totalDataRowsScanned = 0;
   for(let i=headerRowIdx+1; i<aoa.length; i++){
     const row = aoa[i] || [];
     const name = (row[0] == null ? '' : String(row[0])).trim();
-    if(!name) continue;
+    if(!name){ dropped.emptyName++; continue; }
+    totalDataRowsScanned++;
     const values = monthCols.map(mc => parseNumeric(row[mc.col]) || 0);
     const hasAny = values.some(v => v !== 0);
-    // --- Section header detection ---
-    if(!hasAny){
-      const detected = detectSourceSection(name);
-      if(detected){
-        currentSection = detected;
-        continue;
-      }
-      // Could be a sub-heading inside a section — track but don't change section
+    // --- Section-header detection BY NAME pattern (not by emptiness) ---
+    const detected = detectSourceSection(name);
+    if(detected && !hasAny){
+      // Has section-pattern name AND no values → it's a section header
+      currentSection = detected;
+      dropped.section++;
       continue;
     }
     // --- Skip subtotal / computed lines (they're recomputed in output) ---
-    if(/^total\s+/i.test(name)) continue;
+    if(/^total\s+/i.test(name)){ dropped.total++; continue; }
     if(/^gross\s+profit$/i.test(name) || /^net\s+profit(\/?\(loss\))?$/i.test(name) ||
-       /^operating\s+profit/i.test(name) || /^ebitda$/i.test(name)) continue;
-    // --- Real account row ---
+       /^operating\s+profit/i.test(name) || /^ebitda$/i.test(name)){ dropped.computed++; continue; }
+    // --- Pure-blank dividers (no name AND no values) won't reach here (name check above) ---
+    // --- Real account row — keep even if values are all zero so empty
+    //     periods don't go missing ---
     const prev = lastAccountIdx >= 0 ? rows[lastAccountIdx] : null;
     rows.push({ name, values, sourceSection: currentSection, prevName: prev ? prev.name : null });
     lastAccountIdx = rows.length - 1;
+  }
+
+  // If we end up with ZERO rows, throw a diagnostic error so the user
+  // can see exactly what the parser found vs dropped.
+  if(rows.length === 0){
+    const monthsList = monthCols.map(c => '"' + c.label + '" (col ' + (c.col+1) + ')').join(', ') || 'NONE';
+    throw new Error(
+      'No data rows detected. Diagnostics:\n' +
+      '• Header row picked: row ' + (headerRowIdx + 1) + '\n' +
+      '• Month columns detected: ' + monthsList + '\n' +
+      '• Total rows scanned below header: ' + totalDataRowsScanned + '\n' +
+      '• Skipped — empty name: ' + dropped.emptyName +
+      ', section headers: ' + dropped.section +
+      ', totals: ' + dropped.total +
+      ', computed (GP/NP/EBITDA): ' + dropped.computed + '\n' +
+      'Common causes:\n' +
+      '  – Account names are in a different column than A\n' +
+      '  – Month headers are not in the first 25 rows\n' +
+      '  – All rows match Total/GP/NP/EBITDA patterns\n' +
+      'Please open the file in Excel and check that account names are in column A and that monthly figures are in subsequent columns under date-like headers (e.g. "Jan 2026").'
+    );
   }
 
   return {
