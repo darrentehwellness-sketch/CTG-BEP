@@ -16,57 +16,190 @@
 (function(global){
 'use strict';
 
-/* ============ ITA SECTIONS (LHDN PAYMENT CODES) ============ */
+/* ============ ITA SECTIONS — full LHDN payment-type taxonomy ============
+   Source: LHDN Public Ruling 11/2018 + ITA 1967 + SQL Accounting reference
+            (https://www.sql.com.my/accounting-software/withholding-tax/)
+
+   Each section carries:
+     - label        Human-readable description (shown in dropdown)
+     - section      ITA 1967 section reference
+     - defaultRate  Default WHT % (used when no DTA reduction applies)
+     - formCode     LHDN payment form (CP 37, CP 37A, CP 37C, etc.)
+     - lhdnCode     3-digit LHDN payment code for bank remittance
+                    (only available for the original 4 — others use the
+                    form-specific code on the CP 37x voucher)
+     - group        UI grouping (for <optgroup> in section dropdown)
+     - note         Short explainer shown as tooltip / hint
+
+   ─────────────────────────────────────────────────────────────────────
+   Pay code 151 = Contract (S.107A)        Form CP 37A
+   Pay code 152 = Special Classes (S.109B) Form CP 37D
+   Pay code 153 = Interest (S.109)         Form CP 37
+   Pay code 162 = Royalty (S.109)          Form CP 37
+
+   Filing deadline: WHT must be paid to LHDN within 1 MONTH of paying
+   the non-resident. Late = 10% penalty per s.109(2)/s.107A(2).
+   ───────────────────────────────────────────────────────────────────── */
 const WHT_SECTIONS = {
-  royalty:    { label:'Section 109 (Royalty)',                     code:162, defaultRate:10 },
-  interest:   { label:'Section 109 (Interest)',                    code:153, defaultRate:15 },
-  technical:  { label:'Section 109B / 4A (Special Classes / Technical Services)', code:152, defaultRate:10 },
-  contract:   { label:'Section 107A (Contract Payment to Non-Resident)',          code:151, defaultRate:13 }
+  // ── S.109 — Royalty & Interest ────────────────────────────────────
+  royalty: {
+    label:'Section 109 — Royalty',
+    section:'109', defaultRate:10, formCode:'CP 37', lhdnCode:162,
+    group:'S.109',
+    note:'Royalty paid to non-resident. Digital ads (Meta/Google/TikTok) classified as royalty in MY — DTA often reduces to 8%.'
+  },
+  interest: {
+    label:'Section 109 — Interest',
+    section:'109', defaultRate:15, formCode:'CP 37', lhdnCode:153,
+    group:'S.109',
+    note:'Interest paid to non-resident (loans, debentures, bonds). DTA may reduce.'
+  },
+
+  // ── S.109A — Non-resident public entertainers ─────────────────────
+  entertainer: {
+    label:'Section 109A — Non-resident public entertainers',
+    section:'109A', defaultRate:15, formCode:'Payment memo (Assessment Branch)', lhdnCode:null,
+    group:'S.109A',
+    note:'Artistes, sportsmen, performers. LHDN issues a payment memo; no standard CP 37 form.'
+  },
+
+  // ── S.109B — Special classes of income (technical / services) ─────
+  technical: {
+    label:'Section 109B / 4A — Technical fees, services & movable property rent',
+    section:'109B', defaultRate:10, formCode:'CP 37D', lhdnCode:152,
+    group:'S.109B',
+    note:'Technical advice/services + use of movable property (equipment rental). DTA may reduce.'
+  },
+
+  // ── S.109C — Interest from approved financial institutions ────────
+  interest_fi: {
+    label:'Section 109C — Interest from approved financial institutions',
+    section:'109C', defaultRate:5, formCode:'CP 37C', lhdnCode:null,
+    group:'S.109C',
+    note:'Interest paid to non-resident by an approved Malaysian bank/financial institution. Concessional 5% rate.'
+  },
+
+  // ── S.109D — REIT distributions (3 distinct rates) ────────────────
+  reit_other: {
+    label:'Section 109D — REIT distribution: other (non-corporate)',
+    section:'109D', defaultRate:10, formCode:'CP 37E', lhdnCode:null,
+    group:'S.109D — REIT',
+    note:'Distribution from a Malaysian REIT to a recipient other than a resident company.'
+  },
+  reit_nonres_co: {
+    label:'Section 109D — REIT distribution: non-resident company',
+    section:'109D', defaultRate:25, formCode:'CP 37E', lhdnCode:null,
+    group:'S.109D — REIT',
+    note:'Distribution to a non-resident COMPANY recipient — 25% under S.109D.'
+  },
+  reit_fii: {
+    label:'Section 109D — REIT distribution: foreign investment institution',
+    section:'109D', defaultRate:10, formCode:'CP 37E', lhdnCode:null,
+    group:'S.109D — REIT',
+    note:'Foreign investment institution recipient (effective 01/01/2007 onwards).'
+  },
+
+  // ── S.109E — Family Fund / Takaful Family Fund / Dana Am ──────────
+  family_indiv: {
+    label:'Section 109E — Family Fund / Takaful: individual & others',
+    section:'109E', defaultRate:8, formCode:'CP 37E(T)', lhdnCode:null,
+    group:'S.109E — Family Fund',
+    note:'Distribution from Family Fund / Takaful Family Fund / Dana Am to individual or other (non-company) recipient.'
+  },
+  family_nonres_co: {
+    label:'Section 109E — Family Fund / Takaful: non-resident company',
+    section:'109E', defaultRate:25, formCode:'CP 37E(T)', lhdnCode:null,
+    group:'S.109E — Family Fund',
+    note:'Distribution to non-resident company recipient — 25%.'
+  },
+
+  // ── S.109F — Other income under S.4(f) ────────────────────────────
+  s4f: {
+    label:'Section 109F — Other income under Section 4(f)',
+    section:'109F', defaultRate:10, formCode:'CP 37F', lhdnCode:null,
+    group:'S.109F',
+    note:'Catch-all for income falling under S.4(f) ITA 1967 — commissions, guarantee fees and miscellaneous gains not specifically covered elsewhere.'
+  },
+
+  // ── S.107A — Contract payments to non-resident contractors ────────
+  // S.107A(1)(a) — contractor's profit portion (10%)
+  // S.107A(1)(b) — contractor's employees' portion (3%)
+  // Combined 13% if both apply. Split as separate payees for clean reporting.
+  contract: {
+    label:'Section 107A(1)(a) — Contract payment (contractor portion)',
+    section:'107A', defaultRate:10, formCode:'CP 37A', lhdnCode:151,
+    group:'S.107A — Contract',
+    note:'Contract payment to non-resident contractor — 10% on contractor\'s profit portion under S.107A(1)(a).'
+  },
+  contract_emp: {
+    label:'Section 107A(1)(b) — Contract payment (employees portion)',
+    section:'107A', defaultRate:3, formCode:'CP 37A', lhdnCode:151,
+    group:'S.107A — Contract',
+    note:'Additional 3% on the portion paid to contractor\'s employees under S.107A(1)(b). Combined with 107A(1)(a) = 13% total.'
+  }
 };
 
 /* ============ DTA RATES TABLE ============
-   For each country, the WHT rate under each ITA section per Malaysia's DTA.
-   "—" means use the default non-DTA rate. Add more rows as needed. */
+   Per Malaysia's bilateral Double Taxation Agreements. Most DTAs only
+   reduce royalty / interest / technical rates — REIT/Family Fund/S.4(f)
+   are domestic provisions that DTAs typically don't override.
+
+   Keys not present here fall back to WHT_SECTIONS[key].defaultRate via
+   rateForCountrySection() below. The contract rate stays at 10% (the
+   profit portion only — add a 2nd payee with section 'contract_emp'
+   to capture the 3% employee portion). */
 const DTA_RATES = {
-  // country code: [royalty, interest, technical, contract]
-  // (no DTA fallback uses ITA defaults: 10 / 15 / 10 / 13)
-  'No DTA / Other':      { royalty:10, interest:15, technical:10, contract:13 },
-  'Ireland':             { royalty:8,  interest:10, technical:10, contract:13 },
-  'Singapore':           { royalty:8,  interest:10, technical:5,  contract:13 },
-  'United States':       { royalty:10, interest:15, technical:10, contract:13 },  // no DTA
-  'United Kingdom':      { royalty:8,  interest:10, technical:8,  contract:13 },
-  'China':               { royalty:10, interest:10, technical:10, contract:13 },
-  'Japan':               { royalty:10, interest:10, technical:10, contract:13 },
-  'Australia':           { royalty:10, interest:15, technical:10, contract:13 },
-  'India':               { royalty:10, interest:10, technical:10, contract:13 },
-  'Indonesia':           { royalty:10, interest:15, technical:5,  contract:13 },
-  'South Korea':         { royalty:10, interest:15, technical:10, contract:13 },
-  'Hong Kong':           { royalty:8,  interest:10, technical:5,  contract:13 },
-  'Netherlands':         { royalty:8,  interest:10, technical:8,  contract:13 },
-  'Germany':             { royalty:7,  interest:10, technical:7,  contract:13 },
-  'Thailand':            { royalty:10, interest:15, technical:10, contract:13 },
-  'Vietnam':             { royalty:10, interest:10, technical:10, contract:13 },
-  'Taiwan':              { royalty:10, interest:10, technical:7.5,contract:13 },
-  'France':              { royalty:10, interest:15, technical:10, contract:13 },
-  'Italy':               { royalty:10, interest:15, technical:10, contract:13 },
-  'Switzerland':         { royalty:10, interest:10, technical:10, contract:13 },
-  'Canada':              { royalty:10, interest:15, technical:10, contract:13 },
-  'Philippines':         { royalty:15, interest:15, technical:10, contract:13 },
-  'United Arab Emirates':{ royalty:10, interest:5,  technical:10, contract:13 },
-  'New Zealand':         { royalty:10, interest:15, technical:10, contract:13 },
-  'Pakistan':            { royalty:10, interest:15, technical:10, contract:13 },
-  'Bangladesh':          { royalty:10, interest:15, technical:10, contract:13 },
-  'Sri Lanka':           { royalty:10, interest:10, technical:10, contract:13 },
-  'Saudi Arabia':        { royalty:8,  interest:5,  technical:8,  contract:13 },
-  'Russia':              { royalty:10, interest:15, technical:10, contract:13 }
+  // country code: { royalty, interest, technical, contract }
+  // — domestic default for no-DTA jurisdictions: 10 / 15 / 10 / 10
+  'No DTA / Other':      { royalty:10, interest:15, technical:10, contract:10 },
+  'Ireland':             { royalty:8,  interest:10, technical:10, contract:10 },
+  'Singapore':           { royalty:8,  interest:10, technical:5,  contract:10 },
+  'United States':       { royalty:10, interest:15, technical:10, contract:10 },  // no DTA in force
+  'United Kingdom':      { royalty:8,  interest:10, technical:8,  contract:10 },
+  'China':               { royalty:10, interest:10, technical:10, contract:10 },
+  'Japan':               { royalty:10, interest:10, technical:10, contract:10 },
+  'Australia':           { royalty:10, interest:15, technical:10, contract:10 },
+  'India':               { royalty:10, interest:10, technical:10, contract:10 },
+  'Indonesia':           { royalty:10, interest:15, technical:5,  contract:10 },
+  'South Korea':         { royalty:10, interest:15, technical:10, contract:10 },
+  'Hong Kong':           { royalty:8,  interest:10, technical:5,  contract:10 },
+  'Netherlands':         { royalty:8,  interest:10, technical:8,  contract:10 },
+  'Germany':             { royalty:7,  interest:10, technical:7,  contract:10 },
+  'Thailand':            { royalty:10, interest:15, technical:10, contract:10 },
+  'Vietnam':             { royalty:10, interest:10, technical:10, contract:10 },
+  'Taiwan':              { royalty:10, interest:10, technical:7.5,contract:10 },
+  'France':              { royalty:10, interest:15, technical:10, contract:10 },
+  'Italy':               { royalty:10, interest:15, technical:10, contract:10 },
+  'Switzerland':         { royalty:10, interest:10, technical:10, contract:10 },
+  'Canada':              { royalty:10, interest:15, technical:10, contract:10 },
+  'Philippines':         { royalty:15, interest:15, technical:10, contract:10 },
+  'United Arab Emirates':{ royalty:10, interest:5,  technical:10, contract:10 },
+  'New Zealand':         { royalty:10, interest:15, technical:10, contract:10 },
+  'Pakistan':            { royalty:10, interest:15, technical:10, contract:10 },
+  'Bangladesh':          { royalty:10, interest:15, technical:10, contract:10 },
+  'Sri Lanka':           { royalty:10, interest:10, technical:10, contract:10 },
+  'Saudi Arabia':        { royalty:8,  interest:5,  technical:8,  contract:10 },
+  'Russia':              { royalty:10, interest:15, technical:10, contract:10 }
 };
 
 const COUNTRY_LIST = Object.keys(DTA_RATES);
 
 /* ============ HELPERS ============ */
+// Resolve the applicable WHT rate for a given (country, section) pair.
+//
+// Rules (in priority order):
+//   1. If the section is one of the original 4 (royalty/interest/technical/
+//      contract) AND a DTA exists for the country, use the DTA-reduced rate.
+//   2. Otherwise (new sections like REIT, Family Fund, S.4(f), entertainer,
+//      interest_fi, contract_emp), use the section's domestic defaultRate.
+//      These sections are domestic provisions — DTAs typically don't
+//      override them.
+//   3. Fallback to 10% if everything else is missing.
 function rateForCountrySection(country, section){
   const r = DTA_RATES[country] || DTA_RATES['No DTA / Other'];
-  return r[section] != null ? r[section] : (WHT_SECTIONS[section] || {}).defaultRate || 10;
+  if(r[section] != null) return r[section];
+  const sec = WHT_SECTIONS[section];
+  return sec ? sec.defaultRate : 10;
 }
 
 function fmt(n){

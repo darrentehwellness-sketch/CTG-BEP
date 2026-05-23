@@ -34,7 +34,7 @@
 <script src="config.js?v=22"></script>
 <script src="assets/js/supabase-client.js?v=26"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
-<script src="assets/js/wht-calculator.js?v=2"></script>
+<script src="assets/js/wht-calculator.js?v=3"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -1229,6 +1229,19 @@
   .wht-totals .box.hilite{background:rgba(232,93,60,.10);border-color:rgba(232,93,60,.30);}
   .wht-totals .box.hilite .value{color:var(--coral-soft);}
   @media (max-width:900px){ .wht-totals{ grid-template-columns:repeat(2,1fr); } }
+
+  /* ── Dark-theme styling for the WHT section <optgroup> dropdown ─────── */
+  select optgroup{
+    background:#0C1421; color:var(--sky-soft);
+    font-weight:800; font-style:normal;
+    font-size:10.5px; text-transform:uppercase; letter-spacing:1.1px;
+    padding:6px 4px;
+  }
+  select optgroup option{
+    background:var(--surface); color:var(--text);
+    font-weight:500; font-size:13px; letter-spacing:0; text-transform:none;
+    padding:6px 8px;
+  }
 
   /* ============ WHT DATE RANGE — Visual calendar popup picker ============ */
 
@@ -6536,9 +6549,25 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     ).join('');
   }
   function buildSectionOptions(selected){
-    return Object.keys(W.WHT_SECTIONS).map(k =>
-      '<option value="' + k + '"' + (k === selected ? ' selected' : '') + '>' + escapeHtml(W.WHT_SECTIONS[k].label) + '</option>'
-    ).join('');
+    // Group by `group` field (e.g. "S.109", "S.109D — REIT") for clarity.
+    // Falls back to a single ungrouped list if entries don't have groups.
+    const sections = W.WHT_SECTIONS;
+    const groups = {};
+    const order = [];
+    Object.keys(sections).forEach(k => {
+      const g = sections[k].group || 'Sections';
+      if(!groups[g]){ groups[g] = []; order.push(g); }
+      groups[g].push(k);
+    });
+    return order.map(g => {
+      const opts = groups[g].map(k => {
+        const s = sections[k];
+        const formBadge = s.formCode ? ' · ' + s.formCode : '';
+        return '<option value="' + k + '"' + (k === selected ? ' selected' : '') + '>' +
+          escapeHtml(s.label) + escapeHtml(formBadge) + '</option>';
+      }).join('');
+      return '<optgroup label="' + escapeHtml(g) + '">' + opts + '</optgroup>';
+    }).join('');
   }
 
   // ---- Render ALL payee cards ----
@@ -6559,7 +6588,10 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
         '<div class="head">' +
           '<div class="pno">' + (i+1) + '</div>' +
           '<div class="ttl">' + escapeHtml(p.name || 'Payee ' + (i+1)) +
-            '<div class="sub">' + escapeHtml(p.country || '—') + ' · ' + escapeHtml(sec.label || '—') + ' · Code ' + (sec.code || '—') + '</div>' +
+            '<div class="sub">' + escapeHtml(p.country || '—') + ' · ' + escapeHtml(sec.label || '—') +
+              (sec.formCode ? ' · <b style="color:var(--coral-soft);">' + escapeHtml(sec.formCode) + '</b>' : '') +
+              (sec.lhdnCode ? ' · Code ' + sec.lhdnCode : '') +
+            '</div>' +
           '</div>' +
           '<button class="danger" data-wht-del-payee="' + i + '" style="padding:6px 12px;font-size:11.5px;">' + t('wht_remove_payee') + '</button>' +
         '</div>' +
@@ -6645,11 +6677,22 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     if(tbody){
       tbody.innerHTML = result.payees.map((p, i) => {
         const sec = W.WHT_SECTIONS[p.section] || {};
+        // Section cell shows: short ITA section + LHDN form code (CP 37 etc.)
+        // Format: "S.109 — Royalty · CP 37 · Code 162"
+        const sectionDisplay =
+          (sec.section ? 'S.' + sec.section + ' — ' : '') +
+          (sec.label ? sec.label.replace(/^Section \d+[A-Z]?\s*(—|\/|\()/, '').replace(/\)$/, '').trim() : (p.section || ''));
+        const codeBadges = [];
+        if(sec.formCode) codeBadges.push('<b style="color:var(--coral-soft);">' + escapeHtml(sec.formCode) + '</b>');
+        if(sec.lhdnCode) codeBadges.push('Code ' + sec.lhdnCode);
         return '<tr>' +
           '<td>' + (i+1) + '</td>' +
           '<td>' + escapeHtml(p.name||'') + '</td>' +
           '<td>' + escapeHtml(p.country||'') + '</td>' +
-          '<td style="font-size:11.5px;">' + escapeHtml(sec.label || p.section || '') + '</td>' +
+          '<td style="font-size:11.5px;line-height:1.4;">' +
+            '<div>' + escapeHtml(sectionDisplay) + '</div>' +
+            (codeBadges.length ? '<div style="font-size:10.5px;color:var(--text-soft);margin-top:2px;">' + codeBadges.join(' · ') + '</div>' : '') +
+          '</td>' +
           '<td class="num">' + W.fmt(p._calc.subtotal.net) + '</td>' +
           '<td class="pct">' + (Number(p.whtRate)||0).toFixed(1) + '%</td>' +
           '<td class="num">' + W.fmt(p._calc.wht) + '</td>' +
@@ -6746,7 +6789,10 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     const sec = W.WHT_SECTIONS[p.section] || {};
     ttl.innerHTML = escapeHtml(p.name || 'Payee ' + (i+1)) +
       '<div class="sub">' + escapeHtml(p.country || '—') + ' · ' +
-      escapeHtml(sec.label || '—') + ' · Code ' + (sec.code || '—') + '</div>';
+      escapeHtml(sec.label || '—') +
+      (sec.formCode ? ' · <b style="color:var(--coral-soft);">' + escapeHtml(sec.formCode) + '</b>' : '') +
+      (sec.lhdnCode ? ' · Code ' + sec.lhdnCode : '') +
+      '</div>';
   }
 
   // Build the entity dropdown options from the global _entitiesCache.
