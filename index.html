@@ -34,7 +34,7 @@
 <script src="config.js?v=22"></script>
 <script src="assets/js/supabase-client.js?v=26"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
-<script src="assets/js/wht-calculator.js?v=5"></script>
+<script src="assets/js/wht-calculator.js?v=6"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -3588,7 +3588,8 @@ const I18N = {
     wht_dr_apply:"Apply", wht_dr_cancel:"Cancel",
     wht_lines_title:"Invoice Receipts",
     wht_th_no:"No", wht_th_date:"Payment Date", wht_th_receipt:"Receipt No",
-    wht_th_gross:"Gross (MYR)", wht_th_net2:"Net", wht_th_sst:"SST",
+    wht_th_gross:"Gross (MYR)", wht_th_invoice:"Invoice Amount (MYR)",
+    wht_th_net2:"Net", wht_th_sst:"SST",
     wht_hint_gross_edit:"Type the SST-inclusive (Gross) amount — Net & SST auto-compute",
     wht_hint_net_edit:"Type the pre-SST (Net) amount — Gross & SST auto-compute by ÷(1+SST%)",
     wht_th_total:"Total", wht_add_line:"Add Receipt",
@@ -6415,6 +6416,31 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
   // state, even after Reset Sample / Load Scenario replaces whtState.
   window._whtGetState = () => whtState;
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // DIRECT GROSS UPDATE — bypasses delegated 'input' events entirely.
+  // Each Gross input has oninput="window._whtUpdateGross(i, li, this.value)"
+  // so we have a GUARANTEED direct call path regardless of any browser
+  // extension, ad blocker, or other delegated listener that might be
+  // intercepting the input event.
+  // ═══════════════════════════════════════════════════════════════════════
+  window._whtUpdateGross = function(payeeIdx, lineIdx, rawValue){
+    try {
+      const p = whtState.payees[payeeIdx];
+      if(!p || !p.lines[lineIdx]) {
+        console.warn('[WHT _whtUpdateGross] missing payee/line', payeeIdx, lineIdx);
+        return;
+      }
+      const newGross = Math.max(0, Number(rawValue) || 0);
+      p.lines[lineIdx].gross = newGross;
+      persist();
+      refreshPayeeTotals(payeeIdx);
+      console.log('[WHT direct-gross]', {
+        payee: payeeIdx, line: lineIdx, gross: newGross,
+        sstRate: p.sstInclusive ? (p.sstRate || 8) : 0
+      });
+    } catch(err){ console.error('[WHT _whtUpdateGross]', err); }
+  };
+
   function dpOutsideClick(e){
     const popup = document.getElementById('whtDpPopup');
     if(!popup) return;
@@ -6653,14 +6679,14 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
         // Formula caption — makes the auto-calc relationship explicit
         (p.sstInclusive
           ? ('<div class="wht-formula-caption">' +
-              '<span><b>Type Gross (MYR)</b> → auto-computes:</span>' +
-              '<span><code>Net = Gross ÷ (1 + ' + (Number(p.sstRate)||8) + '%)</code></span>' +
-              '<span><code>SST = Gross − Net</code></span>' +
+              '<span><b>Type Invoice Amount (MYR)</b> → auto-computes:</span>' +
+              '<span><code>Net = Invoice ÷ (1 + ' + (Number(p.sstRate)||8) + '%)</code></span>' +
+              '<span><code>SST = Invoice − Net</code></span>' +
               '<span>WHT base = <b>Net only</b> (LHDN PR 11/2018)</span>' +
             '</div>')
           : ('<div class="wht-formula-caption">' +
-              '<span><b>SST-inclusive is OFF</b> — Net = Gross (no SST applied)</span>' +
-              '<span>WHT base = Gross</span>' +
+              '<span><b>SST-inclusive is OFF</b> — Net = Invoice Amount (no SST applied)</span>' +
+              '<span>WHT base = Invoice Amount</span>' +
             '</div>')
         ) +
         '<div class="table-wrap">' +
@@ -6669,7 +6695,7 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
               '<th style="width:36px;">' + t('wht_th_no') + '</th>' +
               '<th style="width:120px;">' + t('wht_th_date') + '</th>' +
               '<th>' + t('wht_th_receipt') + '</th>' +
-              '<th style="width:130px;">' + t('wht_th_gross') + '</th>' +
+              '<th style="width:140px;">' + t('wht_th_invoice') + '</th>' +
               '<th style="width:110px;">' + t('wht_th_net2') + '</th>' +
               '<th style="width:110px;">' + t('wht_th_sst') + '</th>' +
               '<th style="width:42px;"></th>' +
@@ -6685,7 +6711,15 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
                   '<td>' + (li+1) + '</td>' +
                   '<td><input type="date" value="' + escapeHtml(dmyToIso(L.date)) + '" data-wpl="' + i + '" data-line="' + li + '" data-field="date" title="' + escapeHtml(L.date||'') + '"></td>' +
                   '<td><input type="text" value="' + escapeHtml(L.receiptNo||'') + '" data-wpl="' + i + '" data-line="' + li + '" data-field="receiptNo"></td>' +
-                  '<td><input type="number" min="0" step="0.01" value="' + (Number(L.gross)||0) + '" data-wpl="' + i + '" data-line="' + li + '" data-field="gross" title="Type the SST-inclusive amount — Net and SST auto-compute below"></td>' +
+                  // CRITICAL: Direct oninput call to window._whtUpdateGross.
+                  // We previously relied on delegated 'input' events but the
+                  // user reported the auto-calc was failing in their browser.
+                  // This direct call guarantees the handler fires on every
+                  // keystroke regardless of extensions / overlapping handlers.
+                  '<td><input type="number" min="0" step="0.01" value="' + (Number(L.gross)||0) + '" data-wpl="' + i + '" data-line="' + li + '" data-field="gross" ' +
+                    'oninput="window._whtUpdateGross && window._whtUpdateGross(' + i + ',' + li + ',this.value)" ' +
+                    'onchange="window._whtUpdateGross && window._whtUpdateGross(' + i + ',' + li + ',this.value)" ' +
+                    'title="Type the Invoice Amount (SST-inclusive) — Net and SST auto-compute"></td>' +
                   '<td class="num wht-net-cell">' + W.fmt(r.net) + '</td>' +
                   '<td class="num wht-sst-cell">' + W.fmt(r.sst) + '</td>' +
                   '<td class="action"><button data-wht-del-line="' + i + ':' + li + '">✕</button></td>' +
