@@ -34,7 +34,7 @@
 <script src="config.js?v=22"></script>
 <script src="assets/js/supabase-client.js?v=26"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
-<script src="assets/js/wht-calculator.js?v=4"></script>
+<script src="assets/js/wht-calculator.js?v=5"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -6630,6 +6630,7 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
               (sec.lhdnCode ? ' · Code ' + sec.lhdnCode : '') +
             '</div>' +
           '</div>' +
+          '<button class="ghost" data-wht-recompute="' + i + '" style="padding:6px 12px;font-size:11.5px;margin-right:6px;" title="Force-recompute Net + SST from Gross for every receipt line">🔄 Recompute</button>' +
           '<button class="danger" data-wht-del-payee="' + i + '" style="padding:6px 12px;font-size:11.5px;">' + t('wht_remove_payee') + '</button>' +
         '</div>' +
         '<div class="grid-2">' +
@@ -7039,8 +7040,21 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
         // Gross is the single source of truth. Net + SST are always derived
         // via calcReceipt() at render / refresh time. No bidirectional
         // editing — keeps the math impossible to desync.
-        p.lines[li][f] = Math.max(0, Number(tgt.value) || 0);
+        const newGross = Math.max(0, Number(tgt.value) || 0);
+        p.lines[li][f] = newGross;
         persist();
+        // Diagnostic — visible in DevTools console (F12) so we can verify
+        // the handler is firing. If you don't see this log when you type
+        // into Gross, the browser still has cached old code → hard-refresh.
+        try {
+          const sstRate = p.sstInclusive ? (p.sstRate || 8) : 0;
+          const expectedNet = sstRate > 0 ? newGross / (1 + sstRate/100) : newGross;
+          console.log('[WHT gross→net]', {
+            payee: i, line: li, gross: newGross, sstRate: sstRate,
+            expectedNet: expectedNet.toFixed(2),
+            expectedSst: (newGross - expectedNet).toFixed(2)
+          });
+        } catch(_e){}
         refreshPayeeTotals(i);          // recalc Net + SST + subtotals + KPIs
       } else if(f === 'date'){
         // <input type="date"> value is ISO; convert to DD/MM/YYYY for storage
@@ -7057,12 +7071,58 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
   });
 
   document.addEventListener('change', e => {
-    // checkbox + select changes already covered by 'input' event in modern browsers,
-    // but some older Safari fires 'change' instead. Fall through.
+    // Belt-and-suspenders fallback: if for any reason the 'input' event
+    // didn't propagate cleanly (browser extension interference, paste
+    // edge cases, etc.) the 'change' event always fires when the user
+    // blurs / commits the field. Sync the line's gross value from the
+    // DOM input value, then force a full payee refresh.
+    const tgt = e.target;
+    if(tgt && tgt.dataset && tgt.dataset.wpl !== undefined && tgt.dataset.field === 'gross'){
+      try {
+        const i = +tgt.dataset.wpl, li = +tgt.dataset.line;
+        const p = whtState.payees[i];
+        if(p && p.lines[li]){
+          const newGross = Math.max(0, Number(tgt.value) || 0);
+          if(p.lines[li].gross !== newGross){
+            p.lines[li].gross = newGross;
+            persist();
+          }
+          refreshPayeeTotals(i);
+          console.log('[WHT gross blur-resync]', { payee: i, line: li, gross: newGross });
+        }
+      } catch(err){ console.error('[WHT gross change handler]', err); }
+    }
   });
 
   document.addEventListener('click', e => {
     const tgt = e.target;
+    // Manual recompute — user clicks this to force Net + SST to recalc
+    // from Gross for every receipt line of this payee. Safety net in case
+    // 'input' / 'change' events didn't fire (e.g. paste from clipboard,
+    // browser extension interference).
+    if(tgt.dataset.whtRecompute !== undefined){
+      const i = +tgt.dataset.whtRecompute;
+      try {
+        const p = whtState.payees[i];
+        if(p && Array.isArray(p.lines)){
+          // Resync every line's gross from its DOM input first (in case
+          // the typed value didn't make it into state for whatever reason)
+          const card = document.querySelector('[data-pi="' + i + '"]');
+          if(card){
+            card.querySelectorAll('input[data-field="gross"]').forEach(inp => {
+              const li = +inp.dataset.line;
+              if(p.lines[li]){
+                p.lines[li].gross = Math.max(0, Number(inp.value) || 0);
+              }
+            });
+          }
+          persist();
+          renderAll();  // full rebuild — guaranteed clean state
+          console.log('[WHT recompute] payee', i, '— forced full refresh');
+        }
+      } catch(err){ console.error('[WHT recompute]', err); }
+      return;
+    }
     if(tgt.dataset.whtDelPayee !== undefined){ delPayee(+tgt.dataset.whtDelPayee); return; }
     if(tgt.dataset.whtAddLine  !== undefined){ addLine(+tgt.dataset.whtAddLine);   return; }
     if(tgt.dataset.whtDelLine  !== undefined){
