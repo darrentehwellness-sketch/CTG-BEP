@@ -1785,29 +1785,36 @@
 
     /* CENTER — report identity block */
     .print-letterhead .pl-report-left{
-      flex:1; min-width:0;
+      flex:1 1 0; min-width:0;
       align-self:center;
     }
     .print-letterhead .pl-report-kicker{
       font-size:7pt; font-weight:800; color:#E85D3C;
       letter-spacing:1.6px; text-transform:uppercase; margin-bottom:3px;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
     }
+    /* Title sized to fit on a single line in both portrait AND landscape.
+       19pt was too aggressive — long titles like "Withholding Tax
+       Computation (CP37)" wrapped 4-deep in portrait. 15pt fits cleanly
+       and still reads as a headline against the body copy. */
     .print-letterhead .pl-report-title{
-      font-size:19pt; font-weight:700; color:#0E2438;
-      margin:0 0 3px; letter-spacing:-.4px; line-height:1.1;
+      font-size:15pt; font-weight:700; color:#0E2438;
+      margin:0 0 3px; letter-spacing:-.3px; line-height:1.15;
+      word-break:keep-all; overflow-wrap:normal;
     }
     .print-letterhead .pl-report-sub{
-      font-size:8.5pt; color:#555; line-height:1.4;
-      max-width:42ch;
+      font-size:8pt; color:#555; line-height:1.4;
+      max-width:60ch;
     }
 
     /* RIGHT — context + meta block */
     .print-letterhead .pl-report-right,
     .print-letterhead .pl-meta{
-      text-align:right; font-size:8pt; color:#000;
-      min-width:200px;
+      text-align:right; font-size:7.5pt; color:#000;
+      flex:0 0 auto;
+      min-width:140px; max-width:200px;
       align-self:center;
-      padding-left:18px;
+      padding-left:14px;
       border-left:.75pt solid #d6d9e0;
     }
     /* When BOTH meta and report-right are populated, stack them with a
@@ -2063,29 +2070,132 @@
     .wht-payee-card{ page-break-inside:avoid; }
 
     /* ── Per-tab tweaks ─────────────────────────────────────────────── */
-    /* WHT calculator: master summary should start on a new page if there
-       are many payees above it, otherwise stays inline. */
+    /* WHT calculator print layout — optimised for both portrait and
+       landscape. Payee cards now flow naturally instead of forcing a
+       whole card onto one page (which was wasting half a page when a
+       card was a few mm too big to fit). The receipts table inside a
+       card may break across pages but the card header is kept with the
+       table via page-break-after:avoid on the header row. */
     #whtMasterTable{ page-break-before:auto; }
-    .wht-payee-card{ margin-bottom:12px !important; }
-    .wht-totals{ display:grid !important; grid-template-columns:repeat(4,1fr) !important; gap:8px !important; }
+    .wht-payee-card{
+      page-break-inside:auto !important;
+      margin-bottom:10px !important;
+      /* Light, ink-friendly card on print (was dark navy gradient on
+         screen — wastes ink and reduces text contrast on paper). */
+      background:#ffffff !important;
+      border:.75pt solid #d6d9e0 !important;
+      border-radius:6pt !important;
+      box-shadow:none !important;
+      padding:10pt 12pt !important;
+    }
+    /* Payee card header: strip the dark navy + show payee name in dark
+       brand color. The orange numbered chip stays for hierarchy. */
+    .wht-payee-card .head{
+      background:#fafbfd !important;
+      border-bottom:.5pt solid #d6d9e0 !important;
+      margin:-10pt -12pt 8pt !important;
+      padding:7pt 10pt !important;
+      border-radius:6pt 6pt 0 0 !important;
+    }
+    .wht-payee-card .head .ttl{ color:#0E2438 !important; font-size:11pt !important; }
+    .wht-payee-card .head .sub{ color:#555 !important; font-size:8pt !important; }
+    /* Form fields inside payee card — labels lighter, values bolder */
+    .wht-payee-card label,
+    .wht-payee-card .input-group label{
+      color:#888 !important; font-size:7pt !important;
+      text-transform:uppercase; letter-spacing:.5px;
+      font-weight:700 !important;
+    }
+    .wht-payee-card .opts{ font-size:8pt !important; color:#555 !important; }
+    .wht-payee-card .head{
+      page-break-after:avoid !important;
+      page-break-inside:avoid !important;
+    }
+    /* Compact totals strip under each payee */
+    .wht-totals{ display:grid !important; grid-template-columns:repeat(4,1fr) !important; gap:6px !important; margin-top:6px !important; }
     .wht-totals .box{
       background:#fafbfd !important; color:#0E2438 !important;
-      border:.5pt solid #d6d9e0 !important; padding:8px 10px !important;
+      border:.5pt solid #d6d9e0 !important; padding:6px 9px !important;
     }
-    .wht-totals .box .label{ color:#666 !important; font-size:7.5pt !important; }
-    .wht-totals .box .value{ color:#0E2438 !important; font-size:11.5pt !important; }
+    .wht-totals .box .label{ color:#666 !important; font-size:7pt !important; }
+    .wht-totals .box .value{ color:#0E2438 !important; font-size:11pt !important; }
     .wht-totals .box.hilite{
       background:#fff5f0 !important;
       border-color:#E85D3C !important;
     }
     .wht-totals .box.hilite .value{ color:#E85D3C !important; }
-    /* Hide the date-range trigger chrome; render the displayed text plainly */
-    .wht-dr-trigger{
+
+    /* Hide the date-range / single-date trigger chrome; render the
+       displayed text plainly. Hide placeholder-only displays entirely
+       (don't print "Pick a date range..." or "dd / mm / yyyy"). */
+    .wht-dr-trigger,
+    .wht-sd-trigger{
       background:none !important; border:none !important; padding:0 !important;
       box-shadow:none !important;
     }
-    .wht-dr-trigger .wht-dr-ic, .wht-dr-trigger .wht-dr-x{ display:none !important; }
-    .wht-dr-trigger .wht-dr-display{ color:#000 !important; font-weight:600 !important; }
+    .wht-dr-trigger .wht-dr-ic, .wht-dr-trigger .wht-dr-x,
+    .wht-sd-trigger .wht-sd-ic{ display:none !important; }
+    .wht-dr-trigger .wht-dr-display,
+    .wht-sd-trigger .wht-sd-display{ color:#000 !important; font-weight:600 !important; }
+    .wht-dr-trigger .wht-dr-display.is-placeholder,
+    .wht-sd-trigger .wht-sd-display.is-placeholder{
+      display:none !important;
+    }
+
+    /* WHT: hide screen-only helpers that clutter the printout:
+       — formula caption above receipt tables (the table headers + master
+         help paragraph already convey the formulas)
+       — .note hint text inside cards ("Pick from your Entities list...")
+       — the Payer entity SELECT dropdown (its <option> label "— Type
+         custom name —" is meaningless on paper; the resolved value is
+         already shown via the visible <input> right below it)
+       — formula caption hidden because the master-help paragraph below
+         the summary table already documents the methodology */
+    #tab-wht .wht-formula-caption,
+    #tab-wht .card .note,
+    #tab-wht .toolbar,
+    #tab-wht #whtPayerEntitySelect{
+      display:none !important;
+    }
+    /* Let the Payer Information card flow naturally so the first payee
+       card can sit right beneath it instead of being orphaned onto a
+       fresh page. Master Summary card keeps its avoid rule. */
+    #tab-wht > .card:first-of-type{ page-break-inside:auto !important; }
+    /* Always show the Payer Name input value in print, even if it was
+       hidden on screen (entity selected from dropdown mode). */
+    #tab-wht #whtPayerName{
+      display:block !important;
+      background:transparent !important; border:none !important;
+      padding:0 !important; font-weight:700 !important;
+      color:#000 !important; font-size:11pt !important;
+    }
+    /* Inputs inside payee cards should print as plain text — strip the
+       boxy chrome that looks like a form field on paper. */
+    #tab-wht .card input[type="text"],
+    #tab-wht .card input[type="number"]{
+      background:transparent !important;
+      border:none !important;
+      border-bottom:.5pt solid #d6d9e0 !important;
+      padding:1pt 0 !important;
+      color:#000 !important;
+      font-weight:600 !important;
+      box-shadow:none !important;
+    }
+    /* Select dropdowns: keep them visible but strip the form chrome. */
+    #tab-wht .card select{
+      background:transparent !important;
+      border:none !important;
+      border-bottom:.5pt solid #d6d9e0 !important;
+      padding:1pt 0 !important;
+      color:#000 !important;
+      font-weight:600 !important;
+      -webkit-appearance:none !important;
+      appearance:none !important;
+    }
+    /* Hide the "✕ Remove Payee" + "🔄 Recompute" buttons inside the
+       payee card header (already handled by the global button hide above,
+       but the wrapper div still leaves a gap — pull title up flush). */
+    .wht-payee-card .head{ padding:8px 12px !important; }
 
     /* P&L converter: hide the drop zone and chunky upload state on print */
     #pnlDropZone, #pnlConvert, #btnPnlConvert, #pnlUnmappedList{ display:none !important; }
