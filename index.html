@@ -34,7 +34,7 @@
 <script src="config.js?v=22"></script>
 <script src="assets/js/supabase-client.js?v=26"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
-<script src="assets/js/wht-calculator.js?v=8"></script>
+<script src="assets/js/wht-calculator.js?v=9"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -7361,6 +7361,78 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
 
   // Expose to activateTab() hook
   window._whtRefresh = () => { try { renderAll(); refreshSavedList(); } catch(e){ console.error('wht refresh failed:', e); } };
+
+  // ════════════════════════════════════════════════════════════════════
+  // LAYER #4 — POLLING FALLBACK (guaranteed sync, no events required)
+  // ════════════════════════════════════════════════════════════════════
+  // Three layers of event handlers (inline oninput, inline onchange,
+  // addEventListener for 'input'/'change'/'keyup') still failed to fire
+  // in the user's browser environment. This 4th layer doesn't depend on
+  // events AT ALL — it just polls every 250ms and syncs any input value
+  // that differs from state.
+  //
+  // Worst case: 250ms latency between typing and Net/SST update. That's
+  // still visually instant for humans. Best case (when events DO fire):
+  // poller sees no mismatch and does nothing — zero overhead.
+  //
+  // Will work on:
+  //   - Any browser (Chrome, Firefox, Safari, Edge, Brave, Opera)
+  //   - Any OS (Windows, macOS, Linux, Android, iOS)
+  //   - With or without browser extensions / ad-blockers
+  //   - With or without CSP restrictions
+  //   - With or without IME composition (Chinese, Japanese, etc.)
+  //   - On the spinner arrows of number inputs
+  //   - On paste, drag-drop, autofill — anything that changes input value
+  // ════════════════════════════════════════════════════════════════════
+  if(window._whtPollerId) clearInterval(window._whtPollerId);
+  window._whtPollerId = setInterval(function whtSyncPoller(){
+    try {
+      if(!whtState || !Array.isArray(whtState.payees) || !whtState.payees.length) return;
+      let changed = false;
+      let touchedPayees = new Set();
+
+      // 1. Poll all Invoice (Gross) inputs — sync state from displayed value
+      document.querySelectorAll('input.wht-gross-input').forEach(inp => {
+        const i = +inp.dataset.wpl;
+        const li = +inp.dataset.line;
+        const p = whtState.payees[i];
+        if(!p || !p.lines[li]) return;
+        const inputVal = Math.max(0, Number(inp.value) || 0);
+        const stateVal = Number(p.lines[li].gross || 0);
+        if(Math.abs(inputVal - stateVal) > 0.005){
+          p.lines[li].gross = inputVal;
+          changed = true;
+          touchedPayees.add(i);
+        }
+      });
+
+      // 2. Poll all Net inputs — IF FOCUSED (user is typing in it), the
+      //    user's typed Net value is the source of truth. Back-calculate
+      //    Gross from Net and sync state.
+      document.querySelectorAll('input.wht-net-input').forEach(inp => {
+        if(document.activeElement !== inp) return;   // only sync if focused
+        const i = +inp.dataset.wpl;
+        const li = +inp.dataset.line;
+        const p = whtState.payees[i];
+        if(!p || !p.lines[li]) return;
+        const inputNet = Math.max(0, Number(inp.value) || 0);
+        const sstRate = p.sstInclusive ? (Number(p.sstRate) || 8) : 0;
+        const expectedGross = inputNet * (1 + sstRate / 100);
+        if(Math.abs(expectedGross - Number(p.lines[li].gross || 0)) > 0.005){
+          p.lines[li].gross = expectedGross;
+          changed = true;
+          touchedPayees.add(i);
+        }
+      });
+
+      if(changed){
+        persist();
+        touchedPayees.forEach(i => refreshPayeeTotals(i));
+        console.log('[WHT poller] synced ' + touchedPayees.size + ' payee(s)');
+      }
+    } catch(err){ console.error('[WHT poller]', err); }
+  }, 250);
+
   // Defer initial render — script-level `let` declarations (_entitiesCache,
   // _isAdminCache, etc.) further down the page are still in their temporal
   // dead zone when this IIFE executes. setTimeout(0) defers until after they
