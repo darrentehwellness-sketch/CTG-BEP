@@ -5095,26 +5095,41 @@ document.getElementById('btnPrint').onclick = async function(){
       addCtx('Currency', 'MYR');
     }
     if(activeId === 'wht'){
+      // whtState is module-scoped inside the WHT IIFE; we expose a getter
+      // via window._whtGetState so we always read the current state.
       try {
-        if(typeof whtState !== 'undefined' && whtState){
-          if(whtState.payerName) addCtx('Payer', whtState.payerName);
-          if(whtState.payerTin)  addCtx('TIN', whtState.payerTin);
-          if(whtState.period)    addCtx('Period', whtState.period);
-          if(Array.isArray(whtState.payees)) addCtx('Payees', whtState.payees.length);
+        const ws = (typeof window._whtGetState === 'function') ? window._whtGetState() : null;
+        if(ws){
+          if(ws.payerName) addCtx('Payer', ws.payerName);
+          if(ws.payerTin)  addCtx('TIN', ws.payerTin);
+          if(ws.period)    addCtx('Period', ws.period);
+          if(Array.isArray(ws.payees)) addCtx('Payees', ws.payees.length);
         }
       } catch(_e){}
       addCtx('Form', 'CP37 · LHDN');
     }
     if(activeId === 'pcalc'){
+      // Product Costing has no persistent scenario-name input on the page
+      // (the name is captured via prompt() on save). Show the most useful
+      // context instead: how many products are in the model + the active
+      // platform/gateway fee combination.
       try {
-        const nameEl = document.getElementById('pcScenarioName');
-        if(nameEl && nameEl.value) addCtx('Scenario', nameEl.value);
+        if(typeof pcState !== 'undefined' && pcState){
+          if(Array.isArray(pcState.products)) addCtx('Products', pcState.products.length);
+          if(pcState.feeConfig){
+            const plat = pcState.feeConfig.platform;
+            const gw   = pcState.feeConfig.gateway;
+            if(plat) addCtx('Platform', plat);
+            if(gw)   addCtx('Gateway', gw);
+          }
+        }
       } catch(_e){}
       addCtx('Currency', 'MYR');
     }
     if(activeId === 'pnl'){
+      // Correct ID is pnlEntityName (was reading pnlEntity which doesn't exist)
       try {
-        const ent = document.getElementById('pnlEntity');
+        const ent = document.getElementById('pnlEntityName');
         if(ent && ent.value) addCtx('Entity', ent.value);
       } catch(_e){}
     }
@@ -6342,6 +6357,11 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
   // Expose so activateTab() can force-close the popup when user switches
   // away from the WHT tab (otherwise _dp + global listeners leak).
   window._whtClosePopup = dpClose;
+  // Expose a getter so the Print/PDF handler can populate the letterhead
+  // with current WHT context (payer, TIN, period, payees count). We expose
+  // a getter (not the variable itself) so it always returns the latest
+  // state, even after Reset Sample / Load Scenario replaces whtState.
+  window._whtGetState = () => whtState;
 
   function dpOutsideClick(e){
     const popup = document.getElementById('whtDpPopup');
