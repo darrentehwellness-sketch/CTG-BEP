@@ -34,7 +34,7 @@
 <script src="config.js?v=22"></script>
 <script src="assets/js/supabase-client.js?v=26"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
-<script src="assets/js/wht-calculator.js?v=6"></script>
+<script src="assets/js/wht-calculator.js?v=7"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -6441,6 +6441,33 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     } catch(err){ console.error('[WHT _whtUpdateGross]', err); }
   };
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // DIRECT NET UPDATE — user types in the Net column, we back-calculate
+  // the Invoice Amount by adding SST: invoice = net × (1 + sstRate%).
+  // Storage convention unchanged (line.gross is the single source field).
+  // ═══════════════════════════════════════════════════════════════════════
+  window._whtUpdateNet = function(payeeIdx, lineIdx, rawValue){
+    try {
+      const p = whtState.payees[payeeIdx];
+      if(!p || !p.lines[lineIdx]) {
+        console.warn('[WHT _whtUpdateNet] missing payee/line', payeeIdx, lineIdx);
+        return;
+      }
+      const newNet = Math.max(0, Number(rawValue) || 0);
+      const sstRate = p.sstInclusive ? (Number(p.sstRate) || 8) : 0;
+      // Invoice = Net × (1 + SST%). If SST is off, Invoice == Net.
+      const newGross = newNet * (1 + sstRate / 100);
+      p.lines[lineIdx].gross = newGross;
+      persist();
+      refreshPayeeTotals(payeeIdx);
+      console.log('[WHT direct-net]', {
+        payee: payeeIdx, line: lineIdx, net: newNet,
+        sstRate: sstRate, gross: newGross.toFixed(2),
+        sst: (newGross - newNet).toFixed(2)
+      });
+    } catch(err){ console.error('[WHT _whtUpdateNet]', err); }
+  };
+
   function dpOutsideClick(e){
     const popup = document.getElementById('whtDpPopup');
     if(!popup) return;
@@ -6679,10 +6706,9 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
         // Formula caption — makes the auto-calc relationship explicit
         (p.sstInclusive
           ? ('<div class="wht-formula-caption">' +
-              '<span><b>Type Invoice Amount (MYR)</b> → auto-computes:</span>' +
-              '<span><code>Net = Invoice ÷ (1 + ' + (Number(p.sstRate)||8) + '%)</code></span>' +
-              '<span><code>SST = Invoice − Net</code></span>' +
-              '<span>WHT base = <b>Net only</b> (LHDN PR 11/2018)</span>' +
+              '<span><b>Type Invoice Amount</b> → <code>Net = Invoice ÷ (1 + ' + (Number(p.sstRate)||8) + '%)</code></span>' +
+              '<span><b>or type Net</b> → <code>Invoice = Net × (1 + ' + (Number(p.sstRate)||8) + '%)</code></span>' +
+              '<span>SST = Invoice − Net · WHT base = <b>Net only</b> (LHDN PR 11/2018)</span>' +
             '</div>')
           : ('<div class="wht-formula-caption">' +
               '<span><b>SST-inclusive is OFF</b> — Net = Invoice Amount (no SST applied)</span>' +
@@ -6711,16 +6737,18 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
                   '<td>' + (li+1) + '</td>' +
                   '<td><input type="date" value="' + escapeHtml(dmyToIso(L.date)) + '" data-wpl="' + i + '" data-line="' + li + '" data-field="date" title="' + escapeHtml(L.date||'') + '"></td>' +
                   '<td><input type="text" value="' + escapeHtml(L.receiptNo||'') + '" data-wpl="' + i + '" data-line="' + li + '" data-field="receiptNo"></td>' +
-                  // CRITICAL: Direct oninput call to window._whtUpdateGross.
-                  // We previously relied on delegated 'input' events but the
-                  // user reported the auto-calc was failing in their browser.
-                  // This direct call guarantees the handler fires on every
-                  // keystroke regardless of extensions / overlapping handlers.
-                  '<td><input type="number" min="0" step="0.01" value="' + (Number(L.gross)||0) + '" data-wpl="' + i + '" data-line="' + li + '" data-field="gross" ' +
+                  // CRITICAL: Direct oninput calls to bypass delegation.
+                  // Both Invoice Amount AND Net are editable — type in either
+                  // and the other column + SST auto-compute. SST stays as
+                  // a display cell (it's purely derived from rate × Net).
+                  '<td><input type="number" min="0" step="0.01" value="' + (Number(L.gross)||0) + '" data-wpl="' + i + '" data-line="' + li + '" data-field="gross" class="wht-gross-input" ' +
                     'oninput="window._whtUpdateGross && window._whtUpdateGross(' + i + ',' + li + ',this.value)" ' +
                     'onchange="window._whtUpdateGross && window._whtUpdateGross(' + i + ',' + li + ',this.value)" ' +
                     'title="Type the Invoice Amount (SST-inclusive) — Net and SST auto-compute"></td>' +
-                  '<td class="num wht-net-cell">' + W.fmt(r.net) + '</td>' +
+                  '<td><input type="number" min="0" step="0.01" value="' + r.net.toFixed(2) + '" data-wpl="' + i + '" data-line="' + li + '" data-field="net" class="wht-net-input" ' +
+                    'oninput="window._whtUpdateNet && window._whtUpdateNet(' + i + ',' + li + ',this.value)" ' +
+                    'onchange="window._whtUpdateNet && window._whtUpdateNet(' + i + ',' + li + ',this.value)" ' +
+                    'title="Type the Net (pre-SST) amount — Invoice Amount and SST auto-compute"></td>' +
                   '<td class="num wht-sst-cell">' + W.fmt(r.sst) + '</td>' +
                   '<td class="action"><button data-wht-del-line="' + i + ':' + li + '">✕</button></td>' +
                 '</tr>';
@@ -6832,17 +6860,27 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
       tbody.querySelectorAll('tr').forEach((tr, li) => {
         const L = p.lines[li]; if(!L) return;
         const r = W.calcReceipt(L.gross || 0, p.sstInclusive ? (p.sstRate || 8) : 0);
-        // Net cell (display only) — always reflects calcReceipt(gross, sstRate).
-        // Flash briefly when the value changes so the user sees the auto-calc.
-        const netCell = tr.querySelector('td.wht-net-cell');
-        if(netCell){
-          const newNet = W.fmt(r.net);
-          if(netCell.textContent !== newNet){
-            netCell.textContent = newNet;
-            _flashCell(netCell);
+        // Invoice (gross) input — update if user isn't currently typing in it.
+        const grossInp = tr.querySelector('input.wht-gross-input');
+        if(grossInp && document.activeElement !== grossInp){
+          const newGross = Number(L.gross || 0);
+          // Avoid floating-point churn: only overwrite if the displayed
+          // value materially differs from state (> 0.5 sen).
+          if(Math.abs(Number(grossInp.value || 0) - newGross) > 0.005){
+            grossInp.value = newGross.toFixed(2);
+            _flashCell(grossInp);
           }
         }
-        // SST cell (display only) — same pattern.
+        // Net input — update if user isn't currently typing in it.
+        const netInp = tr.querySelector('input.wht-net-input');
+        if(netInp && document.activeElement !== netInp){
+          const newNet = r.net.toFixed(2);
+          if(netInp.value !== newNet){
+            netInp.value = newNet;
+            _flashCell(netInp);
+          }
+        }
+        // SST display cell — always update on every refresh.
         const sstCell = tr.querySelector('td.wht-sst-cell');
         if(sstCell){
           const newSst = W.fmt(r.sst);
