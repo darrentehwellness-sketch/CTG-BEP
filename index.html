@@ -2676,18 +2676,16 @@
   <!-- ============================================================== -->
   <div class="tab-panel" id="tab-bk">
 
-    <!-- Page header -->
-    <div class="page-header">
-      <div class="page-header-left">
-        <h1 data-i18n="bk_title">AI Bookkeeper</h1>
-        <p data-i18n="bk_subtitle">Multi-entity automated bookkeeping — upload documents, AI categorises to COA, auto-balances journal entries, syncs to Xero.</p>
-      </div>
-      <div class="page-header-actions">
-        <select id="bkEntitySelect" style="padding:9px 14px;border:1px solid var(--border-strong);border-radius:8px;background:rgba(7,13,23,.6);color:var(--text);font:inherit;min-width:240px;">
-          <option value="">— Select entity —</option>
-        </select>
-        <button class="ghost" id="btnBkRefresh" title="Refresh">↻ <span data-i18n="bk_refresh">Refresh</span></button>
-      </div>
+    <!-- Entity-switcher toolbar (page header is rendered globally above) -->
+    <div class="toolbar" style="margin-bottom:14px;">
+      <label style="display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700;">
+        <svg class="ic" style="width:14px;height:14px;color:var(--coral);"><use href="#i-building"/></svg>
+        Entity:
+      </label>
+      <select id="bkEntitySelect" style="padding:9px 14px;border:1px solid var(--border-strong);border-radius:8px;background:rgba(7,13,23,.6);color:var(--text);font:inherit;min-width:240px;">
+        <option value="">— Select entity —</option>
+      </select>
+      <button class="ghost" id="btnBkRefresh" title="Refresh">↻ <span data-i18n="bk_refresh">Refresh</span></button>
     </div>
 
     <!-- Connection status strip -->
@@ -3480,9 +3478,11 @@ const I18N = {
     tab_settings:"Profile", tab_users:"User Management",
     nav_sec_bep:"Exhibition BEP", nav_sec_account:"Account", nav_sec_admin:"Settings",
     nav_sec_ecomm:"Product Calculator", tab_pcalc:"Product Costing Calculator",
-    nav_sec_reporting:"Reporting", tab_pnl:"P&L Converter", tab_wht:"WHT Calculator",
+    nav_sec_reporting:"Reporting", tab_pnl:"P&L Converter", tab_wht:"WHT Calculator", tab_bk:"AI Bookkeeper",
     page_sub_pnl:"Convert any P&L (PDF/Excel) to your canonical COA format",
     page_sub_wht:"Compute Malaysian Withholding Tax on non-resident payments (CP37)",
+    page_sub_bk:"Multi-entity automated bookkeeping — upload documents, AI categorises to COA, auto-balances journal entries, syncs to Xero",
+    bk_refresh:"Refresh",
     wht_add_payee:"Add Payee", wht_save_btn:"Save Scenario", wht_export_excel:"Export Excel",
     wht_note:"Auto-saved on this device · MYR only",
     wht_payer_title:"Payer Information", wht_payer_badge:"Your company",
@@ -3759,11 +3759,14 @@ const I18N = {
     tab_settings:"个人资料", tab_users:"用户管理",
     nav_sec_bep:"损益平衡计算器", nav_sec_account:"账户", nav_sec_admin:"设置",
     nav_sec_ecomm:"电商", tab_pcalc:"产品成本 & ROAS",
+    tab_bk:"AI 记账",
     page_sub_calc:"实时构建预算并计算损益平衡点",
     page_sub_setup:"管理产品与成本项目",
     page_sub_compare:"并排对比已保存的方案",
     page_sub_sens:"销售目标与固定成本变动对损益平衡的影响",
     page_sub_pcalc:"电商成本构成与 ROAS 分析",
+    page_sub_bk:"多实体自动化记账 — 上传单据,AI 分类到 COA,自动平衡分录,同步至 Xero",
+    bk_refresh:"刷新",
     page_sub_settings:"个人资料、密码、外观",
     page_sub_entities:"管理合资公司",
     page_sub_users:"新增、编辑用户及分配公司",
@@ -4846,6 +4849,7 @@ const PAGE_HEADER_MAP = {
   pcalc:       { title: 'tab_pcalc',    sub: 'page_sub_pcalc' },
   pnl:         { title: 'tab_pnl',      sub: 'page_sub_pnl' },
   wht:         { title: 'tab_wht',      sub: 'page_sub_wht' },
+  bk:          { title: 'tab_bk',       sub: 'page_sub_bk' },
   settings:    { title: 'tab_settings', sub: 'page_sub_settings' },
   entities:    { title: 'tab_entities', sub: 'page_sub_entities' },
   users:       { title: 'tab_users',    sub: 'page_sub_users' }
@@ -8082,24 +8086,51 @@ init();
     }
   });
 
+  // ---- Inline toast (replaces jarring alert() popups) ----
+  function bkToast(msg, kind){
+    // kind: 'info' (default), 'success', 'warn', 'error'
+    const palette = {
+      info:    { bg:'rgba(91,155,213,.14)',  border:'rgba(91,155,213,.40)',  fg:'#93c5fd' },
+      success: { bg:'rgba(16,185,129,.14)',  border:'rgba(16,185,129,.40)',  fg:'#6ee7b7' },
+      warn:    { bg:'rgba(245,158,11,.14)',  border:'rgba(245,158,11,.40)',  fg:'#fcd34d' },
+      error:   { bg:'rgba(239,68,68,.14)',   border:'rgba(239,68,68,.40)',   fg:'#fca5a5' }
+    }[kind || 'info'];
+    let host = document.getElementById('bkToastHost');
+    if(!host){
+      host = document.createElement('div');
+      host.id = 'bkToastHost';
+      host.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:300;display:flex;flex-direction:column;gap:8px;max-width:380px;';
+      document.body.appendChild(host);
+    }
+    const el = document.createElement('div');
+    el.style.cssText = 'background:#0C1421;border:1px solid '+palette.border+';color:'+palette.fg+';padding:12px 16px;border-radius:10px;font-size:13px;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,.5);opacity:0;transform:translateY(8px);transition:opacity .2s, transform .2s;';
+    el.innerHTML = msg;
+    host.appendChild(el);
+    requestAnimationFrame(() => { el.style.opacity = '1'; el.style.transform = 'translateY(0)'; });
+    setTimeout(() => {
+      el.style.opacity = '0'; el.style.transform = 'translateY(8px)';
+      setTimeout(() => el.remove(), 250);
+    }, 5500);
+  }
+
   // Xero / GDrive connect — placeholders that will invoke Edge Functions when deployed
   bkOn('btnBkXeroConnect', 'click', async () => {
-    if(!bkCurrentEntityId){ alert('Select an entity first.'); return; }
+    if(!bkCurrentEntityId){ bkToast('⚠ Select an entity first.', 'warn'); return; }
     try {
       const r = await CTG.bkXeroAuthUrl(bkCurrentEntityId);
       if(r && r.auth_url) window.location.href = r.auth_url;
-      else alert('Xero connect Edge Function not deployed yet.\n\nDeploy supabase/functions/bk-xero-connect to enable.');
+      else bkToast('🔌 <b>Xero connect — coming soon.</b><br><span style="color:var(--text-soft);font-weight:400;">Edge Function <code>bk-xero-connect</code> is awaiting deployment. Tokens, OAuth handshake, and journal sync are all designed; just need the Deno script published.</span>', 'info');
     } catch(e){
-      alert('Xero connect coming soon — Edge Function bk-xero-connect needs to be deployed.');
+      bkToast('🔌 <b>Xero connect — coming soon.</b><br><span style="color:var(--text-soft);font-weight:400;">Edge Function <code>bk-xero-connect</code> is awaiting deployment.</span>', 'info');
     }
   });
   bkOn('btnBkGDriveConnect', 'click', async () => {
     try {
-      const r = await CTG.bkInvokeEdgeFunction && await CTG.bkInvokeEdgeFunction('bk-gdrive-connect', {});
+      const r = CTG.bkInvokeEdgeFunction ? await CTG.bkInvokeEdgeFunction('bk-gdrive-connect', {}) : null;
       if(r && r.auth_url) window.location.href = r.auth_url;
-      else alert('Google Drive connect coming soon — Edge Function bk-gdrive-connect needs to be deployed.');
+      else bkToast('☁ <b>Google Drive connect — coming soon.</b><br><span style="color:var(--text-soft);font-weight:400;">Edge Function <code>bk-gdrive-connect</code> is awaiting deployment. Folder watch + auto-import will start working immediately after that.</span>', 'info');
     } catch(e){
-      alert('Google Drive connect coming soon — Edge Function bk-gdrive-connect needs to be deployed.');
+      bkToast('☁ <b>Google Drive connect — coming soon.</b><br><span style="color:var(--text-soft);font-weight:400;">Edge Function <code>bk-gdrive-connect</code> is awaiting deployment.</span>', 'info');
     }
   });
 
