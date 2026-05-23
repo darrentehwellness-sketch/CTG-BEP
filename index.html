@@ -1898,6 +1898,15 @@
     /* Hide native date-picker indicator in print */
     input[type="date"]::-webkit-calendar-picker-indicator{ display:none !important; }
 
+    /* Hide the absolutely-positioned "MYR" pseudo-element on prefix inputs.
+       On screen it sits inside the input's padding-left:54px gutter, but
+       in print we strip that padding (above rule) → "MYR" overlays the
+       digits and looks like duplicate "000" coral characters bleeding
+       through the number. Currency context is already shown in the
+       letterhead, so the per-input MYR is redundant here. */
+    .input-prefix::before{ display:none !important; content:none !important; }
+    .input-prefix input{ padding-left:0 !important; }
+
     /* ── Pills ──────────────────────────────────────────────────────── */
     .pill{
       border:.5pt solid currentColor !important;
