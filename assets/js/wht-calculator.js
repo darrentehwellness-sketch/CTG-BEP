@@ -210,40 +210,40 @@ function fmt(n){
 function round2(n){ return Math.round(Number(n) * 100) / 100; }
 
 /* ============ CORE CALCULATION (rebuilt per user spec, 2026-05-24) ======
-   Per-receipt formulas:
+   Per-receipt formulas (matches Excel template):
      Invoice Amount   = user input (what supplier bills you)
      SST 8% Amount    = Invoice ÷ (1 − sst%) × sst%        ← gross-up SST
                       = Invoice ÷ 0.92 × 0.08   (for 8% SST)
      Net Amount       = Invoice − SST 8% Amount
-     WHT              = Invoice × WHT Rate%                ← Invoice is base
+     WHT Amount       = Net Amount × WHT Rate%             ← WHT base = NET
      Penalty          = WHT × 10%   (if late toggle)
      Payable          = WHT + Penalty
 
-   Note: Historical code used the LHDN PR 11/2018 reverse-calc where the
-   WHT base = Net (Gross÷1.08). The user requested a switch to the
-   gross-up methodology used in some digital-advertising contexts where
-   the supplier bills you NET of WHT and you compute SST as
-   Invoice÷0.92×0.08. The variable name `gross` in line storage is kept
-   for back-compat with saved scenarios — semantically it now means
-   "Invoice Amount".
+   Note: WHT base is Net (post-SST), matching LHDN PR 11/2018 — SST/GST
+   is excluded from the WHT base. Methodology change vs. prior code: the
+   SST is now gross-up (Invoice÷0.92×0.08) instead of reverse-calc
+   (Invoice÷1.08×0.08). Line.gross stores the user-entered Invoice
+   Amount (variable name kept for back-compat with saved scenarios).
 */
-function calcReceipt(invoiceAmount, sstRate){
+function calcReceipt(invoiceAmount, sstRate, whtRate){
   // Clamp negative + NaN to 0 — invoice is always ≥ 0.
   const invoice = Math.max(0, Number(invoiceAmount) || 0);
   const sstPct = Math.max(0, Math.min(100, Number(sstRate) || 0)) / 100;
+  const whtPct = Math.max(0, Math.min(100, Number(whtRate) || 0)) / 100;
   // SST gross-up: Invoice ÷ (1 - sst%) × sst%
   // For sst%=8: Invoice ÷ 0.92 × 0.08 = Invoice × 0.0869565...
   const sst = (sstPct > 0 && sstPct < 1)
               ? (invoice / (1 - sstPct)) * sstPct
               : 0;
   const net = invoice - sst;
-  // Return `gross` alongside `invoice` for back-compat with any code that
-  // still reads .gross — they're the same value semantically.
+  // WHT base = NET (per LHDN PR 11/2018 — SST excluded from WHT base).
+  const wht = net * whtPct;
   return {
-    gross:   round2(invoice),
+    gross:   round2(invoice),    // back-compat alias
     invoice: round2(invoice),
     net:     round2(net),
-    sst:     round2(sst)
+    sst:     round2(sst),
+    wht:     round2(wht)
   };
 }
 
@@ -251,21 +251,23 @@ function calcPayee(payee){
   const sstRate = Number(payee.sstInclusive ? (payee.sstRate || 8) : 0);
   const whtRate = Number(payee.whtRate || 0);
   const lines = (payee.lines || []).map(L => {
-    const r = calcReceipt(L.gross || 0, sstRate);
+    const r = calcReceipt(L.gross || 0, sstRate, whtRate);
     return { date: L.date || '', receiptNo: L.receiptNo || '', ...r };
   });
   const subtotal = lines.reduce((acc, L) => ({
     gross:   acc.gross   + L.gross,
     invoice: acc.invoice + L.invoice,
     net:     acc.net     + L.net,
-    sst:     acc.sst     + L.sst
-  }), { gross:0, invoice:0, net:0, sst:0 });
+    sst:     acc.sst     + L.sst,
+    wht:     acc.wht     + L.wht
+  }), { gross:0, invoice:0, net:0, sst:0, wht:0 });
   subtotal.gross   = round2(subtotal.gross);
   subtotal.invoice = round2(subtotal.invoice);
   subtotal.net     = round2(subtotal.net);
   subtotal.sst     = round2(subtotal.sst);
-  // NEW: WHT base = Invoice Amount (was Net before this rebuild)
-  const wht     = round2(subtotal.invoice * whtRate / 100);
+  subtotal.wht     = round2(subtotal.wht);
+  // WHT total = Σ per-line WHT (Net × Rate%) — matches Excel template.
+  const wht     = subtotal.wht;
   const penalty = payee.latePenalty ? round2(wht * 0.10) : 0;
   const payable = round2(wht + penalty);
   return { lines, subtotal, wht, penalty, payable };
@@ -396,7 +398,17 @@ function buildWorkbook(session){
     setCell(ws, 'A5', 'PERIOD : ' + (p.dateRange || period), { s:{ font:FONT_BOLD, alignment:ALIGN_LEFT } });
     setCell(ws, 'A6', 'ITA SECTION : ' + (sec.label || p.section || '') + ' · Payment Code ' + (sec.code || ''), { s:{ font:FONT_SUB, alignment:ALIGN_LEFT } });
 
-    const headers2 = ['No', 'Payment Date', 'Receipt No', 'Invoice (MYR)', (Number(p.sstInclusive?p.sstRate:0)||0) + '% SST', 'Net Amount'];
+    // Excel column layout (matches user's authoritative spec):
+    //   A  No
+    //   B  Payment Date
+    //   C  Receipt/Invoice No
+    //   D  Invoice Amount (MYR)
+    //   E  SST 8%
+    //   F  Net Amount (MYR)
+    //   G  WHT Amount (MYR)
+    const sstHdr = (Number(p.sstInclusive?p.sstRate:0)||0) + '% SST';
+    const whtHdr = 'WHT Amount (MYR) (' + (Number(p.whtRate)||0) + '%)';
+    const headers2 = ['No', 'Payment Date', 'Receipt/Invoice No', 'Invoice Amount (MYR)', sstHdr, 'Net Amount (MYR)', whtHdr];
     headers2.forEach((h, i) => {
       const c = XLSX.utils.encode_cell({ r:7, c:i });
       setCell(ws, c, h, { s:{ font:FONT_COL, fill:FILL_HEADER, alignment:ALIGN_CENTER, border:BORDER_THIN } });
@@ -409,24 +421,24 @@ function buildWorkbook(session){
       setCell(ws, XLSX.utils.encode_cell({ r, c:3 }), L.invoice,      { z:NUM_FMT, s:{ font:FONT_BASE, alignment:ALIGN_RIGHT, border:BORDER_THIN } });
       setCell(ws, XLSX.utils.encode_cell({ r, c:4 }), L.sst,          { z:NUM_FMT, s:{ font:FONT_BASE, alignment:ALIGN_RIGHT, border:BORDER_THIN } });
       setCell(ws, XLSX.utils.encode_cell({ r, c:5 }), L.net,          { z:NUM_FMT, s:{ font:FONT_BASE, alignment:ALIGN_RIGHT, border:BORDER_THIN } });
+      setCell(ws, XLSX.utils.encode_cell({ r, c:6 }), L.wht,          { z:NUM_FMT, s:{ font:FONT_BOLD, alignment:ALIGN_RIGHT, border:BORDER_THIN } });
     });
     const subR = 8 + p._calc.lines.length;
     setCell(ws, XLSX.utils.encode_cell({ r:subR, c:2 }), 'Subtotal', { s:{ font:FONT_BOLD, fill:FILL_TOTAL, alignment:ALIGN_RIGHT, border:BORDER_THIN } });
     setCell(ws, XLSX.utils.encode_cell({ r:subR, c:3 }), p._calc.subtotal.invoice, { z:NUM_FMT, s:{ font:FONT_BOLD, fill:FILL_TOTAL, alignment:ALIGN_RIGHT, border:BORDER_THIN } });
     setCell(ws, XLSX.utils.encode_cell({ r:subR, c:4 }), p._calc.subtotal.sst,     { z:NUM_FMT, s:{ font:FONT_BOLD, fill:FILL_TOTAL, alignment:ALIGN_RIGHT, border:BORDER_THIN } });
     setCell(ws, XLSX.utils.encode_cell({ r:subR, c:5 }), p._calc.subtotal.net,     { z:NUM_FMT, s:{ font:FONT_BOLD, fill:FILL_TOTAL, alignment:ALIGN_RIGHT, border:BORDER_THIN } });
-    // WHT block
-    setCell(ws, XLSX.utils.encode_cell({ r:subR+1, c:2 }), 'WHT Tax Rate',   { s:{ font:FONT_BOLD, alignment:ALIGN_RIGHT, border:BORDER_THIN } });
-    setCell(ws, XLSX.utils.encode_cell({ r:subR+1, c:3 }), (Number(p.whtRate)||0)/100, { z:PCT_FMT, s:{ font:FONT_BOLD, alignment:ALIGN_CENTER, border:BORDER_THIN } });
-    setCell(ws, XLSX.utils.encode_cell({ r:subR+2, c:2 }), 'WHT',            { s:{ font:FONT_BOLD, alignment:ALIGN_RIGHT, border:BORDER_THIN } });
-    setCell(ws, XLSX.utils.encode_cell({ r:subR+2, c:3 }), p._calc.wht,      { z:NUM_FMT, s:{ font:FONT_BOLD, alignment:ALIGN_RIGHT, border:BORDER_THIN } });
-    setCell(ws, XLSX.utils.encode_cell({ r:subR+3, c:2 }), 'Penalty (10%)',  { s:{ font:FONT_BOLD, alignment:ALIGN_RIGHT, border:BORDER_THIN } });
-    setCell(ws, XLSX.utils.encode_cell({ r:subR+3, c:3 }), p._calc.penalty,  { z:NUM_FMT, s:{ font:FONT_BOLD, alignment:ALIGN_RIGHT, border:BORDER_THIN } });
-    setCell(ws, XLSX.utils.encode_cell({ r:subR+4, c:2 }), 'WHT + Penalty',  { s:{ font:FONT_BOLD, fill:FILL_HILITE, alignment:ALIGN_RIGHT, border:BORDER_THIN } });
-    setCell(ws, XLSX.utils.encode_cell({ r:subR+4, c:3 }), p._calc.payable,  { z:NUM_FMT, s:{ font:FONT_BOLD, fill:FILL_HILITE, alignment:ALIGN_RIGHT, border:BORDER_THIN } });
+    setCell(ws, XLSX.utils.encode_cell({ r:subR, c:6 }), p._calc.subtotal.wht,     { z:NUM_FMT, s:{ font:FONT_BOLD, fill:FILL_TOTAL, alignment:ALIGN_RIGHT, border:BORDER_THIN } });
+    // WHT summary block (penalty + payable)
+    setCell(ws, XLSX.utils.encode_cell({ r:subR+1, c:5 }), 'WHT Total',    { s:{ font:FONT_BOLD, alignment:ALIGN_RIGHT, border:BORDER_THIN } });
+    setCell(ws, XLSX.utils.encode_cell({ r:subR+1, c:6 }), p._calc.wht,    { z:NUM_FMT, s:{ font:FONT_BOLD, alignment:ALIGN_RIGHT, border:BORDER_THIN } });
+    setCell(ws, XLSX.utils.encode_cell({ r:subR+2, c:5 }), 'Penalty (10%)',{ s:{ font:FONT_BOLD, alignment:ALIGN_RIGHT, border:BORDER_THIN } });
+    setCell(ws, XLSX.utils.encode_cell({ r:subR+2, c:6 }), p._calc.penalty,{ z:NUM_FMT, s:{ font:FONT_BOLD, alignment:ALIGN_RIGHT, border:BORDER_THIN } });
+    setCell(ws, XLSX.utils.encode_cell({ r:subR+3, c:5 }), 'WHT + Penalty',{ s:{ font:FONT_BOLD, fill:FILL_HILITE, alignment:ALIGN_RIGHT, border:BORDER_THIN } });
+    setCell(ws, XLSX.utils.encode_cell({ r:subR+3, c:6 }), p._calc.payable,{ z:NUM_FMT, s:{ font:FONT_BOLD, fill:FILL_HILITE, alignment:ALIGN_RIGHT, border:BORDER_THIN } });
 
-    ws['!ref']  = XLSX.utils.encode_range({ s:{r:0,c:0}, e:{r:subR+5, c:5} });
-    ws['!cols'] = [{ wch:4 }, { wch:14 }, { wch:24 }, { wch:14 }, { wch:12 }, { wch:14 }];
+    ws['!ref']  = XLSX.utils.encode_range({ s:{r:0,c:0}, e:{r:subR+4, c:6} });
+    ws['!cols'] = [{ wch:4 }, { wch:14 }, { wch:24 }, { wch:18 }, { wch:14 }, { wch:18 }, { wch:22 }];
     const sheetName = (p.name || ('Payee ' + (idx+1))).substring(0, 28).replace(/[\\\/\?\*\[\]:]/g,'_');
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
   });
