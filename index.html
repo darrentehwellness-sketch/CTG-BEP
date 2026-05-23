@@ -1230,6 +1230,43 @@
   .wht-totals .box.hilite .value{color:var(--coral-soft);}
   @media (max-width:900px){ .wht-totals{ grid-template-columns:repeat(2,1fr); } }
 
+  /* ── WHT auto-compute flash feedback ───────────────────────────────────
+     When a Net input or SST display cell updates because the user just
+     edited Gross (or vice versa), we briefly highlight it in coral so the
+     user *sees* the auto-calculation happening. Disappears in ~600 ms. */
+  @keyframes wht-flash {
+    0%   { background:rgba(232,93,60,.42); box-shadow:0 0 0 2px rgba(232,93,60,.40) inset; }
+    50%  { background:rgba(232,93,60,.20); box-shadow:0 0 0 2px rgba(232,93,60,.20) inset; }
+    100% { background:transparent; box-shadow:0 0 0 0 transparent inset; }
+  }
+  .wht-flash{ animation:wht-flash .6s ease-out; }
+  td.wht-sst-cell.wht-flash{ animation:wht-flash .6s ease-out; }
+  input.wht-net-input.wht-flash{ animation:wht-flash .6s ease-out; }
+  @media (prefers-reduced-motion: reduce){
+    .wht-flash{ animation:none !important; }
+  }
+
+  /* Formula caption shown above each payee's receipts table */
+  .wht-formula-caption{
+    display:flex; flex-wrap:wrap; gap:14px; align-items:center;
+    margin:6px 0 10px;
+    padding:8px 12px;
+    background:linear-gradient(135deg, rgba(91,155,213,.10), rgba(91,155,213,.04));
+    border-left:3px solid var(--sky);
+    border-radius:6px;
+    font-size:11.5px;
+    color:var(--text-soft);
+  }
+  .wht-formula-caption b{ color:var(--coral-soft); font-weight:700; }
+  .wht-formula-caption code{
+    background:rgba(7,13,23,.5);
+    padding:2px 6px;
+    border-radius:4px;
+    font-family:Consolas,Menlo,monospace;
+    font-size:11px;
+    color:var(--sky-soft);
+  }
+
   /* ── Dark-theme styling for the WHT section <optgroup> dropdown ─────── */
   select optgroup{
     background:#0C1421; color:var(--sky-soft);
@@ -6612,6 +6649,18 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
           '<label><input type="checkbox" data-wpf="' + i + '" data-field="latePenalty" ' + lateChecked + '> ' + t('wht_payee_penalty') + '</label>' +
         '</div>' +
         '<h3 style="font-size:13px;color:var(--sky-soft);margin:14px 0 8px;font-weight:700;">📋 ' + t('wht_lines_title') + '</h3>' +
+        // Formula caption — makes the auto-calc relationship explicit for the user
+        (p.sstInclusive
+          ? ('<div class="wht-formula-caption">' +
+              '<span><b>Fill Gross</b> → <code>Net = Gross ÷ (1 + ' + (Number(p.sstRate)||8) + '%)</code></span>' +
+              '<span><b>Fill Net</b>   → <code>Gross = Net × (1 + ' + (Number(p.sstRate)||8) + '%)</code></span>' +
+              '<span>SST = Gross − Net · WHT base = <b>Net only</b> (LHDN PR 11/2018)</span>' +
+            '</div>')
+          : ('<div class="wht-formula-caption">' +
+              '<span><b>SST-inclusive is OFF</b> — Gross = Net (no SST applied)</span>' +
+              '<span>WHT base = Net</span>' +
+            '</div>')
+        ) +
         '<div class="table-wrap">' +
           '<table>' +
             '<thead><tr>' +
@@ -6707,6 +6756,22 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     setT('whtTfPayable', W.fmt(result.totals.payable));
   }
 
+  // ---- Brief visual flash: applies the .wht-flash class for ~600 ms so the
+  // user sees that a computed cell (Net/SST/Gross) just updated due to their
+  // edit elsewhere. Self-cleaning. Skips if reduced-motion is preferred.
+  function _flashCell(el){
+    if(!el) return;
+    try {
+      // Drop any in-progress flash so the new one restarts the animation
+      el.classList.remove('wht-flash');
+      // Force a reflow so the animation re-triggers
+      // eslint-disable-next-line no-unused-expressions
+      void el.offsetWidth;
+      el.classList.add('wht-flash');
+      setTimeout(() => { el.classList.remove('wht-flash'); }, 650);
+    } catch(_e){}
+  }
+
   // ---- Surgical refresh: update computed numbers inside one payee card WITHOUT
   // rebuilding any <input>/<select> elements. Critical for preserving keyboard
   // focus while the user types — calling renderAll() on every keystroke wipes
@@ -6731,26 +6796,36 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
       tbody.querySelectorAll('tr').forEach((tr, li) => {
         const L = p.lines[li]; if(!L) return;
         const r = W.calcReceipt(L.gross || 0, p.sstInclusive ? (p.sstRate || 8) : 0);
-        // Net input — update value if not focused (to preserve user typing)
+        // Net input — update value if not focused (to preserve user typing).
+        // When updated, briefly flash so the user sees auto-calculation kick in.
         const netInp = tr.querySelector('input.wht-net-input');
         if(netInp && document.activeElement !== netInp){
-          netInp.value = r.net.toFixed(2);
+          const newNet = r.net.toFixed(2);
+          if(netInp.value !== newNet){
+            netInp.value = newNet;
+            _flashCell(netInp);
+          }
         }
         // Gross input — update value if not focused (e.g. user edited Net,
         // we back-calculated gross, so the Gross field should reflect that)
         const grossInp = tr.querySelector('input[data-field="gross"]');
         if(grossInp && document.activeElement !== grossInp){
-          // Keep the precision the user expects: 2 dp for currency
           const newGross = Number(L.gross || 0);
-          // Only overwrite if it's meaningfully different (avoid floating
-          // point churn while user is typing in another field)
           if(Math.abs(Number(grossInp.value || 0) - newGross) > 0.005){
             grossInp.value = newGross.toFixed(2);
+            _flashCell(grossInp);
           }
         }
-        // SST cell — display only
+        // SST cell — display only. Flash whenever its value changes so the
+        // user sees the SST recompute as Gross / Net changes.
         const sstCell = tr.querySelector('td.wht-sst-cell');
-        if(sstCell) sstCell.textContent = W.fmt(r.sst);
+        if(sstCell){
+          const newSst = W.fmt(r.sst);
+          if(sstCell.textContent !== newSst){
+            sstCell.textContent = newSst;
+            _flashCell(sstCell);
+          }
+        }
       });
     }
     // Subtotal footer cells
