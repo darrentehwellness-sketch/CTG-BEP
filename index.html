@@ -2011,7 +2011,24 @@
     text-rendering:optimizeLegibility;
     -webkit-font-smoothing:antialiased;
     -moz-osx-font-smoothing:grayscale;
-    font-feature-settings:"cv11","ss01","ss03";
+    /* Inter font features:
+         ss01 = open digits (4/6/9 with open terminals — easier to read)
+         ss03 = curved R variant
+       Explicitly DISABLE:
+         zero  = slashed-zero glyph (was making "500000" look struck-through)
+         cv11  = same slashed-zero character variant (REMOVED — was the bug)
+    */
+    font-feature-settings:"ss01","ss03","zero" 0;
+  }
+  /* Belt-and-suspenders: every numeric input + display cell explicitly
+     disables the slashed-zero feature, regardless of what font-feature
+     overrides may be inherited from elsewhere. */
+  input[type="number"],
+  td.num, td.pct,
+  .kpi .value,
+  .breakeven-banner .value,
+  .input-prefix input{
+    font-feature-settings:"tnum" 1, "lnum" 1, "zero" 0 !important;
   }
 
   /* ---- Header polish: slimmer, sharper hairline ---- */
