@@ -1936,7 +1936,52 @@
 
     /* ── Charts (landscape — wider aspect ratio fits great) ───────── */
     .chart-box, canvas{ background:#fff !important; }
-    .chart-box{ page-break-inside:avoid; max-height:280px; overflow:hidden; }
+    .chart-box{
+      page-break-inside:avoid;
+      max-height:none !important;     /* was 280px — chopped chart on pg 2 */
+      overflow:visible !important;    /* was hidden — let chart fully render */
+      padding:12px !important;
+      border:1pt solid #d6d9e0 !important;
+      border-radius:6px !important;
+    }
+    .chart-box canvas{
+      max-height:340px !important;   /* fits 1 landscape page after cards */
+      width:100% !important;
+      height:auto !important;
+    }
+    .chart-box h3{
+      color:#0E2438 !important; font-size:11pt !important;
+      margin:0 0 10px !important;
+    }
+
+    /* ── Compare Scenarios — fix invisible white-on-white values ──── */
+    /* On screen .compare-row .val is color:#fff which obviously fails on
+       a printed white background. Restore visible colours for print. */
+    .compare-card{ padding:14px !important; }
+    .compare-card h4{ color:#0E2438 !important; font-size:11pt !important; }
+    .compare-card h4 .dot{ box-shadow:none !important; }
+    .compare-row{
+      padding:6px 0 !important;
+      border-bottom:.5pt dashed #c5cad4 !important;
+      font-size:9.5pt !important;
+    }
+    .compare-row .lab{ color:#555 !important; }
+    .compare-row .val{
+      color:#0E2438 !important;
+      font-weight:700 !important;
+      font-variant-numeric:tabular-nums !important;
+    }
+    .compare-row.highlight{
+      background:#fff5f0 !important;
+      border:1pt solid #E85D3C !important;
+      padding:10px 12px !important;
+      margin-top:8px !important;
+      border-radius:6px !important;
+    }
+    .compare-row.highlight .val{
+      color:#E85D3C !important;
+      font-size:12pt !important; font-weight:800 !important;
+    }
 
     /* ── Page-break helpers for major sections ──────────────────────── */
     .breakeven-banner,
