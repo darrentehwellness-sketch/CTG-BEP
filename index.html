@@ -34,7 +34,7 @@
 <script src="config.js?v=22"></script>
 <script src="assets/js/supabase-client.js?v=26"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
-<script src="assets/js/wht-calculator.js?v=11"></script>
+<script src="assets/js/wht-calculator.js?v=12"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -3130,7 +3130,7 @@
       <h2><span class="ic">③</span><span data-i18n="wht_master_title">Master Summary</span><span class="badge" data-i18n="wht_master_badge">CP37 Total</span></h2>
       <div class="grid-4" style="margin-bottom:14px;">
         <div class="kpi"><div class="label"><span class="dot"></span><span data-i18n="wht_kpi_gross">Total Invoice</span></div><div class="value" id="whtKpiGross">—</div><div class="sub" data-i18n="wht_kpi_gross_sub">Σ Invoice Amount</div></div>
-        <div class="kpi warn"><div class="label"><span class="dot"></span><span data-i18n="wht_kpi_sst">Total SST 8%</span></div><div class="value" id="whtKpiSst">—</div><div class="sub" data-i18n="wht_kpi_sst_sub">Invoice ÷ 0.92 × 0.08 (gross-up)</div></div>
+        <div class="kpi warn"><div class="label"><span class="dot"></span><span data-i18n="wht_kpi_sst">Total SST 8%</span></div><div class="value" id="whtKpiSst">—</div><div class="sub" data-i18n="wht_kpi_sst_sub">Invoice − Invoice ÷ 1.08 (reverse-calc)</div></div>
         <div class="kpi success"><div class="label"><span class="dot"></span><span data-i18n="wht_kpi_net">Total Net</span></div><div class="value" id="whtKpiNet">—</div><div class="sub" data-i18n="wht_kpi_net_sub">Invoice − SST · WHT base (LHDN PR 11/2018)</div></div>
         <div class="kpi danger"><div class="label"><span class="dot"></span><span data-i18n="wht_kpi_payable">Total Payable</span></div><div class="value" id="whtKpiPayable">—</div><div class="sub" id="whtKpiPayableSub" data-i18n="wht_kpi_payable_sub">WHT + Penalty (if any)</div></div>
       </div>
@@ -3162,7 +3162,7 @@
           </tfoot>
         </table>
       </div>
-      <p class="note" style="margin-top:12px;" data-i18n="wht_master_help">📋 Per LHDN: submit Form CP37 + pay WHT within <b>1 month</b> from the date of paying the non-resident. Late = 10% penalty per ITA s.109(2). Formula: <b>SST 8% = Invoice ÷ 0.92 × 0.08</b> · <b>Net = Invoice − SST</b> · <b>WHT = Net × Rate%</b> (LHDN PR 11/2018).</p>
+      <p class="note" style="margin-top:12px;" data-i18n="wht_master_help">📋 Per LHDN: submit Form CP37 + pay WHT within <b>1 month</b> from the date of paying the non-resident. Late = 10% penalty per ITA s.109(2). Formula (LHDN PR 11/2018 reverse-calc): <b>Net = Invoice ÷ 1.08</b> · <b>SST 8% = Invoice − Net</b> · <b>WHT = Net × Rate%</b>.</p>
     </div>
 
     <!-- Step 4: Saved scenarios -->
@@ -3689,22 +3689,22 @@ const I18N = {
     wht_th_no:"No", wht_th_date:"Payment Date", wht_th_receipt:"Receipt / Invoice No",
     wht_th_gross:"Gross (MYR)", wht_th_invoice:"Invoice Amount (MYR)",
     wht_th_net2:"Net Amount (MYR)", wht_th_sst:"SST 8%", wht_th_whtcol:"WHT Amount (MYR)",
-    wht_hint_gross_edit:"Type the Invoice Amount — SST, Net and WHT auto-compute",
+    wht_hint_gross_edit:"Type the Invoice Amount (SST-inclusive) — Net, SST and WHT auto-compute",
     wht_hint_net_edit:"",
     wht_th_total:"Total", wht_add_line:"Add Receipt",
     wht_subtotal:"Subtotal", wht_wht_calc:"WHT", wht_penalty_calc:"Penalty (10%)",
     wht_payable_calc:"WHT + Penalty (Payable)",
     wht_remove_payee:"✕ Remove Payee",
     wht_master_title:"Master Summary", wht_master_badge:"CP37 Total",
-    wht_kpi_gross:"Total Invoice", wht_kpi_gross_sub:"Σ Invoice Amount",
-    wht_kpi_sst:"Total SST 8%", wht_kpi_sst_sub:"Invoice ÷ 0.92 × 0.08 (gross-up)",
-    wht_kpi_net:"Total Net", wht_kpi_net_sub:"Invoice − SST · WHT base (LHDN PR 11/2018)",
+    wht_kpi_gross:"Total Invoice", wht_kpi_gross_sub:"Σ Invoice Amount (SST-inclusive)",
+    wht_kpi_sst:"Total SST 8%", wht_kpi_sst_sub:"Invoice − Invoice ÷ 1.08 (reverse-calc)",
+    wht_kpi_net:"Total Net", wht_kpi_net_sub:"Invoice ÷ 1.08 · WHT base (LHDN PR 11/2018)",
     wht_kpi_payable:"Total Payable", wht_kpi_payable_sub:"WHT + Penalty (if any)",
     wht_th_payee:"Payee", wht_th_country:"Country", wht_th_section:"ITA Section",
     wht_th_net:"Subtotal (Net)", wht_th_rate:"Rate", wht_th_wht:"WHT",
     wht_th_penalty:"Penalty", wht_th_payable:"Payable",
     wht_tf_total:"Grand Total:",
-    wht_master_help:"📋 Per LHDN: submit Form CP37 + pay WHT within 1 month from the date of paying the non-resident. Late = 10% penalty per ITA s.109(2). Formula: SST 8% = Invoice ÷ 0.92 × 0.08 · Net = Invoice − SST · WHT = Net × Rate% (LHDN PR 11/2018).",
+    wht_master_help:"📋 Per LHDN: submit Form CP37 + pay WHT within 1 month from the date of paying the non-resident. Late = 10% penalty per ITA s.109(2). Formula (LHDN PR 11/2018 reverse-calc): Net = Invoice ÷ 1.08 · SST 8% = Invoice − Net · WHT = Net × Rate%.",
     wht_saved_title:"Saved Scenarios", wht_saved_empty:"No saved scenarios yet. Click ⭐ Save Scenario above.",
     wht_save_prompt:"Name this WHT scenario:", wht_saved_ok:"Scenario saved.",
     wht_confirm_del_payee:"Remove this payee and all its receipt lines?",
@@ -6802,15 +6802,15 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
           '<label><input type="checkbox" data-wpf="' + i + '" data-field="latePenalty" ' + lateChecked + '> ' + t('wht_payee_penalty') + '</label>' +
         '</div>' +
         '<h3 style="font-size:13px;color:var(--sky-soft);margin:14px 0 8px;font-weight:700;">📋 ' + t('wht_lines_title') + '</h3>' +
-        // Formula caption — matches Excel template (2026-05-24):
-        //   SST 8%   = Invoice ÷ 0.92 × 0.08
-        //   Net      = Invoice − SST
-        //   WHT      = Net × WHT Rate %         (LHDN PR 11/2018)
+        // Formula caption — LHDN PR 11/2018 reverse-calc methodology:
+        //   Net = Invoice ÷ (1 + sst%)
+        //   SST = Invoice − Net                  (positive value)
+        //   WHT = Net × WHT Rate%                (WHT base excludes SST)
         (p.sstInclusive
           ? ('<div class="wht-formula-caption">' +
-              '<span><b>Type Invoice Amount</b> → <code>SST = Invoice ÷ (1 − ' + (Number(p.sstRate)||8) + '%) × ' + (Number(p.sstRate)||8) + '%</code></span>' +
-              '<span><code>Net = Invoice − SST</code> · <code>WHT = Net × ' + (Number(p.whtRate)||0) + '%</code></span>' +
-              '<span>For 8% SST: <code>SST = Invoice ÷ 0.92 × 0.08</code> · WHT base = <b>Net Amount</b> (LHDN PR 11/2018)</span>' +
+              '<span><b>Type Invoice Amount</b> (SST-inclusive)</span>' +
+              '<span><code>Net = Invoice ÷ 1.' + String(Number(p.sstRate)||8).padStart(2,'0') + '</code> · <code>SST = Invoice − Net</code></span>' +
+              '<span><code>WHT = Net × ' + (Number(p.whtRate)||0) + '%</code> · WHT base = <b>Net</b> (LHDN PR 11/2018)</span>' +
             '</div>')
           : ('<div class="wht-formula-caption">' +
               '<span><b>SST-inclusive is OFF</b> — SST = 0 · Net = Invoice</span>' +

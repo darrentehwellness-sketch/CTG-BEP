@@ -209,33 +209,32 @@ function fmt(n){
 
 function round2(n){ return Math.round(Number(n) * 100) / 100; }
 
-/* ============ CORE CALCULATION (rebuilt per user spec, 2026-05-24) ======
-   Per-receipt formulas (matches Excel template):
-     Invoice Amount   = user input (what supplier bills you)
-     SST 8% Amount    = Invoice ÷ (1 − sst%) × sst%        ← gross-up SST
-                      = Invoice ÷ 0.92 × 0.08   (for 8% SST)
-     Net Amount       = Invoice − SST 8% Amount
-     WHT Amount       = Net Amount × WHT Rate%             ← WHT base = NET
+/* ============ CORE CALCULATION (LHDN PR 11/2018 reverse-calc) ==========
+   Per-receipt formulas (matches user's Excel template + Meta CP37 ref):
+     Invoice Amount   = user input (SST-inclusive — what supplier bills you)
+     Net Amount       = Invoice ÷ (1 + sst%)               ← strip SST
+                      = Invoice ÷ 1.08              (for 8% SST)
+     SST 8% Amount    = Invoice − Net                      ← reverse-calc
+                      = Invoice × sst% ÷ (1 + sst%)
+                      = Invoice × 0.08 ÷ 1.08       (for 8% SST)
+     WHT Amount       = Net × WHT Rate%                    ← WHT base = NET
      Penalty          = WHT × 10%   (if late toggle)
      Payable          = WHT + Penalty
 
-   Note: WHT base is Net (post-SST), matching LHDN PR 11/2018 — SST/GST
-   is excluded from the WHT base. Methodology change vs. prior code: the
-   SST is now gross-up (Invoice÷0.92×0.08) instead of reverse-calc
-   (Invoice÷1.08×0.08). Line.gross stores the user-entered Invoice
-   Amount (variable name kept for back-compat with saved scenarios).
+   Per LHDN PR 11/2018: WHT base excludes SST/GST. SST stays positive (we
+   compute Invoice − Net, not Net − Invoice). Line.gross stores the
+   user-entered Invoice Amount (name kept for back-compat with saved
+   scenarios from earlier versions).
 */
 function calcReceipt(invoiceAmount, sstRate, whtRate){
   // Clamp negative + NaN to 0 — invoice is always ≥ 0.
   const invoice = Math.max(0, Number(invoiceAmount) || 0);
   const sstPct = Math.max(0, Math.min(100, Number(sstRate) || 0)) / 100;
   const whtPct = Math.max(0, Math.min(100, Number(whtRate) || 0)) / 100;
-  // SST gross-up: Invoice ÷ (1 - sst%) × sst%
-  // For sst%=8: Invoice ÷ 0.92 × 0.08 = Invoice × 0.0869565...
-  const sst = (sstPct > 0 && sstPct < 1)
-              ? (invoice / (1 - sstPct)) * sstPct
-              : 0;
-  const net = invoice - sst;
+  // Reverse-calc: peel SST out of the SST-inclusive Invoice amount.
+  // For sst%=8: Net = Invoice / 1.08, SST = Invoice − Net.
+  const net = sstPct > 0 ? invoice / (1 + sstPct) : invoice;
+  const sst = invoice - net;
   // WHT base = NET (per LHDN PR 11/2018 — SST excluded from WHT base).
   const wht = net * whtPct;
   return {
