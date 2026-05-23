@@ -3539,6 +3539,8 @@ const I18N = {
     wht_lines_title:"Invoice Receipts",
     wht_th_no:"No", wht_th_date:"Payment Date", wht_th_receipt:"Receipt No",
     wht_th_gross:"Gross (MYR)", wht_th_net2:"Net", wht_th_sst:"SST",
+    wht_hint_gross_edit:"Type the SST-inclusive (Gross) amount — Net & SST auto-compute",
+    wht_hint_net_edit:"Type the pre-SST (Net) amount — Gross & SST auto-compute by ÷(1+SST%)",
     wht_th_total:"Total", wht_add_line:"Add Receipt",
     wht_subtotal:"Subtotal", wht_wht_calc:"WHT", wht_penalty_calc:"Penalty (10%)",
     wht_payable_calc:"WHT + Penalty (Payable)",
@@ -6592,13 +6594,17 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
             '<tbody>' +
               p.lines.map((L, li) => {
                 const r = W.calcReceipt(L.gross || 0, p.sstInclusive ? (p.sstRate || 8) : 0);
+                // Both Gross and Net are editable. Whichever the user just typed
+                // becomes the source of truth — the other is back-calculated
+                // from the SST rate. SST stays display-only (always derived
+                // from gross × sst_rate / (1 + sst_rate)).
                 return '<tr>' +
                   '<td>' + (li+1) + '</td>' +
                   '<td><input type="date" value="' + escapeHtml(dmyToIso(L.date)) + '" data-wpl="' + i + '" data-line="' + li + '" data-field="date" title="' + escapeHtml(L.date||'') + '"></td>' +
                   '<td><input type="text" value="' + escapeHtml(L.receiptNo||'') + '" data-wpl="' + i + '" data-line="' + li + '" data-field="receiptNo"></td>' +
-                  '<td><input type="number" min="0" step="0.01" value="' + (Number(L.gross)||0) + '" data-wpl="' + i + '" data-line="' + li + '" data-field="gross"></td>' +
-                  '<td class="num">' + W.fmt(r.net) + '</td>' +
-                  '<td class="num">' + W.fmt(r.sst) + '</td>' +
+                  '<td><input type="number" min="0" step="0.01" value="' + (Number(L.gross)||0) + '" data-wpl="' + i + '" data-line="' + li + '" data-field="gross" title="' + t('wht_hint_gross_edit') + '"></td>' +
+                  '<td><input type="number" min="0" step="0.01" class="wht-net-input" value="' + r.net.toFixed(2) + '" data-wpl="' + i + '" data-line="' + li + '" data-field="net" title="' + t('wht_hint_net_edit') + '"></td>' +
+                  '<td class="num wht-sst-cell">' + W.fmt(r.sst) + '</td>' +
                   '<td class="action"><button data-wht-del-line="' + i + ':' + li + '">✕</button></td>' +
                 '</tr>';
               }).join('') +
@@ -6669,15 +6675,39 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     const card = document.querySelector('[data-pi="' + i + '"]'); if(!card) return;
     const c = W.calcPayee(p);
 
-    // Per-line Net + SST cells (td.num inside tbody)
+    // Per-line refresh:
+    //   - Net is now an editable <input>: update .value but ONLY if the
+    //     user isn't currently typing in it (preserves their digits)
+    //   - SST stays a display cell (.wht-sst-cell): update textContent
+    //   - The Gross input is the user's source of truth — don't touch it
+    //     unless we're rendering after a Net edit (handled separately
+    //     below since the Gross update happens via line.gross assignment
+    //     and the next render will pick it up).
     const tbody = card.querySelector('tbody');
     if(tbody){
       tbody.querySelectorAll('tr').forEach((tr, li) => {
         const L = p.lines[li]; if(!L) return;
         const r = W.calcReceipt(L.gross || 0, p.sstInclusive ? (p.sstRate || 8) : 0);
-        const cells = tr.querySelectorAll('td.num');
-        if(cells[0]) cells[0].textContent = W.fmt(r.net);
-        if(cells[1]) cells[1].textContent = W.fmt(r.sst);
+        // Net input — update value if not focused (to preserve user typing)
+        const netInp = tr.querySelector('input.wht-net-input');
+        if(netInp && document.activeElement !== netInp){
+          netInp.value = r.net.toFixed(2);
+        }
+        // Gross input — update value if not focused (e.g. user edited Net,
+        // we back-calculated gross, so the Gross field should reflect that)
+        const grossInp = tr.querySelector('input[data-field="gross"]');
+        if(grossInp && document.activeElement !== grossInp){
+          // Keep the precision the user expects: 2 dp for currency
+          const newGross = Number(L.gross || 0);
+          // Only overwrite if it's meaningfully different (avoid floating
+          // point churn while user is typing in another field)
+          if(Math.abs(Number(grossInp.value || 0) - newGross) > 0.005){
+            grossInp.value = newGross.toFixed(2);
+          }
+        }
+        // SST cell — display only
+        const sstCell = tr.querySelector('td.wht-sst-cell');
+        if(sstCell) sstCell.textContent = W.fmt(r.sst);
       });
     }
     // Subtotal footer cells
@@ -6895,9 +6925,23 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
       const i = +tgt.dataset.wpl, li = +tgt.dataset.line, f = tgt.dataset.field;
       const p = whtState.payees[i]; if(!p || !p.lines[li]) return;
       if(f === 'gross'){
+        // User typed the Gross (SST-inclusive amount). Store as-is —
+        // calcReceipt() back-calculates Net + SST from sstRate on render.
         p.lines[li][f] = Math.max(0, Number(tgt.value) || 0);
         persist();
         refreshPayeeTotals(i);          // recalc this payee's totals
+      } else if(f === 'net'){
+        // User typed the Net (SST-exclusive / pre-SST amount). Back-
+        // calculate Gross by adding SST: gross = net × (1 + sstRate%).
+        // If the payee isn't SST-inclusive, gross == net.
+        // Storage convention is unchanged — we keep line.gross as the
+        // source field; net is always derived from gross at render time.
+        const netVal = Math.max(0, Number(tgt.value) || 0);
+        const sstRate = p.sstInclusive ? (Number(p.sstRate) || 8) : 0;
+        const grossVal = netVal * (1 + sstRate / 100);
+        p.lines[li].gross = grossVal;
+        persist();
+        refreshPayeeTotals(i);          // updates Gross + SST cells, leaves Net input alone
       } else if(f === 'date'){
         // <input type="date"> value is ISO; convert to DD/MM/YYYY for storage
         p.lines[li][f] = isoToDmy(tgt.value);
