@@ -8151,6 +8151,77 @@ init();
       if(t) bkLoadEntities();
     });
   }
+
+  // ============================================================
+  // Post-OAuth handler — when the user returns from Xero/Google Drive
+  // OAuth, the callback Edge Function redirects back here with
+  // ?bk-xero-status=ok or ?bk-gdrive-status=ok (or an error code).
+  // Show a toast + clean the URL.
+  // ============================================================
+  (function handlePostAuthReturn(){
+    try {
+      const url = new URL(window.location.href);
+      const xeroStatus = url.searchParams.get('bk-xero-status');
+      const gdriveStatus = url.searchParams.get('bk-gdrive-status');
+      if(!xeroStatus && !gdriveStatus) return;
+
+      // Defer until the BK module's toast helper exists (~next tick)
+      setTimeout(() => {
+        if(xeroStatus){
+          const tenant = url.searchParams.get('tenant') || '';
+          if(xeroStatus === 'ok'){
+            bkToast('✅ <b>Xero connected</b> to ' + (tenant || 'your organisation') + '. You can now sync journal entries.', 'success');
+          } else {
+            const msg = {
+              'error':                   '❌ Xero authorisation was rejected. Try again.',
+              'missing_params':          '❌ Xero redirect was missing parameters. Try again.',
+              'not_configured':          '⚙ Xero Edge Function is missing Supabase secrets — set XERO_CLIENT_ID, XERO_CLIENT_SECRET, XERO_REDIRECT_URI, BK_OAUTH_STATE_SECRET, BK_POST_AUTH_REDIRECT.',
+              'bad_state':               '🔐 Security check failed. The OAuth state token was invalid or expired.',
+              'token_exchange_failed':   '❌ Xero token exchange failed. Check that your XERO_CLIENT_SECRET is correct.',
+              'connections_fetch_failed':'❌ Could not fetch your Xero organisations after auth.',
+              'no_tenants':              '⚠ No Xero organisations were authorised. Grant access to at least one org during the OAuth flow.',
+              'db_save_failed':          '❌ Could not save the Xero connection to the database.'
+            }[xeroStatus] || ('❌ Xero connect failed: ' + xeroStatus);
+            bkToast(msg, 'error');
+          }
+        }
+        if(gdriveStatus){
+          const email = url.searchParams.get('email') || '';
+          if(gdriveStatus === 'ok'){
+            bkToast('✅ <b>Google Drive connected</b> as ' + (email || 'your account') + '. Pick a folder per entity to start auto-importing documents.', 'success');
+          } else {
+            const msg = {
+              'error':                 '❌ Google authorisation was rejected: ' + (url.searchParams.get('msg') || ''),
+              'missing_params':        '❌ Google redirect was missing parameters.',
+              'not_configured':        '⚙ GDrive Edge Function is missing Supabase secrets — set GDRIVE_CLIENT_ID, GDRIVE_CLIENT_SECRET, GDRIVE_REDIRECT_URI, BK_OAUTH_STATE_SECRET, BK_POST_AUTH_REDIRECT.',
+              'bad_state':             '🔐 Security check failed. State token invalid or expired.',
+              'token_exchange_failed': '❌ Google token exchange failed. Check GDRIVE_CLIENT_SECRET.',
+              'no_refresh_token':      '⚠ Google didn’t return a refresh token — already authorised. Revoke at <a href="https://myaccount.google.com/permissions" target="_blank" style="color:#5B9BD5;">myaccount.google.com/permissions</a> and retry.',
+              'db_save_failed':        '❌ Could not save the Google Drive connection to the database.'
+            }[gdriveStatus] || ('❌ Google Drive connect failed: ' + gdriveStatus);
+            bkToast(msg, gdriveStatus === 'ok' ? 'success' : 'error');
+          }
+        }
+
+        // Clean URL params, activate BK tab, refresh connection status
+        const clean = new URL(window.location.href);
+        clean.searchParams.delete('bk-xero-status');
+        clean.searchParams.delete('bk-gdrive-status');
+        clean.searchParams.delete('tenant');
+        clean.searchParams.delete('email');
+        clean.searchParams.delete('msg');
+        history.replaceState({}, '', clean.toString());
+
+        // Jump to AI Bookkeeper tab and refresh status
+        if(typeof window.activateTab === 'function'){
+          window.activateTab('bk', { skipScroll: true });
+        }
+        setTimeout(() => {
+          if(typeof bkRefreshConnections === 'function') bkRefreshConnections();
+        }, 300);
+      }, 100);
+    } catch(e){ console.warn('post-OAuth handler:', e); }
+  })();
 })();
 </script>
 </body>
