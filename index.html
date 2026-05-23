@@ -6905,6 +6905,47 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
   };
 
   // ═══════════════════════════════════════════════════════════════════════
+  // ZERO-LATENCY ROW COMPUTE — fired from the Invoice input's oninput
+  // attribute. Does the math DIRECTLY on the DOM nodes of the same row,
+  // so SST / Net / WHT update on every keystroke without depending on
+  // state lookups, refreshPayeeTotals, or any other machinery. If any
+  // of the heavier code paths fails, this still shows the user the
+  // correct numbers immediately.
+  // ═══════════════════════════════════════════════════════════════════════
+  window._whtComputeRow = function(inp){
+    try {
+      if(!inp) return;
+      const tr = inp.closest('tr');
+      if(!tr) return;
+      const payeeIdx = +inp.dataset.wpl;
+      const p = whtState.payees[payeeIdx];
+      if(!p) return;
+      const invoice = Math.max(0, Number(inp.value) || 0);
+      const sstRate = p.sstInclusive ? (Number(p.sstRate) || 8) : 0;
+      const whtRate = Number(p.whtRate) || 0;
+      // LHDN PR 11/2018 reverse-calc, inline (no calcReceipt dependency):
+      const net = sstRate > 0 ? invoice / (1 + sstRate/100) : invoice;
+      const sst = invoice - net;
+      const wht = net * whtRate / 100;
+      const fmt = n => {
+        if(!isFinite(n)) return '0.00';
+        return Number(n).toLocaleString('en-MY', { minimumFractionDigits:2, maximumFractionDigits:2 });
+      };
+      // Update the 3 display cells of THIS row directly:
+      const sstCell = tr.querySelector('td.wht-sst-cell'); if(sstCell) sstCell.textContent = fmt(sst);
+      const netCell = tr.querySelector('td.wht-net-cell'); if(netCell) netCell.textContent = fmt(net);
+      const whtCell = tr.querySelector('td.wht-wht-cell'); if(whtCell) whtCell.textContent = fmt(wht);
+      // Also sync state + refresh footer subtotals + payee tiles + master.
+      const lineIdx = +inp.dataset.line;
+      if(p.lines[lineIdx]){
+        p.lines[lineIdx].gross = invoice;
+        persist();
+        try { refreshPayeeTotals(payeeIdx); } catch(_e){}
+      }
+    } catch(err){ console.error('[WHT _whtComputeRow]', err); }
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════
   // DIRECT NET UPDATE — user types in the Net column, we back-calculate
   // the Invoice Amount by adding SST: invoice = net × (1 + sstRate%).
   // Storage convention unchanged (line.gross is the single source field).
@@ -7219,15 +7260,19 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
                   '<td>' + buildSingleDateWidget(L.date || '', { wpl: i, line: li }) + '</td>' +
                   '<td><input type="text" value="' + escapeHtml(L.receiptNo||'') + '" data-wpl="' + i + '" data-line="' + li + '" data-field="receiptNo"></td>' +
                   // SINGLE SOURCE OF TRUTH = Invoice Amount.
-                  //   SST  = Invoice ÷ (1 - sst%) × sst%   (gross-up)
-                  //   Net  = Invoice − SST
-                  //   WHT  = Invoice × WHT Rate%
-                  // SST and Net are display-only cells — derived purely from
-                  // Invoice + sstRate. The user types ONLY the Invoice amount.
-                  '<td><input type="number" min="0" step="0.01" value="' + (Number(L.gross)||0) + '" data-wpl="' + i + '" data-line="' + li + '" data-field="gross" class="wht-gross-input" ' +
-                    'oninput="window._whtUpdateGross && window._whtUpdateGross(' + i + ',' + li + ',this.value)" ' +
-                    'onchange="window._whtUpdateGross && window._whtUpdateGross(' + i + ',' + li + ',this.value)" ' +
-                    'title="Type the Invoice Amount — SST 8% Amount and Net Amount auto-compute"></td>' +
+                  //   Net  = Invoice ÷ 1.08   (LHDN PR 11/2018 reverse-calc)
+                  //   SST  = Invoice − Net
+                  //   WHT  = Net × WHT Rate%
+                  // The Invoice input fires _whtComputeRow on every keystroke
+                  // — that updates SST/Net/WHT cells DIRECTLY (zero state
+                  // lookups), so the user sees results the instant they type.
+                  // Empty value="" instead of "0" so the user has a clean
+                  // field to type into on a freshly-added row.
+                  '<td><input type="number" min="0" step="0.01" value="' + (Number(L.gross) > 0 ? Number(L.gross) : '') + '" placeholder="0.00" data-wpl="' + i + '" data-line="' + li + '" data-field="gross" class="wht-gross-input" ' +
+                    'oninput="window._whtComputeRow && window._whtComputeRow(this)" ' +
+                    'onkeyup="window._whtComputeRow && window._whtComputeRow(this)" ' +
+                    'onchange="window._whtComputeRow && window._whtComputeRow(this)" ' +
+                    'title="Type the Invoice Amount — SST, Net and WHT auto-compute instantly"></td>' +
                   '<td class="num wht-sst-cell">' + W.fmt(r.sst) + '</td>' +
                   '<td class="num wht-net-cell">' + W.fmt(r.net) + '</td>' +
                   '<td class="num wht-wht-cell" style="color:var(--coral-soft);font-weight:700;">' + W.fmt(r.wht) + '</td>' +
@@ -7267,21 +7312,19 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     // from firing on user input.
     // ═══════════════════════════════════════════════════════════════════
     try {
-      // Only the Invoice (gross) input is editable now — SST and Net are
-      // display cells. We bind the same multi-event safety net to it.
+      // Only the Invoice (gross) input is editable now — SST/Net/WHT are
+      // display cells. Bind _whtComputeRow on input/change/keyup/paste so
+      // the row's display cells update the instant the user types — even
+      // if inline event attrs are stripped by a CSP or extension.
       const inputs = container.querySelectorAll('input.wht-gross-input');
       inputs.forEach(inp => {
-        const payeeIdx = +inp.dataset.wpl;
-        const lineIdx  = +inp.dataset.line;
-        const fn = window._whtUpdateGross;
+        const fn = window._whtComputeRow;
         if(typeof fn !== 'function') return;
-        // Bind multiple events for maximum coverage:
-        //   'input'    — fires on every keystroke (typing, paste, spinner arrows)
-        //   'change'   — fires on blur (Tab out, click elsewhere)
-        //   'keyup'    — extra safety in case 'input' is swallowed
-        ['input', 'change', 'keyup'].forEach(evtName => {
+        ['input', 'change', 'keyup', 'paste'].forEach(evtName => {
           inp.addEventListener(evtName, function(){
-            fn(payeeIdx, lineIdx, this.value);
+            // setTimeout(0) so 'paste' sees the pasted value (paste event
+            // fires before the input value is populated).
+            setTimeout(() => fn(this), 0);
           });
         });
       });
@@ -7566,6 +7609,17 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     if(!whtState.payees[i]) return;
     whtState.payees[i].lines.push({ date:'', receiptNo:'', gross:0 });
     renderAll();
+    // Auto-focus the newly-added row's Invoice input so the user can
+    // type immediately — no need to click anywhere first.
+    try {
+      const card = document.querySelector('[data-pi="' + i + '"]');
+      if(!card) return;
+      const rows = card.querySelectorAll('tbody tr');
+      const lastRow = rows[rows.length - 1];
+      if(!lastRow) return;
+      const invInp = lastRow.querySelector('input.wht-gross-input');
+      if(invInp){ invInp.focus(); invInp.select && invInp.select(); }
+    } catch(_e){}
   }
   function delLine(i, li){
     if(!whtState.payees[i] || !whtState.payees[i].lines[li]) return;
