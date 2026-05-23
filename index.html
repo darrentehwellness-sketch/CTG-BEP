@@ -34,7 +34,7 @@
 <script src="config.js?v=22"></script>
 <script src="assets/js/supabase-client.js?v=26"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
-<script src="assets/js/wht-calculator.js?v=3"></script>
+<script src="assets/js/wht-calculator.js?v=4"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -6649,16 +6649,17 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
           '<label><input type="checkbox" data-wpf="' + i + '" data-field="latePenalty" ' + lateChecked + '> ' + t('wht_payee_penalty') + '</label>' +
         '</div>' +
         '<h3 style="font-size:13px;color:var(--sky-soft);margin:14px 0 8px;font-weight:700;">📋 ' + t('wht_lines_title') + '</h3>' +
-        // Formula caption — makes the auto-calc relationship explicit for the user
+        // Formula caption — makes the auto-calc relationship explicit
         (p.sstInclusive
           ? ('<div class="wht-formula-caption">' +
-              '<span><b>Fill Gross</b> → <code>Net = Gross ÷ (1 + ' + (Number(p.sstRate)||8) + '%)</code></span>' +
-              '<span><b>Fill Net</b>   → <code>Gross = Net × (1 + ' + (Number(p.sstRate)||8) + '%)</code></span>' +
-              '<span>SST = Gross − Net · WHT base = <b>Net only</b> (LHDN PR 11/2018)</span>' +
+              '<span><b>Type Gross (MYR)</b> → auto-computes:</span>' +
+              '<span><code>Net = Gross ÷ (1 + ' + (Number(p.sstRate)||8) + '%)</code></span>' +
+              '<span><code>SST = Gross − Net</code></span>' +
+              '<span>WHT base = <b>Net only</b> (LHDN PR 11/2018)</span>' +
             '</div>')
           : ('<div class="wht-formula-caption">' +
-              '<span><b>SST-inclusive is OFF</b> — Gross = Net (no SST applied)</span>' +
-              '<span>WHT base = Net</span>' +
+              '<span><b>SST-inclusive is OFF</b> — Net = Gross (no SST applied)</span>' +
+              '<span>WHT base = Gross</span>' +
             '</div>')
         ) +
         '<div class="table-wrap">' +
@@ -6675,16 +6676,16 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
             '<tbody>' +
               p.lines.map((L, li) => {
                 const r = W.calcReceipt(L.gross || 0, p.sstInclusive ? (p.sstRate || 8) : 0);
-                // Both Gross and Net are editable. Whichever the user just typed
-                // becomes the source of truth — the other is back-calculated
-                // from the SST rate. SST stays display-only (always derived
-                // from gross × sst_rate / (1 + sst_rate)).
+                // Gross is the SINGLE source of truth. The user types Gross;
+                // Net and SST are always auto-computed from Gross + sstRate
+                // and rendered as display-only cells. No editing ambiguity,
+                // no desync bugs.
                 return '<tr>' +
                   '<td>' + (li+1) + '</td>' +
                   '<td><input type="date" value="' + escapeHtml(dmyToIso(L.date)) + '" data-wpl="' + i + '" data-line="' + li + '" data-field="date" title="' + escapeHtml(L.date||'') + '"></td>' +
                   '<td><input type="text" value="' + escapeHtml(L.receiptNo||'') + '" data-wpl="' + i + '" data-line="' + li + '" data-field="receiptNo"></td>' +
-                  '<td><input type="number" min="0" step="0.01" value="' + (Number(L.gross)||0) + '" data-wpl="' + i + '" data-line="' + li + '" data-field="gross" title="' + t('wht_hint_gross_edit') + '"></td>' +
-                  '<td><input type="number" min="0" step="0.01" class="wht-net-input" value="' + r.net.toFixed(2) + '" data-wpl="' + i + '" data-line="' + li + '" data-field="net" title="' + t('wht_hint_net_edit') + '"></td>' +
+                  '<td><input type="number" min="0" step="0.01" value="' + (Number(L.gross)||0) + '" data-wpl="' + i + '" data-line="' + li + '" data-field="gross" title="Type the SST-inclusive amount — Net and SST auto-compute below"></td>' +
+                  '<td class="num wht-net-cell">' + W.fmt(r.net) + '</td>' +
                   '<td class="num wht-sst-cell">' + W.fmt(r.sst) + '</td>' +
                   '<td class="action"><button data-wht-del-line="' + i + ':' + li + '">✕</button></td>' +
                 '</tr>';
@@ -6796,28 +6797,17 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
       tbody.querySelectorAll('tr').forEach((tr, li) => {
         const L = p.lines[li]; if(!L) return;
         const r = W.calcReceipt(L.gross || 0, p.sstInclusive ? (p.sstRate || 8) : 0);
-        // Net input — update value if not focused (to preserve user typing).
-        // When updated, briefly flash so the user sees auto-calculation kick in.
-        const netInp = tr.querySelector('input.wht-net-input');
-        if(netInp && document.activeElement !== netInp){
-          const newNet = r.net.toFixed(2);
-          if(netInp.value !== newNet){
-            netInp.value = newNet;
-            _flashCell(netInp);
+        // Net cell (display only) — always reflects calcReceipt(gross, sstRate).
+        // Flash briefly when the value changes so the user sees the auto-calc.
+        const netCell = tr.querySelector('td.wht-net-cell');
+        if(netCell){
+          const newNet = W.fmt(r.net);
+          if(netCell.textContent !== newNet){
+            netCell.textContent = newNet;
+            _flashCell(netCell);
           }
         }
-        // Gross input — update value if not focused (e.g. user edited Net,
-        // we back-calculated gross, so the Gross field should reflect that)
-        const grossInp = tr.querySelector('input[data-field="gross"]');
-        if(grossInp && document.activeElement !== grossInp){
-          const newGross = Number(L.gross || 0);
-          if(Math.abs(Number(grossInp.value || 0) - newGross) > 0.005){
-            grossInp.value = newGross.toFixed(2);
-            _flashCell(grossInp);
-          }
-        }
-        // SST cell — display only. Flash whenever its value changes so the
-        // user sees the SST recompute as Gross / Net changes.
+        // SST cell (display only) — same pattern.
         const sstCell = tr.querySelector('td.wht-sst-cell');
         if(sstCell){
           const newSst = W.fmt(r.sst);
@@ -7046,23 +7036,12 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
       const i = +tgt.dataset.wpl, li = +tgt.dataset.line, f = tgt.dataset.field;
       const p = whtState.payees[i]; if(!p || !p.lines[li]) return;
       if(f === 'gross'){
-        // User typed the Gross (SST-inclusive amount). Store as-is —
-        // calcReceipt() back-calculates Net + SST from sstRate on render.
+        // Gross is the single source of truth. Net + SST are always derived
+        // via calcReceipt() at render / refresh time. No bidirectional
+        // editing — keeps the math impossible to desync.
         p.lines[li][f] = Math.max(0, Number(tgt.value) || 0);
         persist();
-        refreshPayeeTotals(i);          // recalc this payee's totals
-      } else if(f === 'net'){
-        // User typed the Net (SST-exclusive / pre-SST amount). Back-
-        // calculate Gross by adding SST: gross = net × (1 + sstRate%).
-        // If the payee isn't SST-inclusive, gross == net.
-        // Storage convention is unchanged — we keep line.gross as the
-        // source field; net is always derived from gross at render time.
-        const netVal = Math.max(0, Number(tgt.value) || 0);
-        const sstRate = p.sstInclusive ? (Number(p.sstRate) || 8) : 0;
-        const grossVal = netVal * (1 + sstRate / 100);
-        p.lines[li].gross = grossVal;
-        persist();
-        refreshPayeeTotals(i);          // updates Gross + SST cells, leaves Net input alone
+        refreshPayeeTotals(i);          // recalc Net + SST + subtotals + KPIs
       } else if(f === 'date'){
         // <input type="date"> value is ISO; convert to DD/MM/YYYY for storage
         p.lines[li][f] = isoToDmy(tgt.value);
