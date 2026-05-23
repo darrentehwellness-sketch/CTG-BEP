@@ -1606,17 +1606,21 @@
   .print-letterhead, .print-footer { display:none; }
 
   /* ════════════════════════════════════════════════════════════════════
-     PRINT / PDF — Professional report output
-     A4 portrait with proper margins. Branded letterhead + footer band.
+     PRINT / PDF — Professional A4 LANDSCAPE report output
+     297mm × 210mm canvas — much wider than portrait, lets tables breathe,
+     fits 4 KPIs side-by-side, accommodates the full CTG letterhead in one
+     row, and renders charts at their natural aspect ratio.
+     Margins: 12mm top / 14mm sides / 14mm bottom — bottom reserved for
+     the fixed footer band (~10mm tall).
      One report per print. Tables repeat their headers across pages.
      Colours preserved for brand (coral accents) but body text goes B&W.
      ════════════════════════════════════════════════════════════════════ */
   @page {
-    size: A4 portrait;
-    margin: 14mm 12mm 16mm 12mm;
+    size: A4 landscape;
+    margin: 12mm 14mm 14mm 14mm;
   }
-  /* Cover page (first sheet) — slightly larger top margin to give the
-     letterhead breathing room. */
+  /* Cover page (first sheet) — slightly smaller top margin so the
+     letterhead sits closer to the page edge for impact. */
   @page :first {
     margin-top: 10mm;
   }
@@ -1665,93 +1669,114 @@
     .tab-panel{ display:none !important; }
     .tab-panel.active{ display:block !important; }
 
-    /* ── PRINT LETTERHEAD ───────────────────────────────────────────── */
+    /* ── PRINT LETTERHEAD (landscape — wide single row) ─────────────── */
+    /* In landscape (273mm usable width) the letterhead fits comfortably
+       on a single row. Three sections in a horizontal flex layout:
+         LEFT  — CTG logo + brand name + tagline
+         CENTER — Report kicker + title + subtitle  (the "headline")
+         RIGHT — Context grid (entity / TIN / period / etc.) + generated
+                 timestamp + user                                          */
     .print-letterhead{
-      display:block !important;
-      margin:0 0 14px;
+      display:flex !important; flex-direction:row; align-items:stretch;
+      gap:18px;
+      margin:0 0 12px;
       padding:0 0 10px;
       border-bottom:2.5pt solid #E85D3C;
       page-break-after:avoid;
       page-break-inside:avoid;
     }
-    .print-letterhead .pl-row{
-      display:flex; align-items:center; gap:14px;
-    }
+    /* Suppress the old vertical structure */
+    .print-letterhead .pl-row,
+    .print-letterhead .pl-divider,
+    .print-letterhead .pl-report{ display:contents !important; }
+
+    /* LEFT — brand block */
     .print-letterhead .pl-logo{
-      width:44px; height:44px; object-fit:contain;
-      flex-shrink:0;
+      width:56px; height:56px; object-fit:contain;
+      flex-shrink:0; align-self:center;
     }
-    .print-letterhead .pl-brand{ flex:1; min-width:0; }
+    .print-letterhead .pl-brand{
+      flex:0 0 auto; min-width:0;
+      align-self:center;
+      padding-right:18px;
+      border-right:.75pt solid #d6d9e0;
+    }
     .print-letterhead .pl-title{
-      font-size:16pt; font-weight:800; color:#0E2438;
+      font-size:15pt; font-weight:800; color:#0E2438;
       letter-spacing:-.2px; line-height:1.1;
     }
     .print-letterhead .pl-tag{
-      font-size:8pt; color:#5B9BD5; font-weight:700;
-      letter-spacing:.8px; text-transform:uppercase; margin-top:3px;
+      font-size:7pt; color:#5B9BD5; font-weight:700;
+      letter-spacing:.9px; text-transform:uppercase; margin-top:3px;
     }
-    .print-letterhead .pl-meta{
-      text-align:right; font-size:8pt; color:#444; min-width:160px;
+
+    /* CENTER — report identity block */
+    .print-letterhead .pl-report-left{
+      flex:1; min-width:0;
+      align-self:center;
     }
-    .print-letterhead .pl-meta-row{
-      display:flex; gap:8px; justify-content:flex-end; line-height:1.5;
-    }
-    .print-letterhead .pl-meta .k{
-      color:#888; text-transform:uppercase; letter-spacing:.6px;
-      font-size:7pt; font-weight:700; align-self:center;
-    }
-    .print-letterhead .pl-meta .v{
-      color:#000; font-weight:600; font-variant-numeric:tabular-nums;
-    }
-    .print-letterhead .pl-divider{ height:6px; }
-    .print-letterhead .pl-report{
-      display:flex; align-items:flex-start; gap:18px;
-      padding-top:8px;
-    }
-    .print-letterhead .pl-report-left{ flex:1; }
     .print-letterhead .pl-report-kicker{
-      font-size:7.5pt; font-weight:800; color:#E85D3C;
-      letter-spacing:1.4px; text-transform:uppercase; margin-bottom:3px;
+      font-size:7pt; font-weight:800; color:#E85D3C;
+      letter-spacing:1.6px; text-transform:uppercase; margin-bottom:3px;
     }
     .print-letterhead .pl-report-title{
-      font-size:18pt; font-weight:700; color:#0E2438;
-      margin:0 0 3px; letter-spacing:-.3px; line-height:1.15;
+      font-size:19pt; font-weight:700; color:#0E2438;
+      margin:0 0 3px; letter-spacing:-.4px; line-height:1.1;
     }
     .print-letterhead .pl-report-sub{
-      font-size:9pt; color:#555; line-height:1.4;
+      font-size:8.5pt; color:#555; line-height:1.4;
+      max-width:42ch;
     }
-    .print-letterhead .pl-report-right{
-      text-align:right; font-size:8.5pt; color:#000;
-      min-width:180px;
+
+    /* RIGHT — context + meta block */
+    .print-letterhead .pl-report-right,
+    .print-letterhead .pl-meta{
+      text-align:right; font-size:8pt; color:#000;
+      min-width:200px;
+      align-self:center;
+      padding-left:18px;
+      border-left:.75pt solid #d6d9e0;
+    }
+    /* When BOTH meta and report-right are populated, stack them with a
+       small visual gap. */
+    .print-letterhead .pl-meta + .pl-report-right,
+    .print-letterhead .pl-report-right + .pl-meta{
+      border-left:none; padding-left:0; margin-top:4pt;
+    }
+    .print-letterhead .pl-meta-row,
+    .print-letterhead .pl-report-right .ctx-row{
+      display:flex; gap:8px; justify-content:flex-end;
+      line-height:1.55;
     }
     .print-letterhead .pl-report-right .ctx-row{
-      display:flex; justify-content:flex-end; gap:8px;
-      line-height:1.7; border-bottom:.5pt dotted #ccc; padding-bottom:2px;
+      border-bottom:.5pt dotted #ccc; padding-bottom:1.5pt;
     }
     .print-letterhead .pl-report-right .ctx-row:last-child{ border-bottom:none; }
+    .print-letterhead .pl-meta .k,
     .print-letterhead .pl-report-right .k{
       color:#888; text-transform:uppercase; letter-spacing:.5px;
-      font-size:7pt; font-weight:700; align-self:center;
+      font-size:6.5pt; font-weight:700; align-self:center;
     }
+    .print-letterhead .pl-meta .v,
     .print-letterhead .pl-report-right .v{
       color:#000; font-weight:700; font-variant-numeric:tabular-nums;
     }
 
-    /* ── PRINT FOOTER (fixed bottom band) ───────────────────────────── */
+    /* ── PRINT FOOTER (fixed bottom band, landscape-sized) ──────────── */
     .print-footer{
       display:flex !important;
-      position:fixed; bottom:4mm; left:0; right:0;
-      padding:0 12mm;
+      position:fixed; bottom:3mm; left:0; right:0;
+      padding:0 14mm;
       font-size:7.5pt; color:#888;
       justify-content:space-between; align-items:center;
-      border-top:.5pt solid #ddd; padding-top:3pt;
+      border-top:.5pt solid #ddd; padding-top:2.5pt;
     }
     .print-footer .pf-mid{ font-weight:700; color:#0E2438; font-size:8pt; }
     .print-footer .pf-right{ color:#aaa; }
-    /* Footer is fixed; reserve bottom space in @page margin (16mm) for it. */
+    /* Footer is fixed; reserved bottom space in @page margin (14mm). */
 
-    /* ── Body typography ────────────────────────────────────────────── */
-    body{ font-family:'Inter', Arial, sans-serif; font-size:9.5pt; line-height:1.45; }
+    /* ── Body typography (landscape — slightly larger to fill width) ─ */
+    body{ font-family:'Inter', Arial, sans-serif; font-size:10pt; line-height:1.45; }
     h1, h2, h3, h4{ color:#0E2438 !important; }
 
     /* ── Cards ──────────────────────────────────────────────────────── */
@@ -1781,10 +1806,10 @@
     }
     .card .note, .note{ color:#555 !important; font-size:8.5pt !important; }
 
-    /* ── KPIs ───────────────────────────────────────────────────────── */
-    .kpi{ padding:12px !important; }
+    /* ── KPIs (landscape — bigger value font, 4-across grid works great) */
+    .kpi{ padding:14px 16px !important; }
     .kpi::before{
-      height:2.5pt !important; opacity:1 !important;
+      height:3pt !important; opacity:1 !important;
       background:#E85D3C !important;
     }
     .kpi.success::before{ background:#10b981 !important; }
@@ -1793,51 +1818,53 @@
     .kpi .label, .kpi .label *{ color:#666 !important; }
     .kpi .label .dot{
       background:#E85D3C !important; box-shadow:none !important;
-      width:6px !important; height:6px !important;
+      width:7px !important; height:7px !important;
     }
     .kpi.success .label .dot{ background:#10b981 !important; }
     .kpi .value{
-      color:#0E2438 !important; font-size:17pt !important;
+      color:#0E2438 !important; font-size:20pt !important;
       font-variant-numeric:tabular-nums !important;
-      letter-spacing:-.3px !important;
+      letter-spacing:-.4px !important;
+      margin-top:4pt !important;
     }
-    .kpi .sub{ color:#777 !important; font-size:8pt !important; }
+    .kpi .sub{ color:#777 !important; font-size:8.5pt !important; margin-top:2pt; }
 
-    /* ── Break-Even banner (signature visual) ───────────────────────── */
+    /* ── Break-Even banner (signature visual, landscape-optimised) ─── */
     .breakeven-banner{
       background:#fff !important; color:#000 !important;
       border:1.5pt solid #E85D3C !important;
       box-shadow:none !important;
-      padding:22px 18px !important;
+      padding:24px 22px !important;
     }
     .breakeven-banner::before, .breakeven-banner::after{ display:none !important; }
     .breakeven-banner .title{
-      color:#666 !important; font-size:8pt !important;
+      color:#666 !important; font-size:8.5pt !important;
+      letter-spacing:1.8pt !important;
     }
     .breakeven-banner .value{
       color:#E85D3C !important;
       -webkit-text-fill-color:#E85D3C !important;
       background:none !important;
-      font-size:26pt !important;
+      font-size:32pt !important;
       text-shadow:none !important;
-      letter-spacing:-.8px !important;
+      letter-spacing:-1pt !important;
     }
     .breakeven-banner .sub, .breakeven-banner .sub b{
-      color:#444 !important; font-size:9pt !important;
+      color:#444 !important; font-size:9.5pt !important;
     }
 
-    /* ── Tables ─────────────────────────────────────────────────────── */
+    /* ── Tables (landscape — more breathing room, slightly larger font) ─ */
     .table-wrap{ overflow:visible !important; border:none !important; background:none !important; }
     table{
       width:100% !important; border-collapse:collapse !important;
-      font-size:8.5pt !important; page-break-inside:auto !important;
+      font-size:9pt !important; page-break-inside:auto !important;
     }
     /* Repeat headers across pages */
     thead{ display:table-header-group !important; }
     tfoot{ display:table-row-group !important; }
     tr{ page-break-inside:avoid !important; }
     th, td{
-      padding:5px 7px !important;
+      padding:6px 9px !important;
       border-bottom:.5pt solid #d6d9e0 !important;
       color:#000 !important;
     }
@@ -1845,7 +1872,7 @@
       background:#f4f6fa !important; color:#0E2438 !important;
       font-weight:800 !important;
       border-bottom:1pt solid #0E2438 !important;
-      text-transform:uppercase; letter-spacing:.4px; font-size:7.5pt !important;
+      text-transform:uppercase; letter-spacing:.5px; font-size:7.5pt !important;
       backdrop-filter:none !important;
     }
     tbody tr:nth-child(even){ background:#fafbfd !important; }
@@ -1858,6 +1885,7 @@
       background:#fff5f0 !important; color:#0E2438 !important;
       font-weight:800 !important;
       border-top:1.5pt solid #E85D3C !important;
+      padding:8px 9px !important;
     }
 
     /* Cell inputs render as plain text */
@@ -1892,15 +1920,14 @@
       border:.5pt solid #E85D3C !important;
     }
 
-    /* ── Grid layouts collapse cleanly on print ─────────────────────── */
-    .grid-2{ display:grid !important; grid-template-columns:1fr 1fr !important; gap:10px !important; margin-bottom:10px !important; }
-    .grid-3{ display:grid !important; grid-template-columns:repeat(3,1fr) !important; gap:8px !important; }
-    .grid-4{ display:grid !important; grid-template-columns:repeat(4,1fr) !important; gap:8px !important; }
+    /* ── Grid layouts (landscape can fit MORE side-by-side) ───────── */
+    .grid-2{ display:grid !important; grid-template-columns:1fr 1fr !important; gap:12px !important; margin-bottom:10px !important; }
+    .grid-3{ display:grid !important; grid-template-columns:repeat(3,1fr) !important; gap:10px !important; }
+    .grid-4{ display:grid !important; grid-template-columns:repeat(4,1fr) !important; gap:10px !important; }
 
-    /* ── Charts ─────────────────────────────────────────────────────── */
+    /* ── Charts (landscape — wider aspect ratio fits great) ───────── */
     .chart-box, canvas{ background:#fff !important; }
-    /* Allow charts to break across pages if huge */
-    .chart-box{ page-break-inside:avoid; max-height:360px; overflow:hidden; }
+    .chart-box{ page-break-inside:avoid; max-height:280px; overflow:hidden; }
 
     /* ── Page-break helpers for major sections ──────────────────────── */
     .breakeven-banner,
