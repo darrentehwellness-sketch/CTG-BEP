@@ -34,7 +34,7 @@
 <script src="config.js?v=22"></script>
 <script src="assets/js/supabase-client.js?v=26"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
-<script src="assets/js/wht-calculator.js?v=9"></script>
+<script src="assets/js/wht-calculator.js?v=10"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -1241,7 +1241,7 @@
   }
   .wht-flash{ animation:wht-flash .6s ease-out; }
   td.wht-sst-cell.wht-flash{ animation:wht-flash .6s ease-out; }
-  input.wht-net-input.wht-flash{ animation:wht-flash .6s ease-out; }
+  td.wht-net-cell.wht-flash{ animation:wht-flash .6s ease-out; }
   @media (prefers-reduced-motion: reduce){
     .wht-flash{ animation:none !important; }
   }
@@ -3128,9 +3128,9 @@
     <div class="card" id="whtMasterCard">
       <h2><span class="ic">③</span><span data-i18n="wht_master_title">Master Summary</span><span class="badge" data-i18n="wht_master_badge">CP37 Total</span></h2>
       <div class="grid-4" style="margin-bottom:14px;">
-        <div class="kpi"><div class="label"><span class="dot"></span><span data-i18n="wht_kpi_gross">Total Gross</span></div><div class="value" id="whtKpiGross">—</div><div class="sub" data-i18n="wht_kpi_gross_sub">SST-inclusive invoice total</div></div>
-        <div class="kpi warn"><div class="label"><span class="dot"></span><span data-i18n="wht_kpi_sst">Total SST</span></div><div class="value" id="whtKpiSst">—</div><div class="sub" data-i18n="wht_kpi_sst_sub">8% reverse-calc, excluded from WHT base</div></div>
-        <div class="kpi success"><div class="label"><span class="dot"></span><span data-i18n="wht_kpi_net">Total Net</span></div><div class="value" id="whtKpiNet">—</div><div class="sub" data-i18n="wht_kpi_net_sub">WHT base · Σ Net per LHDN PR 11/2018</div></div>
+        <div class="kpi"><div class="label"><span class="dot"></span><span data-i18n="wht_kpi_gross">Total Invoice</span></div><div class="value" id="whtKpiGross">—</div><div class="sub" data-i18n="wht_kpi_gross_sub">Σ Invoice (WHT base)</div></div>
+        <div class="kpi warn"><div class="label"><span class="dot"></span><span data-i18n="wht_kpi_sst">Total SST 8%</span></div><div class="value" id="whtKpiSst">—</div><div class="sub" data-i18n="wht_kpi_sst_sub">Invoice ÷ 0.92 × 0.08 (gross-up)</div></div>
+        <div class="kpi success"><div class="label"><span class="dot"></span><span data-i18n="wht_kpi_net">Total Net</span></div><div class="value" id="whtKpiNet">—</div><div class="sub" data-i18n="wht_kpi_net_sub">Invoice − SST (display only)</div></div>
         <div class="kpi danger"><div class="label"><span class="dot"></span><span data-i18n="wht_kpi_payable">Total Payable</span></div><div class="value" id="whtKpiPayable">—</div><div class="sub" id="whtKpiPayableSub" data-i18n="wht_kpi_payable_sub">WHT + Penalty (if any)</div></div>
       </div>
       <div class="table-wrap">
@@ -3141,7 +3141,7 @@
               <th data-i18n="wht_th_payee">Payee</th>
               <th style="width:120px;" data-i18n="wht_th_country">Country</th>
               <th data-i18n="wht_th_section">ITA Section</th>
-              <th style="width:130px;" data-i18n="wht_th_net">Subtotal (Net)</th>
+              <th style="width:130px;" data-i18n="wht_th_net">Subtotal (Invoice)</th>
               <th style="width:80px;" data-i18n="wht_th_rate">Rate</th>
               <th style="width:130px;" data-i18n="wht_th_wht">WHT</th>
               <th style="width:130px;" data-i18n="wht_th_penalty">Penalty</th>
@@ -3161,7 +3161,7 @@
           </tfoot>
         </table>
       </div>
-      <p class="note" style="margin-top:12px;" data-i18n="wht_master_help">📋 Per LHDN: submit Form CP37 + pay WHT to LHDN within <b>1 month</b> from the date of paying the non-resident. Late = 10% penalty per ITA s.109(2). The reverse-SST calc follows LHDN PR 11/2018 — WHT base is net of SST/GST.</p>
+      <p class="note" style="margin-top:12px;" data-i18n="wht_master_help">📋 Per LHDN: submit Form CP37 + pay WHT within <b>1 month</b> from the date of paying the non-resident. Late = 10% penalty per ITA s.109(2). Calculation: <b>SST 8% = Invoice ÷ 0.92 × 0.08</b> · <b>Net = Invoice − SST</b> · <b>WHT = Invoice × Rate%</b>.</p>
     </div>
 
     <!-- Step 4: Saved scenarios -->
@@ -3687,23 +3687,23 @@ const I18N = {
     wht_lines_title:"Invoice Receipts",
     wht_th_no:"No", wht_th_date:"Payment Date", wht_th_receipt:"Receipt No",
     wht_th_gross:"Gross (MYR)", wht_th_invoice:"Invoice Amount (MYR)",
-    wht_th_net2:"Net", wht_th_sst:"SST",
-    wht_hint_gross_edit:"Type the SST-inclusive (Gross) amount — Net & SST auto-compute",
-    wht_hint_net_edit:"Type the pre-SST (Net) amount — Gross & SST auto-compute by ÷(1+SST%)",
+    wht_th_net2:"Net Amount", wht_th_sst:"SST 8% Amount",
+    wht_hint_gross_edit:"Type the Invoice Amount — SST and Net auto-compute (gross-up methodology)",
+    wht_hint_net_edit:"",
     wht_th_total:"Total", wht_add_line:"Add Receipt",
     wht_subtotal:"Subtotal", wht_wht_calc:"WHT", wht_penalty_calc:"Penalty (10%)",
     wht_payable_calc:"WHT + Penalty (Payable)",
     wht_remove_payee:"✕ Remove Payee",
     wht_master_title:"Master Summary", wht_master_badge:"CP37 Total",
-    wht_kpi_gross:"Total Gross", wht_kpi_gross_sub:"SST-inclusive invoice total",
-    wht_kpi_sst:"Total SST", wht_kpi_sst_sub:"8% reverse-calc, excluded from WHT base",
-    wht_kpi_net:"Total Net", wht_kpi_net_sub:"WHT base · Σ Net per LHDN PR 11/2018",
+    wht_kpi_gross:"Total Invoice", wht_kpi_gross_sub:"Σ Invoice (WHT base)",
+    wht_kpi_sst:"Total SST 8%", wht_kpi_sst_sub:"Invoice ÷ 0.92 × 0.08 (gross-up)",
+    wht_kpi_net:"Total Net", wht_kpi_net_sub:"Invoice − SST (display only)",
     wht_kpi_payable:"Total Payable", wht_kpi_payable_sub:"WHT + Penalty (if any)",
     wht_th_payee:"Payee", wht_th_country:"Country", wht_th_section:"ITA Section",
-    wht_th_net:"Subtotal (Net)", wht_th_rate:"Rate", wht_th_wht:"WHT",
+    wht_th_net:"Subtotal (Invoice)", wht_th_rate:"Rate", wht_th_wht:"WHT",
     wht_th_penalty:"Penalty", wht_th_payable:"Payable",
     wht_tf_total:"Grand Total:",
-    wht_master_help:"📋 Per LHDN: submit Form CP37 + pay WHT to LHDN within 1 month from the date of paying the non-resident. Late = 10% penalty per ITA s.109(2). The reverse-SST calc follows LHDN PR 11/2018 — WHT base is net of SST/GST.",
+    wht_master_help:"📋 Per LHDN: submit Form CP37 + pay WHT within 1 month from the date of paying the non-resident. Late = 10% penalty per ITA s.109(2). Formula: SST 8% = Invoice ÷ 0.92 × 0.08 · Net = Invoice − SST · WHT = Invoice × Rate%.",
     wht_saved_title:"Saved Scenarios", wht_saved_empty:"No saved scenarios yet. Click ⭐ Save Scenario above.",
     wht_save_prompt:"Name this WHT scenario:", wht_saved_ok:"Scenario saved.",
     wht_confirm_del_payee:"Remove this payee and all its receipt lines?",
@@ -6801,16 +6801,17 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
           '<label><input type="checkbox" data-wpf="' + i + '" data-field="latePenalty" ' + lateChecked + '> ' + t('wht_payee_penalty') + '</label>' +
         '</div>' +
         '<h3 style="font-size:13px;color:var(--sky-soft);margin:14px 0 8px;font-weight:700;">📋 ' + t('wht_lines_title') + '</h3>' +
-        // Formula caption — makes the auto-calc relationship explicit
+        // Formula caption — explicit per the rebuilt methodology (2026-05-24)
+        // Single input: Invoice Amount. Everything else is derived.
         (p.sstInclusive
           ? ('<div class="wht-formula-caption">' +
-              '<span><b>Type Invoice Amount</b> → <code>Net = Invoice ÷ (1 + ' + (Number(p.sstRate)||8) + '%)</code></span>' +
-              '<span><b>or type Net</b> → <code>Invoice = Net × (1 + ' + (Number(p.sstRate)||8) + '%)</code></span>' +
-              '<span>SST = Invoice − Net · WHT base = <b>Net only</b> (LHDN PR 11/2018)</span>' +
+              '<span><b>Type Invoice Amount</b> → <code>SST = Invoice ÷ (1 − ' + (Number(p.sstRate)||8) + '%) × ' + (Number(p.sstRate)||8) + '%</code></span>' +
+              '<span><code>Net = Invoice − SST</code> · <code>WHT = Invoice × Rate%</code></span>' +
+              '<span>For 8% SST: <code>SST = Invoice ÷ 0.92 × 0.08</code> · WHT base = <b>Invoice Amount</b></span>' +
             '</div>')
           : ('<div class="wht-formula-caption">' +
-              '<span><b>SST-inclusive is OFF</b> — Net = Invoice Amount (no SST applied)</span>' +
-              '<span>WHT base = Invoice Amount</span>' +
+              '<span><b>SST-inclusive is OFF</b> — SST = 0 · Net = Invoice</span>' +
+              '<span>WHT = Invoice × Rate% · WHT base = <b>Invoice Amount</b></span>' +
             '</div>')
         ) +
         '<div class="table-wrap">' +
@@ -6820,8 +6821,8 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
               '<th style="width:120px;">' + t('wht_th_date') + '</th>' +
               '<th>' + t('wht_th_receipt') + '</th>' +
               '<th style="width:140px;">' + t('wht_th_invoice') + '</th>' +
-              '<th style="width:110px;">' + t('wht_th_net2') + '</th>' +
-              '<th style="width:110px;">' + t('wht_th_sst') + '</th>' +
+              '<th style="width:120px;">' + t('wht_th_sst') + '</th>' +
+              '<th style="width:120px;">' + t('wht_th_net2') + '</th>' +
               '<th style="width:42px;"></th>' +
             '</tr></thead>' +
             '<tbody>' +
@@ -6835,19 +6836,18 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
                   '<td>' + (li+1) + '</td>' +
                   '<td><input type="date" value="' + escapeHtml(dmyToIso(L.date)) + '" data-wpl="' + i + '" data-line="' + li + '" data-field="date" title="' + escapeHtml(L.date||'') + '"></td>' +
                   '<td><input type="text" value="' + escapeHtml(L.receiptNo||'') + '" data-wpl="' + i + '" data-line="' + li + '" data-field="receiptNo"></td>' +
-                  // CRITICAL: Direct oninput calls to bypass delegation.
-                  // Both Invoice Amount AND Net are editable — type in either
-                  // and the other column + SST auto-compute. SST stays as
-                  // a display cell (it's purely derived from rate × Net).
+                  // SINGLE SOURCE OF TRUTH = Invoice Amount.
+                  //   SST  = Invoice ÷ (1 - sst%) × sst%   (gross-up)
+                  //   Net  = Invoice − SST
+                  //   WHT  = Invoice × WHT Rate%
+                  // SST and Net are display-only cells — derived purely from
+                  // Invoice + sstRate. The user types ONLY the Invoice amount.
                   '<td><input type="number" min="0" step="0.01" value="' + (Number(L.gross)||0) + '" data-wpl="' + i + '" data-line="' + li + '" data-field="gross" class="wht-gross-input" ' +
                     'oninput="window._whtUpdateGross && window._whtUpdateGross(' + i + ',' + li + ',this.value)" ' +
                     'onchange="window._whtUpdateGross && window._whtUpdateGross(' + i + ',' + li + ',this.value)" ' +
-                    'title="Type the Invoice Amount (SST-inclusive) — Net and SST auto-compute"></td>' +
-                  '<td><input type="number" min="0" step="0.01" value="' + r.net.toFixed(2) + '" data-wpl="' + i + '" data-line="' + li + '" data-field="net" class="wht-net-input" ' +
-                    'oninput="window._whtUpdateNet && window._whtUpdateNet(' + i + ',' + li + ',this.value)" ' +
-                    'onchange="window._whtUpdateNet && window._whtUpdateNet(' + i + ',' + li + ',this.value)" ' +
-                    'title="Type the Net (pre-SST) amount — Invoice Amount and SST auto-compute"></td>' +
+                    'title="Type the Invoice Amount — SST 8% Amount and Net Amount auto-compute"></td>' +
                   '<td class="num wht-sst-cell">' + W.fmt(r.sst) + '</td>' +
+                  '<td class="num wht-net-cell">' + W.fmt(r.net) + '</td>' +
                   '<td class="action"><button data-wht-del-line="' + i + ':' + li + '">✕</button></td>' +
                 '</tr>';
               }).join('') +
@@ -6855,9 +6855,9 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
             '<tfoot>' +
               '<tr>' +
                 '<td colspan="3" style="text-align:right;">' + t('wht_subtotal') + ':</td>' +
-                '<td class="num">' + W.fmt(c.subtotal.gross) + '</td>' +
-                '<td class="num">' + W.fmt(c.subtotal.net) + '</td>' +
+                '<td class="num">' + W.fmt(c.subtotal.invoice) + '</td>' +
                 '<td class="num">' + W.fmt(c.subtotal.sst) + '</td>' +
+                '<td class="num">' + W.fmt(c.subtotal.net) + '</td>' +
                 '<td></td>' +
               '</tr>' +
             '</tfoot>' +
@@ -6865,7 +6865,7 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
         '</div>' +
         '<div class="add-row"><button data-wht-add-line="' + i + '">+ ' + t('wht_add_line') + '</button></div>' +
         '<div class="wht-totals">' +
-          '<div class="box"><div class="label">Subtotal Net</div><div class="value">' + W.fmt(c.subtotal.net) + '</div></div>' +
+          '<div class="box"><div class="label">Subtotal Invoice</div><div class="value">' + W.fmt(c.subtotal.invoice) + '</div></div>' +
           '<div class="box"><div class="label">' + t('wht_wht_calc') + ' (' + (Number(p.whtRate)||0) + '%)</div><div class="value">' + W.fmt(c.wht) + '</div></div>' +
           '<div class="box"><div class="label">' + t('wht_penalty_calc') + '</div><div class="value">' + W.fmt(c.penalty) + '</div></div>' +
           '<div class="box hilite"><div class="label">' + t('wht_payable_calc') + '</div><div class="value">' + W.fmt(c.payable) + '</div></div>' +
@@ -6883,12 +6883,13 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     // from firing on user input.
     // ═══════════════════════════════════════════════════════════════════
     try {
-      const inputs = container.querySelectorAll('input.wht-gross-input, input.wht-net-input');
+      // Only the Invoice (gross) input is editable now — SST and Net are
+      // display cells. We bind the same multi-event safety net to it.
+      const inputs = container.querySelectorAll('input.wht-gross-input');
       inputs.forEach(inp => {
         const payeeIdx = +inp.dataset.wpl;
         const lineIdx  = +inp.dataset.line;
-        const isGross  = inp.classList.contains('wht-gross-input');
-        const fn = isGross ? window._whtUpdateGross : window._whtUpdateNet;
+        const fn = window._whtUpdateGross;
         if(typeof fn !== 'function') return;
         // Bind multiple events for maximum coverage:
         //   'input'    — fires on every keystroke (typing, paste, spinner arrows)
@@ -6907,7 +6908,8 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
   function renderMaster(){
     const result = W.calcSession(whtState);
     const setT = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
-    setT('whtKpiGross',   W.fmt(result.totals.gross));
+    // Total Invoice + Total SST + Total Net (display-only). WHT base = Invoice.
+    setT('whtKpiGross',   W.fmt(result.totals.invoice));
     setT('whtKpiSst',     W.fmt(result.totals.sst));
     setT('whtKpiNet',     W.fmt(result.totals.net));
     setT('whtKpiPayable', W.fmt(result.totals.payable));
@@ -6933,7 +6935,7 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
             '<div>' + escapeHtml(sectionDisplay) + '</div>' +
             (codeBadges.length ? '<div style="font-size:10.5px;color:var(--text-soft);margin-top:2px;">' + codeBadges.join(' · ') + '</div>' : '') +
           '</td>' +
-          '<td class="num">' + W.fmt(p._calc.subtotal.net) + '</td>' +
+          '<td class="num">' + W.fmt(p._calc.subtotal.invoice) + '</td>' +
           '<td class="pct">' + (Number(p.whtRate)||0).toFixed(1) + '%</td>' +
           '<td class="num">' + W.fmt(p._calc.wht) + '</td>' +
           '<td class="num">' + W.fmt(p._calc.penalty) + '</td>' +
@@ -6941,7 +6943,7 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
         '</tr>';
       }).join('');
     }
-    setT('whtTfNet',     W.fmt(result.totals.net));
+    setT('whtTfNet',     W.fmt(result.totals.invoice));
     setT('whtTfWht',     W.fmt(result.totals.wht));
     setT('whtTfPenalty', W.fmt(result.totals.penalty));
     setT('whtTfPayable', W.fmt(result.totals.payable));
@@ -6975,13 +6977,9 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     const c = W.calcPayee(p);
 
     // Per-line refresh:
-    //   - Net is now an editable <input>: update .value but ONLY if the
-    //     user isn't currently typing in it (preserves their digits)
-    //   - SST stays a display cell (.wht-sst-cell): update textContent
-    //   - The Gross input is the user's source of truth — don't touch it
-    //     unless we're rendering after a Net edit (handled separately
-    //     below since the Gross update happens via line.gross assignment
-    //     and the next render will pick it up).
+    //   - Invoice (gross) input is the ONLY user-editable field.
+    //   - SST + Net are display cells, derived from Invoice + sstRate.
+    //   - Update Invoice input only if user isn't currently typing.
     const tbody = card.querySelector('tbody');
     if(tbody){
       tbody.querySelectorAll('tr').forEach((tr, li) => {
@@ -6998,16 +6996,7 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
             _flashCell(grossInp);
           }
         }
-        // Net input — update if user isn't currently typing in it.
-        const netInp = tr.querySelector('input.wht-net-input');
-        if(netInp && document.activeElement !== netInp){
-          const newNet = r.net.toFixed(2);
-          if(netInp.value !== newNet){
-            netInp.value = newNet;
-            _flashCell(netInp);
-          }
-        }
-        // SST display cell — always update on every refresh.
+        // SST display cell (Invoice ÷ 0.92 × 0.08 for 8% SST) — always update.
         const sstCell = tr.querySelector('td.wht-sst-cell');
         if(sstCell){
           const newSst = W.fmt(r.sst);
@@ -7016,19 +7005,28 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
             _flashCell(sstCell);
           }
         }
+        // Net display cell (Invoice − SST) — always update.
+        const netCell = tr.querySelector('td.wht-net-cell');
+        if(netCell){
+          const newNet = W.fmt(r.net);
+          if(netCell.textContent !== newNet){
+            netCell.textContent = newNet;
+            _flashCell(netCell);
+          }
+        }
       });
     }
-    // Subtotal footer cells
+    // Subtotal footer cells — order: Invoice, SST, Net
     const ftCells = card.querySelectorAll('tfoot td.num');
     if(ftCells.length >= 3){
-      ftCells[0].textContent = W.fmt(c.subtotal.gross);
-      ftCells[1].textContent = W.fmt(c.subtotal.net);
-      ftCells[2].textContent = W.fmt(c.subtotal.sst);
+      ftCells[0].textContent = W.fmt(c.subtotal.invoice);
+      ftCells[1].textContent = W.fmt(c.subtotal.sst);
+      ftCells[2].textContent = W.fmt(c.subtotal.net);
     }
-    // 4 total tiles at the bottom of the card
-    const tiles = card.querySelectorAll('.wht-totals .box');
+    // 4 total tiles at the bottom of the card.
+    // Tile 0 now shows Subtotal Invoice (WHT base under new methodology).
     if(tiles[0]){
-      const v = tiles[0].querySelector('.value'); if(v) v.textContent = W.fmt(c.subtotal.net);
+      const v = tiles[0].querySelector('.value'); if(v) v.textContent = W.fmt(c.subtotal.invoice);
     }
     if(tiles[1]){
       const l = tiles[1].querySelector('.label'); if(l) l.textContent = t('wht_wht_calc') + ' (' + (Number(p.whtRate)||0) + '%)';
@@ -7504,24 +7502,7 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
         }
       });
 
-      // 2. Poll all Net inputs — IF FOCUSED (user is typing in it), the
-      //    user's typed Net value is the source of truth. Back-calculate
-      //    Gross from Net and sync state.
-      document.querySelectorAll('input.wht-net-input').forEach(inp => {
-        if(document.activeElement !== inp) return;   // only sync if focused
-        const i = +inp.dataset.wpl;
-        const li = +inp.dataset.line;
-        const p = whtState.payees[i];
-        if(!p || !p.lines[li]) return;
-        const inputNet = Math.max(0, Number(inp.value) || 0);
-        const sstRate = p.sstInclusive ? (Number(p.sstRate) || 8) : 0;
-        const expectedGross = inputNet * (1 + sstRate / 100);
-        if(Math.abs(expectedGross - Number(p.lines[li].gross || 0)) > 0.005){
-          p.lines[li].gross = expectedGross;
-          changed = true;
-          touchedPayees.add(i);
-        }
-      });
+      // (Net input poll removed in v=10 — Net is now a display cell only.)
 
       if(changed){
         persist();
