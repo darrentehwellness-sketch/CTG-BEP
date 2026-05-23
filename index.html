@@ -4545,6 +4545,12 @@ function activateTab(id, opts){
   const btn = document.querySelector('.tab-btn[data-tab="'+id+'"]');
   const panel = document.getElementById('tab-'+id);
   if(!btn || !panel) return false;
+  // If user is leaving the WHT tab while the date picker popup is open,
+  // force-close it so its global mousedown/keydown listeners get
+  // unregistered (otherwise they leak across tab switches).
+  if(id !== 'wht' && typeof window._whtClosePopup === 'function'){
+    try { window._whtClosePopup(); } catch(e){}
+  }
   document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('.tab-panel').forEach(x=>x.classList.remove('active'));
   btn.classList.add('active');
@@ -5854,6 +5860,9 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     document.removeEventListener('keydown', dpKeyHandler, true);
     _dp = null;
   }
+  // Expose so activateTab() can force-close the popup when user switches
+  // away from the WHT tab (otherwise _dp + global listeners leak).
+  window._whtClosePopup = dpClose;
 
   function dpOutsideClick(e){
     const popup = document.getElementById('whtDpPopup');
@@ -7170,23 +7179,35 @@ function renderEntityCheckboxes(selectedIds){
     </div>
   `;
 
-  // Click handlers — delegated within this wrap to avoid leaking listeners
-  wrap.addEventListener('click', (e)=>{
-    const action = e.target.closest('[data-chip-action]');
-    if(action){
-      const which = action.dataset.chipAction;
-      wrap.querySelectorAll('.ent-chip').forEach(c => {
-        c.classList.toggle('selected', which === 'select-all');
-      });
-      updateCount();
-      return;
-    }
-    const chip = e.target.closest('.ent-chip');
-    if(chip){
-      chip.classList.toggle('selected');
-      updateCount();
-    }
-  }, { once: false });
+  // Bind the click delegate ONCE per page-load. Re-renders (via innerHTML
+  // above) replace the inner DOM but the listener on the wrap element
+  // persists — so we must NOT re-add it on every render or each modal-open
+  // stacks another listener (each chip click would toggle N times).
+  if(!wrap.dataset.delegateBound){
+    wrap.addEventListener('click', (e)=>{
+      const action = e.target.closest('[data-chip-action]');
+      if(action){
+        const which = action.dataset.chipAction;
+        wrap.querySelectorAll('.ent-chip').forEach(c => {
+          c.classList.toggle('selected', which === 'select-all');
+        });
+        // updateCount is in the enclosing closure of THIS render — call the
+        // currently-active one via a hot reference stored on wrap.
+        if(typeof wrap._updateCount === 'function') wrap._updateCount();
+        return;
+      }
+      const chip = e.target.closest('.ent-chip');
+      if(chip){
+        chip.classList.toggle('selected');
+        if(typeof wrap._updateCount === 'function') wrap._updateCount();
+      }
+    });
+    wrap.dataset.delegateBound = '1';
+  }
+  // Update the hot reference so the (single, persistent) listener always
+  // calls THE LATEST updateCount() (which closes over the latest
+  // `active`/`countEl` for this render).
+  wrap._updateCount = updateCount;
 
   updateCount();
 }
