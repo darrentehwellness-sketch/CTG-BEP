@@ -34,7 +34,7 @@
 <script src="config.js?v=22"></script>
 <script src="assets/js/supabase-client.js?v=26"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
-<script src="assets/js/wht-calculator.js?v=7"></script>
+<script src="assets/js/wht-calculator.js?v=8"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -6774,6 +6774,35 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
         '</div>' +
       '</div>';
     }).join('');
+
+    // ═══════════════════════════════════════════════════════════════════
+    // BULLETPROOF HANDLER BINDING — call addEventListener directly on
+    // every Gross + Net input after innerHTML is set. This is layer #3
+    // of redundancy (inline oninput + inline onchange + addEventListener)
+    // and works even if the browser blocks inline event handlers (CSP)
+    // or some extension intercepts delegated document-level listeners.
+    // The DOM node itself owns this listener — nothing can prevent it
+    // from firing on user input.
+    // ═══════════════════════════════════════════════════════════════════
+    try {
+      const inputs = container.querySelectorAll('input.wht-gross-input, input.wht-net-input');
+      inputs.forEach(inp => {
+        const payeeIdx = +inp.dataset.wpl;
+        const lineIdx  = +inp.dataset.line;
+        const isGross  = inp.classList.contains('wht-gross-input');
+        const fn = isGross ? window._whtUpdateGross : window._whtUpdateNet;
+        if(typeof fn !== 'function') return;
+        // Bind multiple events for maximum coverage:
+        //   'input'    — fires on every keystroke (typing, paste, spinner arrows)
+        //   'change'   — fires on blur (Tab out, click elsewhere)
+        //   'keyup'    — extra safety in case 'input' is swallowed
+        ['input', 'change', 'keyup'].forEach(evtName => {
+          inp.addEventListener(evtName, function(){
+            fn(payeeIdx, lineIdx, this.value);
+          });
+        });
+      });
+    } catch(err){ console.error('[WHT bind-after-render]', err); }
   }
 
   // ---- Render master summary ----
