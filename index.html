@@ -92,6 +92,7 @@
 <script src="assets/js/pnl-converter.js?v=14"></script>
 <script src="assets/js/wht-calculator.js?v=17"></script>
 <script src="assets/js/po-estimator.js?v=13"></script>
+<script src="assets/js/excel-import.js?v=1"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -416,6 +417,86 @@
     transition:filter .15s;
   }
   #idleWarning .iw-cta:hover{filter:brightness(1.1);}
+
+  /* ===== Excel Import Modal ===== */
+  #importExcelModal{
+    position:fixed;inset:0;z-index:9000;display:none;
+    align-items:center;justify-content:center;padding:24px;
+  }
+  #importExcelModal.open{display:flex;}
+  #importExcelModal .imp-backdrop{
+    position:absolute;inset:0;background:rgba(2,6,15,.78);backdrop-filter:blur(8px);
+  }
+  #importExcelModal .imp-box{
+    position:relative;width:min(820px,100%);max-height:90vh;overflow:auto;
+    background:linear-gradient(180deg,rgba(20,30,46,.98),rgba(7,13,23,.98));
+    border:1px solid var(--border-strong);border-radius:14px;
+    box-shadow:0 24px 64px rgba(0,0,0,.55), 0 0 0 1px rgba(232,93,60,.12);
+    padding:24px 28px;
+  }
+  #importExcelModal h3{margin:0 0 4px;color:#fff;font-size:18px;}
+  #importExcelModal .imp-sub{color:var(--muted);font-size:12.5px;margin:0 0 14px;}
+  #importExcelModal .imp-sheet-spec{
+    background:rgba(7,13,23,.5);border:1px solid var(--border);border-radius:10px;
+    padding:10px 14px;margin:0 0 14px;font-size:12px;line-height:1.7;
+  }
+  #importExcelModal .imp-sheet-spec ul{margin:6px 0 0;padding-left:18px;}
+  #importExcelModal .imp-req{color:var(--coral);font-weight:700;}
+  #importExcelModal .imp-actions{
+    display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;align-items:center;
+  }
+  #importExcelModal .imp-mode-pick{
+    display:flex;gap:14px;font-size:12px;color:var(--text-soft);align-items:center;margin-left:auto;
+  }
+  #importExcelModal .imp-mode-pick label{display:flex;align-items:center;gap:6px;cursor:pointer;}
+  #importExcelModal input[type="file"]{
+    padding:8px 12px;border:1px dashed var(--border-strong);border-radius:8px;
+    background:rgba(7,13,23,.5);color:var(--text);font:inherit;flex:1;min-width:200px;
+  }
+  #importExcelModal #impPreview{
+    margin:14px 0;max-height:50vh;overflow:auto;
+  }
+  #importExcelModal .imp-sheet-block{
+    background:rgba(7,13,23,.4);border:1px solid var(--border);border-radius:10px;
+    padding:10px 14px;margin-bottom:10px;
+  }
+  #importExcelModal .imp-sheet-block h4{
+    margin:0 0 8px;font-size:13px;color:var(--coral-soft);font-weight:700;
+    display:flex;align-items:center;gap:10px;
+  }
+  #importExcelModal .imp-count{font-size:11.5px;color:var(--text-soft);font-weight:600;}
+  #importExcelModal .imp-err{color:#fca5a5;}
+  #importExcelModal .imp-err-list{
+    background:rgba(252,165,165,.08);border:1px solid rgba(252,165,165,.25);
+    border-radius:8px;padding:8px 12px;font-size:11.5px;color:#fca5a5;margin-bottom:8px;
+  }
+  #importExcelModal .imp-warn{
+    background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.30);
+    border-radius:8px;padding:8px 12px;font-size:12px;color:#fbbf24;margin-bottom:10px;
+  }
+  #importExcelModal .imp-preview-tbl{
+    width:100%;border-collapse:collapse;font-size:11.5px;
+  }
+  #importExcelModal .imp-preview-tbl th{
+    text-align:left;padding:6px 8px;background:rgba(7,13,23,.6);
+    color:var(--text-soft);font-weight:600;border-bottom:1px solid var(--border);
+  }
+  #importExcelModal .imp-preview-tbl td{
+    padding:5px 8px;border-bottom:1px solid rgba(168,181,204,.08);color:var(--text);
+  }
+  #importExcelModal .imp-more{
+    text-align:center;color:var(--muted);font-style:italic;padding:8px;
+  }
+  #importExcelModal #impError{
+    display:none;margin-top:10px;padding:10px 14px;
+    background:rgba(252,165,165,.10);border:1px solid rgba(252,165,165,.30);
+    border-radius:8px;color:#fca5a5;font-size:12.5px;
+  }
+  #importExcelModal .imp-footer{
+    display:flex;gap:10px;justify-content:flex-end;margin-top:14px;
+    padding-top:14px;border-top:1px solid var(--border);
+  }
+  #importExcelModal .imp-footer button{padding:9px 20px;}
   .sidebar-profile .ent{
     color:var(--text-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
     font-size:10px;
@@ -3616,6 +3697,7 @@
     <div class="toolbar">
       <button class="ghost" id="btnReset">↺ <span data-i18n="reset">Reset Sample</span></button>
       <button class="ghost" id="btnClear">✕ <span data-i18n="clear">Clear All</span></button>
+      <button class="ghost" id="btnBepImport"><span data-i18n="imp_btn">📥 Import Excel</span></button>
       <button class="success" id="btnSaveScenario">⭐ <span data-i18n="save_scn">Save as Scenario</span></button>
       <div style="flex:1"></div>
       <span class="note" id="storageNote" data-i18n="note_save_local">Auto-saved locally · Sign in to sync across devices</span>
@@ -3793,6 +3875,7 @@
     <div class="toolbar">
       <button class="ghost" id="btnPcReset">↺ <span data-i18n="reset">Reset Sample</span></button>
       <button class="ghost" id="btnPcClear">✕ <span data-i18n="clear">Clear All</span></button>
+      <button class="ghost" id="btnPcImport"><span data-i18n="imp_btn">📥 Import Excel</span></button>
       <button class="success" id="btnPcSave">⭐ <span data-i18n="pc_save_btn">Save as Scenario</span></button>
       <button class="accent" id="btnPcExport">⬇ <span data-i18n="export">Export CSV</span></button>
       <div style="flex:1"></div>
@@ -4071,6 +4154,7 @@
     <div class="toolbar">
       <button class="ghost" id="btnPoReset">↺ Reset Sample</button>
       <button class="ghost" id="btnPoAddLine">+ Add Line</button>
+      <button class="ghost" id="btnPoImport"><span data-i18n="imp_btn">📥 Import Excel</span></button>
       <button class="success" id="btnPoSave">⭐ Save Scenario</button>
       <button class="accent" id="btnPoExport">⬇ Export Excel</button>
       <div style="flex:1"></div>
@@ -4336,6 +4420,7 @@
     <div class="toolbar">
       <button class="ghost" id="btnWhtReset">↺ <span data-i18n="reset">Reset Sample</span></button>
       <button class="ghost" id="btnWhtAddPayee">+ <span data-i18n="wht_add_payee">Add Payee</span></button>
+      <button class="ghost" id="btnWhtImport"><span data-i18n="imp_btn">📥 Import Excel</span></button>
       <button class="success" id="btnWhtSave">⭐ <span data-i18n="wht_save_btn">Save Scenario</span></button>
       <button class="accent" id="btnWhtExport">⬇ <span data-i18n="wht_export_excel">Export Excel</span></button>
       <div style="flex:1"></div>
@@ -5111,6 +5196,40 @@
     </div>
   </div>
 
+  <!-- ───────── Excel Import Modal (shared by all calculators) ────────
+       Opened by CTGImport.open(target). Each calculator registers a
+       schema describing its sheets/columns/sample data + an apply()
+       function. See assets/js/excel-import.js for the engine. -->
+  <div id="importExcelModal" role="dialog" aria-modal="true" aria-labelledby="impTitle">
+    <div class="imp-backdrop" data-imp-close></div>
+    <div class="imp-box">
+      <h3 id="impTitle">Import — Excel</h3>
+      <p class="imp-sub" data-i18n="imp_sub">Drop your CTG-formatted .xlsx below. Download the template first if you don't have one yet.</p>
+
+      <div class="imp-sheet-spec">
+        <div data-i18n="imp_spec_intro" style="color:var(--text-soft);font-weight:600;margin-bottom:4px;">Expected sheets &amp; columns:</div>
+        <ul id="impSheetSpec"></ul>
+      </div>
+
+      <div class="imp-actions">
+        <button id="impDownloadBtn" class="ghost" type="button"><span data-i18n="imp_download">⬇ Download Template</span></button>
+        <input id="impFileInput" type="file" accept=".xlsx,.xls,.csv" />
+        <div class="imp-mode-pick">
+          <label><input type="radio" name="impMode" id="impModeReplace" checked> <span data-i18n="imp_mode_replace">Replace all</span></label>
+          <label><input type="radio" name="impMode" id="impModeAppend"> <span data-i18n="imp_mode_append">Append</span></label>
+        </div>
+      </div>
+
+      <div id="impPreview"></div>
+      <div id="impError"></div>
+
+      <div class="imp-footer">
+        <button id="impCancelBtn" class="ghost" type="button" data-imp-close><span data-i18n="imp_cancel">Cancel</span></button>
+        <button id="impConfirmBtn" type="button" disabled><span data-i18n="imp_confirm">✓ Confirm Import</span></button>
+      </div>
+    </div>
+  </div>
+
   <div class="footer-note">
     <div style="display:inline-flex;align-items:center;gap:12px;padding:10px 20px;background:rgba(19,28,45,.7);border-radius:30px;backdrop-filter:blur(12px);border:1px solid var(--border);">
       <img src="assets/img/ctg_logo.png" alt="CTG" style="width:30px;height:30px;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(232,93,60,.35));"/>
@@ -5427,6 +5546,14 @@ const I18N = {
     idle_warn_cta:"Stay signed in",
     idle_signed_out:"You were signed out after 30 minutes of inactivity. Please sign in again.",
     factory_reset_toast:"Your calculator workspace has been reset by an administrator. Saved scenarios are preserved on the server.",
+    imp_btn:"📥 Import Excel",
+    imp_sub:"Drop your CTG-formatted .xlsx below. Download the template first if you don't have one yet.",
+    imp_spec_intro:"Expected sheets & columns:",
+    imp_download:"⬇ Download Template",
+    imp_mode_replace:"Replace all",
+    imp_mode_append:"Append",
+    imp_cancel:"Cancel",
+    imp_confirm:"✓ Confirm Import",
     users_entity_label:"Assigned entity", users_entity_none:"— No entity —",
     users_entity_hint:"Normal users are locked to this entity when saving scenarios. Admins can pick any entity freely.",
     users_entities_label:"Assigned entities",
@@ -5659,6 +5786,14 @@ const I18N = {
     idle_warn_cta:"继续使用",
     idle_signed_out:"由于 30 分钟无操作, 您已被自动登出。请重新登录。",
     factory_reset_toast:"您的计算器工作区已被管理员重置。云端已保存的方案不受影响。",
+    imp_btn:"📥 导入 Excel",
+    imp_sub:"上传 CTG 格式的 .xlsx 文件。如果没有, 请先下载模板。",
+    imp_spec_intro:"需要的工作表与列:",
+    imp_download:"⬇ 下载模板",
+    imp_mode_replace:"覆盖全部",
+    imp_mode_append:"追加",
+    imp_cancel:"取消",
+    imp_confirm:"✓ 确认导入",
     users_entity_label:"所属公司", users_entity_none:"— 不选 —",
     users_entity_hint:"普通用户保存方案时会锁定为此公司。管理员可任意选择。",
     users_entities_label:"所属公司（可多选）",
@@ -6624,6 +6759,70 @@ document.getElementById('btnAddCost').onclick = ()=>{
   state.costs.push({item:'New Cost Item', category:'Other', type:'Fixed', qty:1, unit:0});
   render();
 };
+
+// ─── Excel Import — BEP Calculator schema
+if(window.CTGImport){
+  window.CTGImport.register('bep', {
+    target: 'bep',
+    label:  'BEP Calculator (Exhibition)',
+    sheets: [
+      {
+        name: 'Products',
+        columns: [
+          { key:'name',     label:'Product Name',         required:true,  type:'text' },
+          { key:'qty',      label:'Quantity',             required:true,  type:'number', min:0, help:'Forecast units sold during the event' },
+          { key:'purchase', label:'Purchase Cost (MYR)',  required:true,  type:'number', min:0, help:'Cost per unit' },
+          { key:'selling',  label:'Selling Price (MYR)',  required:true,  type:'number', min:0, help:'Retail price per unit' }
+        ],
+        sample: [
+          ['Travel Mug',  100,  15.00, 35.00],
+          ['T-Shirt',     200,  18.00, 45.00]
+        ]
+      },
+      {
+        name: 'Costs',
+        columns: [
+          { key:'item',     label:'Cost Item',     required:true,  type:'text',   help:'e.g. Booth Rental, Staff Salary, Printing' },
+          { key:'category', label:'Category',      required:false, type:'text',   help:'Optional grouping label (Rent / Staff / Marketing / Other)' },
+          { key:'type',     label:'Type',          required:true,  type:'enum', values:['Fixed','Variable','fixed','variable'], help:'Fixed = one-off / Variable = per-unit-of-sales' },
+          { key:'qty',      label:'Quantity',      required:false, type:'number', min:0, help:'For variable: how many units; for fixed: usually 1' },
+          { key:'unit',     label:'Unit Amount (MYR)', required:true, type:'number', min:0, help:'MYR per unit; total = qty × unit' }
+        ],
+        sample: [
+          ['Booth Rental',     'Rent',      'Fixed',    1,  8000],
+          ['Setup Crew',       'Staff',     'Fixed',    1,  1500],
+          ['Banner Printing',  'Marketing', 'Fixed',    1,  600],
+          ['Sample Giveaways', 'Marketing', 'Variable', 50, 5]
+        ]
+      }
+    ],
+    apply(parsed, mode){
+      const newProducts = (parsed.Products || []).map(r => ({
+        name:     r.name || 'Unnamed',
+        qty:      Number(r.qty) || 0,
+        purchase: Number(r.purchase) || 0,
+        selling:  Number(r.selling) || 0
+      }));
+      const newCosts = (parsed.Costs || []).map(r => ({
+        item:     r.item || 'Unnamed Cost',
+        category: r.category || 'Other',
+        type:     String(r.type || 'Fixed').toLowerCase().startsWith('v') ? 'Variable' : 'Fixed',
+        qty:      Number(r.qty) || 1,
+        unit:     Number(r.unit) || 0
+      }));
+      if(mode === 'replace'){
+        if(newProducts.length) state.products = newProducts;
+        if(newCosts.length)    state.costs    = newCosts;
+      } else {
+        state.products = state.products.concat(newProducts);
+        state.costs    = state.costs.concat(newCosts);
+      }
+      render();
+    }
+  });
+}
+const _btnBepImport = document.getElementById('btnBepImport');
+if(_btnBepImport){ _btnBepImport.onclick = () => window.CTGImport && window.CTGImport.open('bep'); }
 // btnAddInventoryRow removed — the Product type was retired (it duplicated
 // the Product Costing Control table).
 document.getElementById('btnReset').onclick = ()=>{
@@ -7634,6 +7833,56 @@ document.getElementById('btnPcAddProduct').onclick = () => {
   });
   pcRender();
 };
+
+// ─── Excel Import — Product Costing schema
+if(window.CTGImport){
+  window.CTGImport.register('pc', {
+    target: 'pc',
+    label:  'Product Costing Calculator',
+    sheets: [
+      {
+        name: 'Products',
+        columns: [
+          { key:'name',               label:'Product Name',          required:true,  type:'text' },
+          { key:'units',              label:'Units',                 required:true,  type:'number', min:0, help:'Forecast unit sales for this product' },
+          { key:'skuCost',            label:'SKU Cost (MYR)',        required:true,  type:'number', min:0, help:'Manufacturing or sourcing cost per unit' },
+          { key:'dutiesPct',          label:'Duties %',              required:false, type:'number', min:0, help:'Import duty as % of SKU cost' },
+          { key:'inboundFreight',     label:'Inbound Freight (MYR)', required:false, type:'number', min:0, help:'Per-unit inbound shipping cost' },
+          { key:'warehousing',        label:'Warehousing (MYR)',     required:false, type:'number', min:0, help:'Per-unit warehousing cost' },
+          { key:'packagingMaterials', label:'Packaging (MYR)',       required:false, type:'number', min:0, help:'Per-unit packaging materials cost' },
+          { key:'benchmarkPct',       label:'Benchmark Margin %',    required:false, type:'number', min:0, help:'Target gross margin %, e.g. 70' },
+          { key:'sellingPrice',       label:'Selling Price (MYR)',   required:false, type:'number', min:0, help:'Retail price per unit' }
+        ],
+        sample: [
+          ['Shampoo 300ml',     500, 8.20,  0, 1.50, 0.80, 1.20, 70, 25.00],
+          ['Hair Mask 200ml',  1200, 9.00,  0, 1.20, 0.60, 1.00, 70, 28.00]
+        ]
+      }
+    ],
+    apply(parsed, mode){
+      const incoming = (parsed.Products || []).map(r => ({
+        name:               r.name || 'Unnamed',
+        units:              Number(r.units) || 0,
+        skuCost:            Number(r.skuCost) || 0,
+        skuComponents:      null,
+        dutiesPct:          Number(r.dutiesPct) || 0,
+        inboundFreight:     Number(r.inboundFreight) || 0,
+        warehousing:        Number(r.warehousing) || 0,
+        packagingMaterials: Number(r.packagingMaterials) || 0,
+        benchmarkPct:       Number(r.benchmarkPct) || 70,
+        sellingPrice:       Number(r.sellingPrice) || 0
+      }));
+      if(mode === 'replace'){
+        pcState.products = incoming;
+      } else {
+        pcState.products = pcState.products.concat(incoming);
+      }
+      pcRender();
+    }
+  });
+}
+const _btnPcImport = document.getElementById('btnPcImport');
+if(_btnPcImport){ _btnPcImport.onclick = () => window.CTGImport && window.CTGImport.open('pc'); }
 document.getElementById('btnPcReset').onclick = () => {
   if(confirm(t('confirm_reset'))){
     pcState = { feeConfig: pcDefaultFeeConfig(), products: deepCopy(PC_DEFAULT_PRODUCTS) };
@@ -9370,6 +9619,65 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     });
     renderAll();
   }
+
+  // ─── Excel Import — WHT schema + button wire-up
+  if(window.CTGImport){
+    window.CTGImport.register('wht', {
+      target: 'wht',
+      label:  'WHT Calculator',
+      sheets: [
+        {
+          name: 'Payees',
+          columns: [
+            { key:'name',        label:'Payee Name',     required:true,  type:'text',   help:'Non-resident vendor / service provider' },
+            { key:'country',     label:'Country',        required:false, type:'text',   help:'Country of residence; pick the exact LHDN DTA list label or "No DTA / Other"' },
+            { key:'foreignTin',  label:'Foreign TIN',    required:false, type:'text',   help:'Vendor\'s tax ID in their home country' },
+            { key:'section',     label:'Section',        required:false, type:'enum', values:['royalty','interest','technical','rental','contract','other'], help:'LHDN payment-type category (royalty/interest/technical/rental/contract/other)' },
+            { key:'whtRate',     label:'WHT Rate %',     required:false, type:'number', min:0, help:'Withholding rate from LHDN section / DTA, e.g. 10 for royalty' },
+            { key:'sstRate',     label:'SST Rate %',     required:false, type:'number', min:0, help:'Usually 8 for digital services, 0 if not applicable' },
+            { key:'sstInclusive',label:'SST Inclusive?', required:false, type:'enum', values:['yes','no','true','false','y','n'], help:'Is the invoice amount already SST-inclusive? yes / no' },
+            { key:'dateRange',   label:'Date Range',     required:false, type:'text',   help:'Free-text label like "2026-01 → 2026-03"' },
+            { key:'invoiceNo',   label:'Invoice No',     required:false, type:'text',   help:'Reference invoice / receipt number' },
+            { key:'invoiceDate', label:'Invoice Date',   required:false, type:'text',   help:'YYYY-MM-DD' },
+            { key:'gross',       label:'Gross Amount (MYR)', required:true, type:'number', min:0, help:'Invoice amount in MYR' }
+          ],
+          sample: [
+            ['Adobe Inc',           'United States',    'US12-3456789', 'royalty',   10, 8, 'yes', '2026-Q1', 'INV-2026-001', '2026-01-15', 12000],
+            ['Google Cloud (S\'pore)','Singapore',      'SG-201234567', 'technical', 8,  8, 'yes', '2026-Q1', 'GC-X9923',     '2026-01-31', 8500]
+          ]
+        }
+      ],
+      apply(parsed, mode){
+        const incoming = (parsed.Payees || []).map(r => {
+          const sstInc = String(r.sstInclusive || 'yes').toLowerCase();
+          return {
+            name: r.name || 'Unnamed Payee',
+            country: r.country || 'No DTA / Other',
+            foreignTin: r.foreignTin || '',
+            section: r.section || 'royalty',
+            whtRate: Number(r.whtRate) || 10,
+            sstInclusive: (sstInc === 'yes' || sstInc === 'true' || sstInc === 'y'),
+            sstRate: Number(r.sstRate) || 0,
+            latePenalty: false,
+            dateRange: r.dateRange || '',
+            lines: [{
+              date: r.invoiceDate || '',
+              receiptNo: r.invoiceNo || '',
+              gross: Number(r.gross) || 0
+            }]
+          };
+        });
+        if(mode === 'replace'){
+          whtState.payees = incoming;
+        } else {
+          whtState.payees = whtState.payees.concat(incoming);
+        }
+        renderAll();
+      }
+    });
+  }
+  const _btnWhtImport = document.getElementById('btnWhtImport');
+  if(_btnWhtImport){ _btnWhtImport.onclick = () => window.CTGImport && window.CTGImport.open('wht'); }
   function delPayee(i){
     if(!confirm(t('wht_confirm_del_payee'))) return;
     whtState.payees.splice(i,1);
@@ -10593,6 +10901,79 @@ async function refreshSavedList(){
 
 // Re-load saved list when the user switches Working Entity
 document.addEventListener('ctg-working-entity-changed', () => { refreshSavedList(); });
+
+// ─── Excel Import — schema + button wire-up
+if(window.CTGImport){
+  window.CTGImport.register('po', {
+    target: 'po',
+    label:  'PO Cash Flow Estimator',
+    sheets: [
+      {
+        name: 'Lines',
+        columns: [
+          { key:'sku',       label:'SKU',                 required:true,  type:'text',   help:'Stock keeping unit code, e.g. ILESE30' },
+          { key:'name',      label:'Product Name',        required:true,  type:'text',   help:'Full product description' },
+          { key:'moq',       label:'MOQ',                 required:false, type:'number', min:0, help:'Minimum order quantity from supplier' },
+          { key:'qty',       label:'Quantity',            required:true,  type:'number', min:0, help:'Quantity being ordered in this PO' },
+          { key:'unitPrice', label:'Unit Price (MYR)',    required:true,  type:'number', min:0, help:'Purchase cost per unit' },
+          { key:'sellPrice', label:'Selling Price (MYR)', required:false, type:'number', min:0, help:'Retail / wholesale price (used for revenue forecast)' }
+        ],
+        sample: [
+          ['SKU-001', 'Sample Product 30ml',  1660, 5000,  5.00, 15.00],
+          ['SKU-002', 'Sample Product 120ml', 410,  20000, 13.00, 38.00]
+        ]
+      },
+      {
+        name: 'Forecast',
+        columns: [
+          { key:'sku',  label:'SKU',     required:true, type:'text',   help:'Must match an SKU in the Lines sheet' },
+          { key:'m1',   label:'Month 1', required:false, type:'number', min:0 },
+          { key:'m2',   label:'Month 2', required:false, type:'number', min:0 },
+          { key:'m3',   label:'Month 3', required:false, type:'number', min:0 },
+          { key:'m4',   label:'Month 4', required:false, type:'number', min:0 },
+          { key:'m5',   label:'Month 5', required:false, type:'number', min:0 },
+          { key:'m6',   label:'Month 6', required:false, type:'number', min:0 },
+          { key:'m7',   label:'Month 7', required:false, type:'number', min:0 },
+          { key:'m8',   label:'Month 8', required:false, type:'number', min:0 },
+          { key:'m9',   label:'Month 9', required:false, type:'number', min:0 },
+          { key:'m10',  label:'Month 10',required:false, type:'number', min:0 },
+          { key:'m11',  label:'Month 11',required:false, type:'number', min:0 },
+          { key:'m12',  label:'Month 12',required:false, type:'number', min:0 }
+        ],
+        sample: [
+          ['SKU-001', 0, 0, 200, 500,  800, 800, 700, 600, 500, 400, 300, 200],
+          ['SKU-002', 0, 0, 500, 1500, 2500, 3000, 3000, 2500, 2000, 1500, 1000, 500]
+        ]
+      }
+    ],
+    apply(parsed, mode){
+      // mode: 'replace' wipes existing lines+forecast; 'append' adds to them
+      const newLines    = (parsed.Lines    || []).map(r => ({
+        sku: r.sku, name: r.name, moq: r.moq || 0,
+        qty: r.qty || 0, unitPrice: r.unitPrice || 0,
+        sellPrice: r.sellPrice || 0, remark: ''
+      }));
+      const newForecast = {};
+      (parsed.Forecast || []).forEach(r => {
+        const months = [r.m1, r.m2, r.m3, r.m4, r.m5, r.m6, r.m7, r.m8, r.m9, r.m10, r.m11, r.m12].map(v => Number(v) || 0);
+        if(r.sku) newForecast[r.sku] = months;
+      });
+      if(mode === 'replace'){
+        poState.lines    = newLines.length ? newLines : poState.lines;
+        poState.forecast = newForecast;
+      } else {
+        // Append — extend lines, merge forecast keys (new SKUs win on conflict)
+        poState.lines    = poState.lines.concat(newLines);
+        poState.forecast = Object.assign({}, poState.forecast, newForecast);
+      }
+      persist();
+      renderAll();
+      setTimeout(() => { try { renderCharts(); } catch(_e){} }, 50);
+    }
+  });
+}
+const btnPoImport = document.getElementById('btnPoImport');
+if(btnPoImport){ btnPoImport.onclick = () => window.CTGImport && window.CTGImport.open('po'); }
 
 // ─── Excel export
 const btnExport = document.getElementById('btnPoExport');
