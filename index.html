@@ -23,6 +23,11 @@
 <meta name="twitter:image" content="assets/img/ctg_logo.png" />
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- intl-tel-input — standardised international phone format with flag
+     dropdown + auto-prefix (e.g. 🇲🇾 +60 12-345 6789). Applied to every
+     phone input across the site via window.attachPhone(). -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@23.0.10/build/css/intlTelInput.css">
+<script src="https://cdn.jsdelivr.net/npm/intl-tel-input@23.0.10/build/js/intlTelInput.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <!-- P&L Converter dependencies. xlsx-js-style is a drop-in fork of SheetJS
@@ -421,6 +426,86 @@
     margin:0;font-size:12.5px;color:var(--text-soft);font-weight:500;
   }
   .page-header-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+
+  /* ============================================================
+     intl-tel-input — dark-theme styling overrides
+     Default styles are light/white. Override to match the CTG dark
+     theme so the phone field blends with surrounding form inputs.
+     ============================================================ */
+  .iti{ width:100%; display:block !important; }
+  .iti__tel-input{
+    width:100% !important;
+    padding-left:58px !important;   /* room for flag + dial code */
+    background:rgba(7,13,23,.65) !important;
+    border:1px solid var(--border-strong) !important;
+    border-radius:8px !important;
+    color:var(--text) !important;
+    font:inherit !important;
+    font-size:13px !important;
+  }
+  .iti__tel-input:focus{
+    outline:none;
+    border-color:var(--sky) !important;
+    box-shadow:0 0 0 3px rgba(91,155,213,.20) !important;
+  }
+  /* Flag-button + dial code chip on the left side */
+  .iti__country-container,
+  .iti__selected-country{
+    background:rgba(91,155,213,.10) !important;
+    border-right:1px solid var(--border) !important;
+    border-radius:8px 0 0 8px !important;
+  }
+  .iti__selected-dial-code{
+    color:var(--text) !important;
+    font-weight:600;
+    margin-left:4px;
+  }
+  .iti__arrow{ border-top-color:var(--sky-soft) !important; }
+  /* The dropdown panel listing all countries */
+  .iti__dropdown-content,
+  .iti__country-list{
+    background:#0C1421 !important;
+    border:1px solid var(--border-strong) !important;
+    border-radius:8px !important;
+    box-shadow:0 16px 48px rgba(0,0,0,.5) !important;
+    color:var(--text) !important;
+    max-height:280px !important;
+  }
+  .iti__country{
+    color:var(--text) !important;
+    padding:8px 12px !important;
+    transition:background .12s;
+  }
+  .iti__country:hover,
+  .iti__country.iti__highlight{
+    background:rgba(91,155,213,.16) !important;
+  }
+  .iti__country .iti__country-name{ color:var(--text); }
+  .iti__country .iti__dial-code{ color:var(--muted); }
+  .iti__divider{
+    border-bottom:1px solid var(--border) !important;
+    margin:4px 0 !important;
+  }
+  .iti__search-input{
+    background:rgba(7,13,23,.85) !important;
+    border:none !important;
+    border-bottom:1px solid var(--border) !important;
+    color:var(--text) !important;
+    padding:10px 12px !important;
+    font:inherit !important;
+  }
+  /* Print: render as plain text */
+  @media print{
+    .iti__country-container,
+    .iti__selected-country,
+    .iti__arrow{ display:none !important; }
+    .iti__tel-input{
+      padding-left:0 !important;
+      background:transparent !important;
+      border:none !important;
+      color:#000 !important;
+    }
+  }
 
   /* Working Entity selector — sits between title and toolbar actions.
      The active entity scopes all per-entity data (Suppliers, saved
@@ -5434,6 +5519,67 @@ const fmtPct = n => (n===null||n===undefined||isNaN(n)) ? '—' : (n*100).toFixe
 const sign = n => `<span class="${n<0?'neg':(n>0?'pos':'')}">${fmt(n)}</span>`;
 function escapeHtml(s){return String(s??'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));}
 
+/* ============================================================
+   PHONE INPUT — intl-tel-input wrapper
+   ────────────────────────────────────────────────────────────
+   Standardises every phone input across the site to use a
+   country flag dropdown + auto dial-code prefix (e.g. 🇲🇾 +60).
+   Default country: Malaysia. Most-likely partners in the quick
+   preferred list (Singapore, Indonesia, Thailand, China, US, UK).
+
+   Usage:
+     getPhoneIti(inputEl)              → returns the iti instance (or null)
+     attachPhone(inputEl)              → idempotent: init if not yet bound
+     setPhoneValue(inputEl, value)     → safely sets the stored E.164 / national value
+     readPhoneValue(inputEl)           → reads the full E.164 string for save
+
+   All four functions are no-ops if the iti library failed to load
+   (offline / blocked CDN) — they fall through to plain <input>
+   behavior so the form still works.
+   ============================================================ */
+const _phoneItiMap = new WeakMap();
+function attachPhone(inp){
+  if(!inp || _phoneItiMap.has(inp)) return _phoneItiMap.get(inp) || null;
+  if(typeof window.intlTelInput !== 'function') return null;
+  try {
+    const iti = window.intlTelInput(inp, {
+      initialCountry: 'my',
+      preferredCountries: ['my','sg','id','th','cn','hk','tw','us','gb','au'],
+      separateDialCode: true,
+      formatOnDisplay: true,
+      autoPlaceholder: 'aggressive',
+      utilsScript: 'https://cdn.jsdelivr.net/npm/intl-tel-input@23.0.10/build/js/utils.js'
+    });
+    _phoneItiMap.set(inp, iti);
+    return iti;
+  } catch(err){ console.warn('[attachPhone] init failed', err); return null; }
+}
+function getPhoneIti(inp){ return inp ? (_phoneItiMap.get(inp) || null) : null; }
+function setPhoneValue(inp, value){
+  if(!inp) return;
+  const iti = attachPhone(inp);
+  if(iti && typeof iti.setNumber === 'function'){
+    iti.setNumber(value || '');
+  } else {
+    inp.value = value || '';
+  }
+}
+function readPhoneValue(inp){
+  if(!inp) return '';
+  const iti = getPhoneIti(inp);
+  if(iti && typeof iti.getNumber === 'function'){
+    // E.164 format — e.g. "+60123456789". Empty string if blank.
+    const num = (iti.getNumber() || '').trim();
+    return num || '';
+  }
+  return (inp.value || '').trim();
+}
+// Auto-attach on DOM ready — covers any phone inputs in the static
+// markup. Dynamically inserted inputs need a manual attachPhone() call.
+window.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('input[type="tel"]').forEach(attachPhone);
+});
+
 function showToast(msg, kind){
   const stack = document.getElementById('toastStack');
   const div = document.createElement('div');
@@ -9926,8 +10072,8 @@ async function renderSettingsTab(){
   document.getElementById('profDisplayName').value = profile.display_name || '';
   document.getElementById('profJobTitle').value    = profile.job_title    || '';
   document.getElementById('profDepartment').value  = profile.department   || '';
-  document.getElementById('profPhone').value       = profile.phone        || '';
-  document.getElementById('profMobile').value      = profile.mobile       || '';
+  setPhoneValue(document.getElementById('profPhone'),  profile.phone  || '');
+  setPhoneValue(document.getElementById('profMobile'), profile.mobile || '');
   document.getElementById('profBio').value         = profile.bio          || '';
 }
 
@@ -9937,8 +10083,8 @@ document.getElementById('formProfile').addEventListener('submit', async e=>{
   const display_name = document.getElementById('profDisplayName').value.trim();
   const job_title    = document.getElementById('profJobTitle').value.trim();
   const department   = document.getElementById('profDepartment').value.trim();
-  const phone        = document.getElementById('profPhone').value.trim();
-  const mobile       = document.getElementById('profMobile').value.trim();
+  const phone        = readPhoneValue(document.getElementById('profPhone'));
+  const mobile       = readPhoneValue(document.getElementById('profMobile'));
   const bio          = document.getElementById('profBio').value.trim();
   const errEl = document.querySelector('[data-profile-error]');
   errEl.classList.remove('show');
@@ -10246,7 +10392,7 @@ function openEntityForm(entity){
     document.getElementById('entCountry').value        = entity.country || 'Malaysia';
     document.getElementById('entContactPerson').value  = entity.contact_person || '';
     document.getElementById('entContactEmail').value   = entity.contact_email || '';
-    document.getElementById('entContactPhone').value   = entity.contact_phone || '';
+    setPhoneValue(document.getElementById('entContactPhone'), entity.contact_phone || '');
     document.getElementById('entNotes').value          = entity.notes || '';
     document.getElementById('entIsActive').checked     = entity.is_active !== false;
   } else {
@@ -10254,6 +10400,7 @@ function openEntityForm(entity){
     document.getElementById('entityId').value = '';
     document.getElementById('entCountry').value = 'Malaysia';
     document.getElementById('entIsActive').checked = true;
+    setPhoneValue(document.getElementById('entContactPhone'), '');
   }
   document.getElementById('entityFormCard').style.display = 'block';
   document.getElementById('entityFormCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -10304,7 +10451,7 @@ document.getElementById('formEntity').addEventListener('submit', async e=>{
     country:             document.getElementById('entCountry').value.trim() || null,
     contact_person:      document.getElementById('entContactPerson').value.trim() || null,
     contact_email:       document.getElementById('entContactEmail').value.trim() || null,
-    contact_phone:       document.getElementById('entContactPhone').value.trim() || null,
+    contact_phone:       readPhoneValue(document.getElementById('entContactPhone')) || null,
     notes:               document.getElementById('entNotes').value.trim() || null,
     is_active:           document.getElementById('entIsActive').checked
   };
@@ -10450,7 +10597,7 @@ function openSupplierForm(supplier){
     document.getElementById('supCountry').value         = supplier.country || 'Malaysia';
     document.getElementById('supContactPerson').value   = supplier.contact_person || '';
     document.getElementById('supContactEmail').value    = supplier.contact_email || '';
-    document.getElementById('supContactPhone').value    = supplier.contact_phone || '';
+    setPhoneValue(document.getElementById('supContactPhone'), supplier.contact_phone || '');
     document.getElementById('supNotes').value           = supplier.notes || '';
     document.getElementById('supIsActive').checked      = supplier.is_active !== false;
   } else {
@@ -10471,6 +10618,7 @@ function openSupplierForm(supplier){
     document.getElementById('supForwardingFee').value = 0;
     document.getElementById('supCountry').value = 'Malaysia';
     document.getElementById('supIsActive').checked = true;
+    setPhoneValue(document.getElementById('supContactPhone'), '');
   }
   document.getElementById('supplierFormCard').style.display = 'block';
   document.getElementById('supplierFormCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -10536,7 +10684,7 @@ document.getElementById('formSupplier').addEventListener('submit', async e => {
     country:                 document.getElementById('supCountry').value.trim() || null,
     contact_person:          document.getElementById('supContactPerson').value.trim() || null,
     contact_email:           document.getElementById('supContactEmail').value.trim() || null,
-    contact_phone:           document.getElementById('supContactPhone').value.trim() || null,
+    contact_phone:           readPhoneValue(document.getElementById('supContactPhone')) || null,
     notes:                   document.getElementById('supNotes').value.trim() || null,
     is_active:               document.getElementById('supIsActive').checked
   };
