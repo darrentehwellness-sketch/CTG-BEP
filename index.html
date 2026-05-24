@@ -34,7 +34,7 @@
 <script src="config.js?v=22"></script>
 <script src="assets/js/supabase-client.js?v=26"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
-<script src="assets/js/wht-calculator.js?v=16"></script>
+<script src="assets/js/wht-calculator.js?v=17"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -666,6 +666,7 @@
   .toast.success{border-left:4px solid var(--success);}
   .toast.error{border-left:4px solid var(--danger);}
   .toast.info{border-left:4px solid var(--sky);}
+  .toast.warn{border-left:4px solid #d97706;}
   @keyframes slideIn{from{opacity:0;transform:translateX(20px);}to{opacity:1;transform:none;}}
 
   /* ============ FULL-PAGE LOGIN GATE (Xero-style) ============ */
@@ -7624,27 +7625,38 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
       if(customInput) customInput.style.display = 'none';
       persist(); renderMaster();
     } else {
-      // Picked an entity by id — copy name (+ TIN from tin_number, fall back to tax_number for legacy data)
+      // Picked an entity by id — copy name AND TIN from the entity record.
+      // Explicit selection from the dropdown is an unambiguous "use this
+      // entity's details" intent, so we ALWAYS sync the TIN (overwriting
+      // any previous value) — switching from DRSMILE to ILADY should
+      // produce ILADY's TIN, not leave DRSMILE's TIN stuck behind.
       const entity = (_entitiesCache || []).find(en => String(en.id) === String(v));
       if(entity){
         whtState.payerName = entity.name || '';
-        // Auto-fill TIN: prefer dedicated tin_number column, fall back to tax_number
-        // for legacy entities. Only overwrite if the user hasn't already typed one.
-        // Check BOTH the in-memory state AND the live DOM input value, because a
-        // pasted/typed TIN may not have fired its 'input' event yet (e.g. user
-        // pasted then immediately changed the entity dropdown).
+        // Prefer dedicated tin_number column, fall back to legacy tax_number
         const entityTin = entity.tin_number || entity.tax_number || '';
+        whtState.payerTin = entityTin;
         const tinInp = document.getElementById('whtPayerTin');
-        const liveTin = (tinInp && tinInp.value || '').trim();
-        const existingTin = (whtState.payerTin || '').trim() || liveTin;
-        if(entityTin && !existingTin){
-          whtState.payerTin = entityTin;
-        } else if(liveTin && !whtState.payerTin){
-          // User typed but state out-of-sync — adopt the typed value
-          whtState.payerTin = liveTin;
+        if(tinInp && document.activeElement !== tinInp){
+          tinInp.value = entityTin;
+          // Tiny visual ping so the user notices the auto-fill
+          try {
+            tinInp.style.transition = 'background .25s';
+            tinInp.style.background = 'rgba(91,155,213,.20)';
+            setTimeout(() => { tinInp.style.background = ''; }, 600);
+          } catch(_e){}
         }
-        if(tinInp && document.activeElement !== tinInp) tinInp.value = whtState.payerTin || '';
         if(customInput) customInput.style.display = 'none';
+        // If the entity has NO TIN in Entities Management, tell the user
+        // so they can fix it there (otherwise the WHT report won't pass
+        // LHDN audit). Light toast — they can dismiss and proceed.
+        if(!entityTin){
+          try {
+            showToast('⚠ ' + (entity.name || 'This entity') + ' has no TIN in Entities Management — add it under Admin → Entities.', 'warn');
+          } catch(_e){
+            console.warn('[WHT] Entity has no TIN:', entity.name);
+          }
+        }
         persist(); renderMaster();
       }
     }
