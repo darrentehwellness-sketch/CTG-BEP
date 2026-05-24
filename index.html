@@ -35,7 +35,7 @@
 <script src="assets/js/supabase-client.js?v=26"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
 <script src="assets/js/wht-calculator.js?v=17"></script>
-<script src="assets/js/po-estimator.js?v=10"></script>
+<script src="assets/js/po-estimator.js?v=11"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -3724,6 +3724,17 @@
           <input type="text" id="poNotes" placeholder="Internal notes for this PO scenario"/>
         </div>
       </div>
+      <div class="grid-2">
+        <div class="input-group">
+          <label>💰 Starting Bank Balance (MYR)</label>
+          <input type="number" id="poStartingBank" min="0" step="100" value="0" placeholder="e.g. 500000"/>
+          <div class="note" style="margin-top:6px;font-size:11px;">Your current cash position BEFORE placing this PO. Drives the before/after bank balance projection below.</div>
+        </div>
+        <div class="input-group" style="display:flex;flex-direction:column;justify-content:center;background:rgba(91,155,213,.06);border:1px dashed rgba(91,155,213,.30);border-radius:8px;padding:10px 14px;">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;font-weight:700;">After this PO →</div>
+          <div style="font-size:14px;color:var(--text);margin-top:3px;line-height:1.4;" id="poBankPreview">Enter Starting Bank Balance to see projected position.</div>
+        </div>
+      </div>
       <div class="kpi" style="margin-top:14px;">
         <div class="label"><span class="dot"></span>Master PO Total</div>
         <div class="value" id="poHeaderTotal">RM —</div>
@@ -3840,6 +3851,31 @@
       <div class="grid-2" style="margin-bottom:14px;">
         <div class="kpi"  ><div class="label"><span class="dot"></span>Break-Even Month</div><div class="value" id="poKpiBreakEven">—</div><div class="sub">First month cumulative goes positive</div></div>
         <div class="kpi"  ><div class="label"><span class="dot"></span>Final Cash Position</div><div class="value" id="poKpiFinal">—</div><div class="sub">Cumulative at end of horizon</div></div>
+      </div>
+
+      <!-- Bank balance KPIs (the new "before/after" feature) -->
+      <h3 style="font-size:13px;color:var(--sky-soft);margin:18px 0 10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;">💰 Bank Position</h3>
+      <div class="grid-4" style="margin-bottom:14px;">
+        <div class="kpi">
+          <div class="label"><span class="dot"></span>Starting Bank</div>
+          <div class="value" id="poKpiBankStart">—</div>
+          <div class="sub">Before this PO</div>
+        </div>
+        <div class="kpi warn">
+          <div class="label"><span class="dot"></span>Minimum Bank</div>
+          <div class="value" id="poKpiBankMin">—</div>
+          <div class="sub" id="poKpiBankMinSub">Lowest cash position during horizon</div>
+        </div>
+        <div class="kpi success">
+          <div class="label"><span class="dot"></span>Ending Bank</div>
+          <div class="value" id="poKpiBankEnd">—</div>
+          <div class="sub" id="poKpiBankEndSub">After this PO completes</div>
+        </div>
+        <div class="kpi danger" id="poKpiOverdraftCard">
+          <div class="label"><span class="dot"></span>Overdraft Risk</div>
+          <div class="value" id="poKpiOverdraft">—</div>
+          <div class="sub" id="poKpiOverdraftSub">Months bank goes negative</div>
+        </div>
       </div>
 
       <div class="table-wrap">
@@ -9097,6 +9133,43 @@ function renderCashFlow(){
   document.getElementById('poKpiBreakEven').textContent = k.breakEvenMonth ? ('Month ' + k.breakEvenMonth) : 'Not within horizon';
   document.getElementById('poKpiFinal').textContent     = 'RM ' + P.fmt(k.finalPosition);
 
+  // ── Bank Position KPIs ─────────────────────────────────────────
+  const setT = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
+  setT('poKpiBankStart', 'RM ' + P.fmt(k.startingBank));
+  setT('poKpiBankMin',   'RM ' + P.fmt(k.minBank));
+  setT('poKpiBankMinSub', k.minBankMonth ? ('Hits low at Month ' + k.minBankMonth) : 'Lowest cash position');
+  setT('poKpiBankEnd',   'RM ' + P.fmt(k.endingBank));
+  const impactSign = k.bankImpact >= 0 ? '+' : '';
+  setT('poKpiBankEndSub', 'Δ ' + impactSign + 'RM ' + P.fmt(Math.abs(k.bankImpact)) + ' net change');
+  setT('poKpiOverdraft', k.overdraftMonths > 0 ? (k.overdraftMonths + ' month' + (k.overdraftMonths>1?'s':'')) : '✓ None');
+  setT('poKpiOverdraftSub', k.overdraftMonths > 0
+    ? '⚠ Bank goes below RM 0 — finance shortfall'
+    : 'Bank stays positive throughout');
+  // Color the overdraft card based on risk
+  const odCard = document.getElementById('poKpiOverdraftCard');
+  if(odCard){
+    odCard.classList.toggle('danger', k.overdraftMonths > 0);
+    odCard.classList.toggle('success', k.overdraftMonths === 0 && k.startingBank > 0);
+  }
+
+  // Live preview block in PO Header
+  const preview = document.getElementById('poBankPreview');
+  if(preview){
+    if(k.startingBank <= 0){
+      preview.innerHTML = '<span style="color:var(--muted);">Enter Starting Bank Balance to see projected position.</span>';
+    } else {
+      const safe = k.minBank >= 0;
+      const minColor = safe ? 'var(--success)' : 'var(--coral)';
+      const endColor = k.endingBank >= k.startingBank ? 'var(--success)' : 'var(--coral-soft)';
+      preview.innerHTML =
+        '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;">' +
+          '<div><span style="color:var(--muted);">Lowest:</span> <b style="color:'+minColor+';">RM ' + P.fmt(k.minBank) + '</b></div>' +
+          '<div><span style="color:var(--muted);">Ending:</span> <b style="color:'+endColor+';">RM ' + P.fmt(k.endingBank) + '</b></div>' +
+          (k.overdraftMonths > 0 ? '<div style="color:var(--coral);font-weight:700;">⚠ ' + k.overdraftMonths + ' month(s) in overdraft</div>' : '') +
+        '</div>';
+    }
+  }
+
   // Cash flow table
   const head = document.getElementById('poCashFlowHead');
   const body = document.getElementById('poCashFlowBody');
@@ -9106,17 +9179,30 @@ function renderCashFlow(){
   // editor was removed) the per-channel breakdown column would
   // duplicate the Revenue total — skip it.
   const showChannels = channels.length > 1;
-  let h = '<tr><th>Month</th><th>Deposit</th><th>Balance</th><th>Total Out</th>';
+  // Show the "Start Bank" / "End Bank" columns only when the user has
+  // actually set a starting bank balance > 0. Avoids clutter when the
+  // feature isn't being used.
+  const showBank = (Number(poState.startingBankBalance) || 0) > 0;
+  let h = '<tr><th>Month</th>';
+  if(showBank) h += '<th>Start Bank</th>';
+  h += '<th>Deposit</th><th>Balance</th><th>Total Out</th>';
   if(showChannels) channels.forEach(ch => h += '<th>Rev: '+escapeHtml(ch.name)+'</th>');
-  h += '<th>Revenue</th><th>Net</th><th>Cumulative</th></tr>';
+  h += '<th>Revenue</th><th>Net</th><th>Cumulative</th>';
+  if(showBank) h += '<th>End Bank</th>';
+  h += '</tr>';
   head.innerHTML = h;
 
   body.innerHTML = cf.cashFlow.map(m => {
     const cumColor = m.cumulative < 0 ? 'var(--coral)' : 'var(--success)';
     const netColor = m.net < 0 ? 'var(--coral-soft)' : 'var(--success)';
+    const bankColor = m.bankBalance < 0 ? 'var(--coral)' : 'var(--success)';
     let row = '<tr>'+
-      '<td><b>'+m.month+'</b> <span style="color:var(--muted);font-size:10.5px;">'+m.label+'</span></td>'+
-      '<td class="num">'+(m.deposit > 0 ? '<span style="color:var(--coral-soft);">-'+P.fmt(m.deposit)+'</span>' : '—')+'</td>'+
+      '<td><b>'+m.month+'</b> <span style="color:var(--muted);font-size:10.5px;">'+m.label+'</span></td>';
+    if(showBank){
+      const sbColor = m.startBank < 0 ? 'var(--coral-soft)' : 'var(--text-soft)';
+      row += '<td class="num" style="color:'+sbColor+';">'+P.fmt(m.startBank)+'</td>';
+    }
+    row += '<td class="num">'+(m.deposit > 0 ? '<span style="color:var(--coral-soft);">-'+P.fmt(m.deposit)+'</span>' : '—')+'</td>'+
       '<td class="num">'+(m.balance > 0 ? '<span style="color:var(--coral-soft);">-'+P.fmt(m.balance)+'</span>' : '—')+'</td>'+
       '<td class="num" style="color:var(--coral-soft);font-weight:700;">'+(m.totalOut > 0 ? P.fmt(m.totalOut) : '—')+'</td>';
     if(showChannels){
@@ -9128,6 +9214,11 @@ function renderCashFlow(){
     row += '<td class="num" style="color:var(--success);font-weight:700;">'+(m.revenue > 0 ? P.fmt(m.revenue) : '—')+'</td>';
     row += '<td class="num" style="color:'+netColor+';font-weight:700;">'+(m.net !== 0 ? (m.net > 0 ? '+' : '') + P.fmt(m.net) : '—')+'</td>';
     row += '<td class="num" style="color:'+cumColor+';font-weight:800;">'+(m.cumulative >= 0 ? '+' : '')+P.fmt(m.cumulative)+'</td>';
+    if(showBank){
+      // End-of-month bank balance — red if overdraft, green if positive
+      const bankBg = m.bankBalance < 0 ? 'background:rgba(232,93,60,.10);' : '';
+      row += '<td class="num" style="color:'+bankColor+';font-weight:800;'+bankBg+'">'+P.fmt(m.bankBalance)+'</td>';
+    }
     row += '</tr>';
     return row;
   }).join('');
@@ -9161,29 +9252,38 @@ function renderCharts(){
     });
   }
 
-  // Chart 2: Cumulative Position (line)
+  // Chart 2: Cumulative Position + Bank Balance (dual line)
   const canvas2 = document.getElementById('poChartCum');
   if(canvas2){
     if(_poCharts.cum) _poCharts.cum.destroy();
+    const showBank = (Number(poState.startingBankBalance) || 0) > 0;
+    const datasets = [{
+      label: 'Cumulative Cash Δ (RM)',
+      data: cf.cashFlow.map(m => m.cumulative),
+      borderColor: 'rgba(91,155,213,1)',
+      backgroundColor: 'rgba(91,155,213,.18)',
+      fill: !showBank, tension: 0.25, pointRadius: 3
+    }];
+    // Layer the actual bank balance line on top when the user has set
+    // a starting balance — this is the absolute cash position that
+    // matters for financing decisions.
+    if(showBank){
+      datasets.unshift({
+        label: 'Bank Balance (RM)',
+        data: cf.cashFlow.map(m => m.bankBalance),
+        borderColor: 'rgba(16,185,129,1)',
+        backgroundColor: 'rgba(16,185,129,.18)',
+        fill: true, tension: 0.25, pointRadius: 3,
+        borderWidth: 2.5
+      });
+    }
     _poCharts.cum = new Chart(canvas2, {
       type: 'line',
-      data: {
-        labels,
-        datasets: [{
-          label: 'Cumulative Cash Position (RM)',
-          data: cf.cashFlow.map(m => m.cumulative),
-          borderColor: 'rgba(91,155,213,1)',
-          backgroundColor: 'rgba(91,155,213,.20)',
-          fill: true, tension: 0.25, pointRadius: 3
-        }]
-      },
+      data: { labels, datasets },
       options: {
         responsive: true, maintainAspectRatio: false,
         scales: { y: { ticks: { callback: v => 'RM ' + Number(v).toLocaleString('en-MY') } } },
-        plugins: {
-          legend: { position: 'bottom' },
-          annotation: undefined
-        }
+        plugins: { legend: { position: 'bottom' } }
       }
     });
   }
@@ -9227,6 +9327,7 @@ function renderAll(){
   const setV = (id, v) => { const el = document.getElementById(id); if(el && document.activeElement !== el) el.value = v ?? ''; };
   setV('poNumber',       poState.poNumber);
   setV('poSupplierName', poState.supplierName);
+  setV('poStartingBank', poState.startingBankBalance ?? 0);
   setV('poDate',         poState.poDate);
   setV('poCurrency',     poState.currency || 'MYR');
   setV('poFxRate',       poState.fxRate ?? 1);
@@ -9372,7 +9473,7 @@ function refreshNumbers(){
 // ─── Header input handlers
 ['poNumber','poDate','poCurrency','poFxRate','poLeadWeeks','poNotes',
  'poDepositPct','poBalancePct','poCreditDays',
- 'poForecastMonths'].forEach(id => {
+ 'poForecastMonths','poStartingBank'].forEach(id => {
   document.addEventListener('input', e => {
     if(e.target.id !== id) return;
     const v = e.target.value;
@@ -9387,6 +9488,7 @@ function refreshNumbers(){
       case 'poBalancePct':     poState.balancePct = Number(v) || 0; refreshNumbers(); break;
       case 'poCreditDays':     poState.creditDays = Number(v) || 0; refreshNumbers(); break;
       case 'poForecastMonths': poState.forecastMonths = Math.max(3, Math.min(24, Number(v) || 12)); renderForecast(); refreshNumbers(); break;
+      case 'poStartingBank':   poState.startingBankBalance = Math.max(0, Number(v) || 0); refreshNumbers(); break;
     }
   });
 });

@@ -136,22 +136,31 @@ function computeCashFlow(state){
     }
   });
 
-  // Stitch outflows + inflows → monthly cash flow + cumulative
+  // Starting bank balance — entered by the user. The "ending bank" each
+  // month = previous ending bank + net cash. So Month 1 starts at
+  // startingBankBalance and we layer the cumulative net on top.
+  const startingBank = Math.max(0, Number(state.startingBankBalance) || 0);
+
+  // Stitch outflows + inflows → monthly cash flow + cumulative + bank
   const cashFlow = [];
   let cumulative = 0;
+  let bankBalance = startingBank;
   for(let m = 0; m < months; m++){
     const o = out[m];
     const i = inf[m];
     const totalOut = o.deposit + o.balance + o.duty + o.forwarding;
     const totalIn  = i.total;
     const net = totalIn - totalOut;
+    const startBank = bankBalance;   // bank entering this month
     cumulative += net;
+    bankBalance += net;              // bank exiting this month
     // Round byChannel entries
     const byChannelRounded = {};
     Object.keys(i.byChannel).forEach(k => { byChannelRounded[k] = round2(i.byChannel[k]); });
     cashFlow.push({
       month: m + 1,
       label: labels[m],
+      startBank:  round2(startBank),
       deposit:    round2(o.deposit),
       balance:    round2(o.balance),
       duty:       round2(o.duty),
@@ -160,7 +169,8 @@ function computeCashFlow(state){
       revenue:    round2(totalIn),
       byChannel:  byChannelRounded,
       net:        round2(net),
-      cumulative: round2(cumulative)
+      cumulative: round2(cumulative),
+      bankBalance:round2(bankBalance)    // absolute cash position end-of-month
     });
   }
 
@@ -170,6 +180,7 @@ function computeCashFlow(state){
     leadMonths: leadMonths,
     deliveryMonth: deliveryMonth + 1,   // 1-indexed for display
     balancePayMonth: balancePayMonth + 1,
+    startingBank: round2(startingBank),
     totals: {
       totalCostMyr:   round2(totalCostMyr),
       depositMyr:     round2(depositMyr),
@@ -212,6 +223,28 @@ function computeKpis(state){
   const grossProfit = totalRevenue - totalOutflows;
   const roi = workingCapital > 0 ? (grossProfit / workingCapital * 100) : 0;
 
+  // Bank balance KPIs (the new "before/after cash flow" feature)
+  const banks = cf.cashFlow.map(m => m.bankBalance);
+  const startingBank = cf.startingBank || 0;
+  const minBank   = banks.length ? Math.min(...banks) : startingBank;
+  const maxBank   = banks.length ? Math.max(...banks) : startingBank;
+  const endingBank = banks[banks.length - 1] || startingBank;
+  const overdraftMonths = cf.cashFlow.filter(m => m.bankBalance < 0).length;
+  const minBankMonth = banks.length
+    ? (cf.cashFlow.find(m => m.bankBalance === minBank) || {}).month
+    : null;
+  // Bank-aware break-even: first month bank balance recovers ABOVE
+  // the starting balance after having dipped below it.
+  let bankBreakEven = null;
+  let dippedBelow = false;
+  for(let i = 0; i < cf.cashFlow.length; i++){
+    if(cf.cashFlow[i].bankBalance < startingBank) dippedBelow = true;
+    if(dippedBelow && cf.cashFlow[i].bankBalance >= startingBank){
+      bankBreakEven = i + 1;
+      break;
+    }
+  }
+
   return {
     poCostOriginalCcy:  totals.totalCost,           // in supplier currency
     poCostMyr:          cf.totals.totalCostMyr,     // post-FX + buffer
@@ -225,6 +258,15 @@ function computeKpis(state){
     roi:                round2(roi),
     totalUnits:         totals.totalUnits,
     deliveryMonth:      cf.deliveryMonth,
+    // ── Bank balance KPIs ─────────────────────────────────────
+    startingBank:       round2(startingBank),
+    minBank:            round2(minBank),
+    minBankMonth:       minBankMonth,
+    maxBank:            round2(maxBank),
+    endingBank:         round2(endingBank),
+    overdraftMonths:    overdraftMonths,
+    bankBreakEven:      bankBreakEven,
+    bankImpact:         round2(endingBank - startingBank),   // net change over horizon
     balancePayMonth:    cf.balancePayMonth
   };
 }
@@ -313,7 +355,11 @@ function defaultPoState(){
     },
     forecastMonths: 12,
 
-    splitThresholdMyr: 50000      // for the Split Helper
+    splitThresholdMyr: 50000,     // for the Split Helper
+    // Starting bank balance (MYR) — the cash you have NOW, before
+    // committing to this PO. Drives the before/after cash position
+    // calculation. Default 0 = user enters their actual balance.
+    startingBankBalance: 0
   };
 }
 
@@ -357,6 +403,7 @@ function buildWorkbook(state){
   sum.push(['Currency', state.currency || 'MYR']);
   sum.push(['FX Rate', kpis.poCostMyr && totals.totalCost ? round2(kpis.poCostMyr / totals.totalCost) : 1]);
   sum.push(['Lead Time (weeks)', state.leadTimeWeeks || 8]);
+  sum.push(['Starting Bank Balance', kpis.startingBank]);
   sum.push([]);
   sum.push(['KPI', 'Value (MYR)']);
   sum.push(['Total PO Cost', kpis.poCostMyr]);
@@ -366,9 +413,18 @@ function buildWorkbook(state){
   sum.push(['Peak Cash Outflow', kpis.peakOutflow]);
   sum.push(['Working Capital Required', kpis.workingCapital]);
   sum.push(['Break-Even Month', kpis.breakEvenMonth || 'Not within horizon']);
-  sum.push(['Final Cash Position', kpis.finalPosition]);
   sum.push(['ROI on Working Capital %', kpis.roi]);
   sum.push(['Total Units', kpis.totalUnits]);
+  sum.push([]);
+  sum.push(['BANK POSITION', '']);
+  sum.push(['Starting Bank Balance', kpis.startingBank]);
+  sum.push(['Minimum Bank Balance', kpis.minBank]);
+  sum.push(['Min Balance Month', kpis.minBankMonth || '—']);
+  sum.push(['Maximum Bank Balance', kpis.maxBank]);
+  sum.push(['Ending Bank Balance', kpis.endingBank]);
+  sum.push(['Net Bank Impact', kpis.bankImpact]);
+  sum.push(['Months in Overdraft', kpis.overdraftMonths]);
+  sum.push(['Bank Recovery Month', kpis.bankBreakEven || 'Not within horizon']);
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sum), 'Summary');
 
   // ─── Sheet 2: Line Items
@@ -382,16 +438,16 @@ function buildWorkbook(state){
   lineRows.push(['', '', 'TOTAL', '', kpis.totalUnits, '', totals.totalCost, '', '', totals.totalRevenue, totals.totalProfit, '']);
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(lineRows), 'Line Items');
 
-  // ─── Sheet 3: Cash Flow
+  // ─── Sheet 3: Cash Flow (now with Bank Balance columns)
   const channels = (state.channels || []);
-  const cfHead = ['Month', 'Label', 'Deposit Out', 'Balance Out', 'Duty', 'Forwarding', 'Total Out'];
+  const cfHead = ['Month', 'Label', 'Start Bank', 'Deposit Out', 'Balance Out', 'Duty', 'Forwarding', 'Total Out'];
   channels.forEach(ch => cfHead.push('Rev ' + ch.name));
-  cfHead.push('Revenue Total', 'Net Cash', 'Cumulative');
+  cfHead.push('Revenue Total', 'Net Cash', 'Cumulative', 'End Bank');
   const cfRows = [cfHead];
   cf.cashFlow.forEach(m => {
-    const r = [m.month, m.label, m.deposit, m.balance, m.duty, m.forwarding, m.totalOut];
+    const r = [m.month, m.label, m.startBank, m.deposit, m.balance, m.duty, m.forwarding, m.totalOut];
     channels.forEach(ch => r.push(m.byChannel[ch.name] || 0));
-    r.push(m.revenue, m.net, m.cumulative);
+    r.push(m.revenue, m.net, m.cumulative, m.bankBalance);
     cfRows.push(r);
   });
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(cfRows), 'Cash Flow');
