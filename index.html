@@ -34,7 +34,7 @@
 <script src="config.js?v=22"></script>
 <script src="assets/js/supabase-client.js?v=26"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
-<script src="assets/js/wht-calculator.js?v=15"></script>
+<script src="assets/js/wht-calculator.js?v=16"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -4364,10 +4364,23 @@ function clampNum(v, max){
 }
 
 (function initInputSanitizer(){
+  // WHT Invoice inputs are EXCLUDED from this sanitizer — they have their
+  // own _whtComputeRow handler that supports large amounts (no 7-figure
+  // cap) and preserves intentional empty values (no auto-zero on blur).
+  // Without this exclusion:
+  //   1. A user typing a 15,000,000 invoice would get silently clamped
+  //      to 9,999,999 (HARD_CAP_NUM).
+  //   2. After our "let user clear the field" fix, a blur event would
+  //      re-fill the cleared cell with "0", undoing the user's intent.
+  function isExempt(el){
+    return el && el.classList && el.classList.contains('wht-gross-input');
+  }
+
   // Number cap on input
   document.addEventListener('input', e=>{
     const t = e.target;
     if(!t.matches || !t.matches('input[type="number"]')) return;
+    if(isExempt(t)) return;
     if(t.value === '') return;
     const n = parseFloat(t.value);
     if(isNaN(n)) return;
@@ -4386,6 +4399,7 @@ function clampNum(v, max){
     const t = e.target;
     if(!t.matches) return;
     if(t.matches('input[type="number"]')){
+      if(isExempt(t)) return;
       if(t.value === '' || t.value === null || isNaN(parseFloat(t.value))){
         t.value = '0';
         t.dispatchEvent(new Event('input', { bubbles: true }));
@@ -7007,32 +7021,9 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     return all;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // DIRECT NET UPDATE — user types in the Net column, we back-calculate
-  // the Invoice Amount by adding SST: invoice = net × (1 + sstRate%).
-  // Storage convention unchanged (line.gross is the single source field).
-  // ═══════════════════════════════════════════════════════════════════════
-  window._whtUpdateNet = function(payeeIdx, lineIdx, rawValue){
-    try {
-      const p = whtState.payees[payeeIdx];
-      if(!p || !p.lines[lineIdx]) {
-        console.warn('[WHT _whtUpdateNet] missing payee/line', payeeIdx, lineIdx);
-        return;
-      }
-      const newNet = Math.max(0, Number(rawValue) || 0);
-      const sstRate = p.sstInclusive ? (Number(p.sstRate) || 8) : 0;
-      // Invoice = Net × (1 + SST%). If SST is off, Invoice == Net.
-      const newGross = newNet * (1 + sstRate / 100);
-      p.lines[lineIdx].gross = newGross;
-      persist();
-      refreshPayeeTotals(payeeIdx);
-      console.log('[WHT direct-net]', {
-        payee: payeeIdx, line: lineIdx, net: newNet,
-        sstRate: sstRate, gross: newGross.toFixed(2),
-        sst: (newGross - newNet).toFixed(2)
-      });
-    } catch(err){ console.error('[WHT _whtUpdateNet]', err); }
-  };
+  // (_whtUpdateNet removed in v=16 — Net column is display-only in the
+  // current methodology; this handler became unreachable after the
+  // bidirectional Net editing was reverted. Deleted as dead code.)
 
   function dpOutsideClick(e){
     const popup = document.getElementById('whtDpPopup');
@@ -7364,33 +7355,13 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
       '</div>';
     }).join('');
 
-    // ═══════════════════════════════════════════════════════════════════
-    // BULLETPROOF HANDLER BINDING — call addEventListener directly on
-    // every Gross + Net input after innerHTML is set. This is layer #3
-    // of redundancy (inline oninput + inline onchange + addEventListener)
-    // and works even if the browser blocks inline event handlers (CSP)
-    // or some extension intercepts delegated document-level listeners.
-    // The DOM node itself owns this listener — nothing can prevent it
-    // from firing on user input.
-    // ═══════════════════════════════════════════════════════════════════
-    try {
-      // Only the Invoice (gross) input is editable now — SST/Net/WHT are
-      // display cells. Bind _whtComputeRow on input/change/keyup/paste so
-      // the row's display cells update the instant the user types — even
-      // if inline event attrs are stripped by a CSP or extension.
-      const inputs = container.querySelectorAll('input.wht-gross-input');
-      inputs.forEach(inp => {
-        const fn = window._whtComputeRow;
-        if(typeof fn !== 'function') return;
-        ['input', 'change', 'keyup', 'paste'].forEach(evtName => {
-          inp.addEventListener(evtName, function(){
-            // setTimeout(0) so 'paste' sees the pasted value (paste event
-            // fires before the input value is populated).
-            setTimeout(() => fn(this), 0);
-          });
-        });
-      });
-    } catch(err){ console.error('[WHT bind-after-render]', err); }
+    // Belt-and-suspenders addEventListener bind REMOVED in v=16. The
+    // inline oninput/onkeyup/onchange attributes on the Invoice input
+    // (see the row template above) already fire _whtComputeRow on every
+    // keystroke. Adding addEventListener on top caused the function to
+    // fire TWICE per keystroke — same idempotent result but doubled
+    // console logs and CPU. The 250ms poller (further down) is the
+    // remaining safety net in case the inline handlers ever get stripped.
   }
 
   // ---- Render master summary ----
@@ -8078,7 +8049,12 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
         console.log('[WHT poller] synced ' + touchedPayees.size + ' payee(s)');
       }
     } catch(err){ console.error('[WHT poller]', err); }
-  }, 250);
+  }, 1500);
+  // Interval tuned to 1500ms in v=16: the inline oninput/onkeyup/onchange
+  // attrs do the real-time sync work. This poller is purely a long-tail
+  // safety net in case a browser extension or CSP strips inline handlers
+  // — 1500ms still feels instant to users but is 6x less CPU than the
+  // original 250ms cadence.
 
   // Defer initial render — script-level `let` declarations (_entitiesCache,
   // _isAdminCache, etc.) further down the page are still in their temporal
