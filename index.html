@@ -499,37 +499,10 @@
     box-shadow:0 0 0 3px rgba(22,163,74,.18),
                inset 0 1px 2px rgba(0,0,0,.20) !important;
   }
-  /* Tiny check / x indicator on the right side of the input.
-     Pure CSS — uses ::after on the .iti wrapper, content varies by
-     state class. */
-  .iti{ position:relative !important; }
-  .iti::after{
-    content:'';
-    position:absolute;
-    right:12px; top:50%;
-    width:16px; height:16px;
-    transform:translateY(-50%);
-    pointer-events:none;
-    opacity:0;
-    transition:opacity .15s;
-  }
-  .iti:has(input.phone-valid)::after{
-    opacity:1;
-    background-color:#16a34a;
-    -webkit-mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M3 8l3.5 3.5L13 5' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") center / contain no-repeat;
-            mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M3 8l3.5 3.5L13 5' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") center / contain no-repeat;
-  }
-  .iti:has(input.phone-invalid)::after{
-    opacity:1;
-    background-color:var(--coral);
-    -webkit-mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M4 4l8 8M12 4l-8 8' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") center / contain no-repeat;
-            mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M4 4l8 8M12 4l-8 8' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") center / contain no-repeat;
-  }
-  /* Make room for the check/x icon when present */
-  .iti:has(input.phone-valid) input[type="tel"],
-  .iti:has(input.phone-invalid) input[type="tel"]{
-    padding-right:36px !important;
-  }
+  /* Inline check/x icons removed — user wanted a cleaner look without
+     any decoration behind the chip area. Validation state is now
+     communicated by border-color alone (coral=invalid, sky=focus,
+     green=focus+valid). */
 
   /* ── Chip wrapper — invisible (positioning only) ─────────────────── */
   .iti__country-container{
