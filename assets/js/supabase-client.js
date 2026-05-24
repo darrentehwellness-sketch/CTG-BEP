@@ -519,6 +519,25 @@
     return data;
   }
 
+  // ─── Admin migration: bulk-restore historical activity_log rows
+  async function adminImportActivityLog(rows) {
+    _ensureSb();
+    const { data, error } = await sb.rpc('admin_import_activity_log', { p_rows: rows });
+    if (error) throw error;
+    // RPC returns a 1-row table → [{ ok, failed, errors }]
+    return Array.isArray(data) ? data[0] : data;
+  }
+
+  // ─── Admin migration: bulk-import saved scenarios across all 4
+  // calculator tables. Each row picks its target table via a
+  // "calculator" field (bep|wht|po|pc).
+  async function adminImportScenarios(rows) {
+    _ensureSb();
+    const { data, error } = await sb.rpc('admin_import_scenarios', { p_rows: rows });
+    if (error) throw error;
+    return Array.isArray(data) ? data[0] : data;
+  }
+
   // ---------- working state (calculator inputs) ----------
   // Always local — too noisy to sync on every keystroke.
   function loadWorkingState() { return lsRead(LS_STATE, null); }
@@ -565,6 +584,8 @@
     logActivity,
     listActivityLog,
     adminPurgeActivityLog,
+    adminImportActivityLog,
+    adminImportScenarios,
     signOut,
     listScenarios,
     saveScenario,

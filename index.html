@@ -88,7 +88,7 @@
   } catch(_e){ /* localStorage disabled — nothing to wipe */ }
 })();
 </script>
-<script src="assets/js/supabase-client.js?v=29"></script>
+<script src="assets/js/supabase-client.js?v=30"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
 <script src="assets/js/wht-calculator.js?v=17"></script>
 <script src="assets/js/po-estimator.js?v=13"></script>
@@ -5164,8 +5164,10 @@
           <label class="act-lbl" data-i18n="act_filter_user">Search by email</label>
           <input id="actFilterUser" type="text" class="auth-input" placeholder="e.g. darren@" style="padding:8px 10px;">
         </div>
-        <button id="actRefreshBtn" class="ghost" style="padding:9px 16px;" type="button"><span data-i18n="act_refresh">↻ Refresh</span></button>
-        <button id="actExportBtn"  class="ghost" style="padding:9px 16px;" type="button"><span data-i18n="act_export">⬇ Export CSV</span></button>
+        <button id="actRefreshBtn"   class="ghost" style="padding:9px 16px;" type="button"><span data-i18n="act_refresh">↻ Refresh</span></button>
+        <button id="actImportBtn"    class="ghost" style="padding:9px 16px;" type="button"><span data-i18n="imp_btn">📥 Import Excel</span></button>
+        <button id="actExportBtn"    class="ghost" style="padding:9px 16px;" type="button"><span data-i18n="act_export">⬇ Export CSV</span></button>
+        <button id="impScenariosBtn" class="ghost" style="padding:9px 16px;" type="button"><span data-i18n="imp_scn_btn">📦 Import Past Scenarios</span></button>
       </div>
 
       <!-- KPI strip -->
@@ -5557,6 +5559,7 @@ const I18N = {
     imp_mode_append:"Append",
     imp_cancel:"Cancel",
     imp_confirm:"✓ Confirm Import",
+    imp_scn_btn:"📦 Import Past Scenarios",
     users_entity_label:"Assigned entity", users_entity_none:"— No entity —",
     users_entity_hint:"Normal users are locked to this entity when saving scenarios. Admins can pick any entity freely.",
     users_entities_label:"Assigned entities",
@@ -5797,6 +5800,7 @@ const I18N = {
     imp_mode_append:"追加",
     imp_cancel:"取消",
     imp_confirm:"✓ 确认导入",
+    imp_scn_btn:"📦 导入历史方案",
     users_entity_label:"所属公司", users_entity_none:"— 不选 —",
     users_entity_hint:"普通用户保存方案时会锁定为此公司。管理员可任意选择。",
     users_entities_label:"所属公司（可多选）",
@@ -12466,9 +12470,115 @@ async function renderActivityTab(){
     if(refreshBtn) refreshBtn.addEventListener('click', _actReload);
     const exportBtn  = document.getElementById('actExportBtn');
     if(exportBtn)  exportBtn.addEventListener('click', _actExportCsv);
+    // Migration imports — Activity Log + Saved Scenarios.
+    const impAct = document.getElementById('actImportBtn');
+    if(impAct)   impAct.addEventListener('click', () => window.CTGImport && window.CTGImport.open('activity'));
+    const impScn = document.getElementById('impScenariosBtn');
+    if(impScn)   impScn.addEventListener('click', () => window.CTGImport && window.CTGImport.open('scenarios'));
     _actFiltersBound = true;
   }
   await _actReload();
+}
+
+// ─── Register migration schemas with CTGImport ─────────────────
+// Run once on load (idempotent — register() just overwrites).
+if(window.CTGImport){
+  // ─── Activity Log import (admin migration tool) ──────────────
+  window.CTGImport.register('activity', {
+    target: 'activity',
+    label:  'Activity Log (admin migration)',
+    sheets: [{
+      name: 'Activity',
+      columns: [
+        { key:'user_email',    label:'User Email',    required:false, type:'text', help:'Email of the actor; system events leave this blank' },
+        { key:'entity_id',     label:'Entity ID',     required:false, type:'text', help:'UUID of the entity, or blank for global events' },
+        { key:'action',        label:'Action',        required:true,  type:'text', help:'e.g. "app.login", "scenarios.insert", "supplier.update"' },
+        { key:'resource_type', label:'Resource Type', required:false, type:'text', help:'e.g. "scenarios", "supplier", "user"' },
+        { key:'resource_id',   label:'Resource ID',   required:false, type:'text', help:'UUID of the affected row, if any' },
+        { key:'metadata',      label:'Metadata (JSON)', required:false, type:'text', help:'JSON string with extra context, e.g. {"old":{...},"new":{...}}' },
+        { key:'created_at',    label:'Created At',    required:false, type:'text', help:'ISO timestamp, e.g. 2025-12-31T15:30:00Z. Blank = now()' }
+      ],
+      sample: [
+        ['janice@example.com', '', 'app.login',         '',           '', '{"ua":"legacy migration"}', '2025-01-15T09:00:00Z'],
+        ['darren@example.com', '', 'scenarios.insert',  'scenarios',  '', '{"new":{"name":"Legacy BEP scenario"}}', '2025-02-01T11:30:00Z']
+      ]
+    }],
+    async apply(parsed){
+      const rows = (parsed.Activity || []).map(r => {
+        let md = {};
+        if(r.metadata){
+          try { md = JSON.parse(r.metadata); } catch(_e){ md = { raw: r.metadata }; }
+        }
+        return {
+          user_email:    r.user_email || null,
+          entity_id:     r.entity_id || null,
+          action:        r.action,
+          resource_type: r.resource_type || null,
+          resource_id:   r.resource_id || null,
+          metadata:      md,
+          created_at:    r.created_at || null
+        };
+      });
+      if(rows.length === 0){ showToast('No rows to import', 'warn'); return; }
+      try {
+        const r = await CTG.adminImportActivityLog(rows);
+        showToast('✓ Imported ' + (r.ok || 0) + ' activity row(s)' + (r.failed ? ' · ' + r.failed + ' failed' : ''), r.failed ? 'warn' : 'success');
+        if(typeof _actReload === 'function') _actReload();
+      } catch(e){
+        showToast('Import failed: ' + (e.message || e), 'error');
+      }
+    }
+  });
+
+  // ─── Saved Scenarios import (4-in-1 migration) ───────────────
+  window.CTGImport.register('scenarios', {
+    target: 'scenarios',
+    label:  'Saved Scenarios (4-in-1 migration)',
+    sheets: [{
+      name: 'Scenarios',
+      columns: [
+        { key:'calculator', label:'Calculator',     required:true,  type:'enum', values:['bep','wht','po','pc'], help:'Which calculator this scenario belongs to' },
+        { key:'name',       label:'Scenario Name',  required:true,  type:'text' },
+        { key:'entity_name',label:'Entity Name',    required:false, type:'text', help:'Resolved to entity_id; case-insensitive' },
+        { key:'user_email', label:'Owner Email',    required:false, type:'text', help:'Defaults to the importing admin' },
+        { key:'color',      label:'Color',          required:false, type:'text', help:'Hex code like #E85D3C' },
+        { key:'data',       label:'Data (JSON)',    required:false, type:'text', help:'Full scenario JSON from a previous export; blank = empty placeholder' },
+        { key:'created_at', label:'Created At',     required:false, type:'text', help:'ISO timestamp; blank = now()' }
+      ],
+      sample: [
+        ['bep', 'Migrated: EXPO KL Dec 2024',  'ILADY',  'darren@example.com', '#E85D3C', '', '2024-12-15T08:00:00Z'],
+        ['po',  'Migrated: PO-2024-Q4',        'ILADY',  '',                    '#F08570', '', '2024-12-20T10:00:00Z']
+      ]
+    }],
+    async apply(parsed){
+      // Resolve entity names → IDs
+      const ents = (typeof _entitiesCache !== 'undefined' && _entitiesCache) || [];
+      const entByName = {};
+      ents.forEach(e => { entByName[String(e.name || '').trim().toLowerCase()] = e.id; });
+      const rows = (parsed.Scenarios || []).map(r => {
+        let data = {};
+        if(r.data){
+          try { data = JSON.parse(r.data); } catch(_e){ data = { raw: r.data }; }
+        }
+        return {
+          calculator: r.calculator,
+          name:       r.name,
+          entity_id:  r.entity_name ? entByName[String(r.entity_name).trim().toLowerCase()] || null : null,
+          user_email: r.user_email || null,
+          color:      r.color || null,
+          data:       data,
+          created_at: r.created_at || null
+        };
+      });
+      if(rows.length === 0){ showToast('No rows to import', 'warn'); return; }
+      try {
+        const r = await CTG.adminImportScenarios(rows);
+        showToast('✓ Imported ' + (r.ok || 0) + ' scenario(s)' + (r.failed ? ' · ' + r.failed + ' failed' : ''), r.failed ? 'warn' : 'success');
+      } catch(e){
+        showToast('Import failed: ' + (e.message || e), 'error');
+      }
+    }
+  });
 }
 
 async function _actReload(){
