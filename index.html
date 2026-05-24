@@ -8,6 +8,23 @@
 <meta name="author" content="CTG - 37 Celsius Group" />
 <meta name="theme-color" content="#0E2438" />
 
+<!-- Security headers (defense-in-depth)
+     ──────────────────────────────────
+     CSP: restricts loadable origins so a stray injection can't reach
+          attacker servers. 'unsafe-inline' is required for the existing
+          inline styles/handlers across the app; 'unsafe-eval' is needed
+          by Chart.js + xlsx-js-style. We tighten what we can: object-src
+          none (no Flash/plugins), frame-ancestors none (no embedding),
+          base-uri self (block <base> hijack), form-action self.
+     Referrer-Policy: never leak the full URL (which can include tab/state
+          info) to third-party origins.
+     Permissions-Policy: deny camera/mic/geo/payment — we don't use them.
+     X-Content-Type-Options: stop MIME-sniff attacks on user uploads. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';" />
+<meta name="referrer" content="strict-origin-when-cross-origin" />
+<meta http-equiv="X-Content-Type-Options" content="nosniff" />
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=()" />
+
 <!-- Favicon -->
 <link rel="icon" type="image/png" href="assets/img/ctg_logo.png" />
 <link rel="apple-touch-icon" href="assets/img/ctg_logo.png" />
@@ -3268,8 +3285,8 @@
   <div class="login-card">
     <img class="login-logo" src="assets/img/ctg_logo.png" alt="CTG"/>
     <div class="login-brand-mark">CTG</div>
-    <h1 data-i18n="gate_title">Sign in to CTG BEP</h1>
-    <p class="login-sub" data-i18n="gate_sub">Exhibition Break-Even Calculator</p>
+    <h1 data-i18n="gate_title">Sign In to CTG Finance Hub</h1>
+    <p class="login-sub" data-i18n="gate_sub">Break-even · Product costing · ROAS</p>
 
     <form id="formGateLogin" autocomplete="on">
       <div class="login-field">
@@ -4903,7 +4920,7 @@
 
     <!-- Sign In -->
     <form class="auth-state active" data-auth-state="signin" autocomplete="on">
-      <h3 data-i18n="auth_signin_title">Sign in to CTG BEP</h3>
+      <h3 data-i18n="auth_signin_title">Sign In to CTG Finance Hub</h3>
       <p class="sub" data-i18n="auth_signin_sub">Invite-only. If you haven't received an invitation, contact your CTG admin.</p>
       <div class="auth-field">
         <label data-i18n="auth_email">Email</label>
@@ -5220,7 +5237,7 @@ const I18N = {
     sup_none:"No suppliers yet. Click 'New Supplier' to add your first vendor.",
     ent_name_required:"Display name is required.",
     scn_entity:"Entity (company)", scn_entity_none:"— No entity —",
-    gate_title:"Sign in to CTG Finance Hub", gate_sub:"Break-even · Product costing · ROAS",
+    gate_title:"Sign In to CTG Finance Hub", gate_sub:"Break-even · Product costing · ROAS",
     gate_help:"Can't sign in?",
     gate_help_msg:"This tool is invite-only. If you haven't received an invitation, contact your CTG admin to be added.",
     gate_footer:"Invite-only · Contact your admin for access",
@@ -5272,9 +5289,9 @@ const I18N = {
     sign_in:"Sign in", sign_out:"Sign out",
     auth_cloud:"Cloud sync", auth_local:"Local only", auth_offline:"Offline mode",
     auth_signin:"Sign In", auth_signup:"Sign Up", auth_create:"Create account",
-    auth_signin_title:"Sign in to CTG BEP", auth_signin_sub:"Invite-only. If you haven't received an invitation, contact your CTG admin.",
+    auth_signin_title:"Sign In to CTG Finance Hub", auth_signin_sub:"Invite-only. If you haven't received an invitation, contact your CTG admin.",
     auth_signup_title:"Create your CTG account", auth_signup_sub:"Free. Your scenarios sync across devices.",
-    auth_welcome_title:"Welcome to CTG BEP", auth_welcome_sub:"You've been invited. Set a password to finish setting up your account.",
+    auth_welcome_title:"Welcome to CTG Finance Hub", auth_welcome_sub:"You've been invited. Set a password to finish setting up your account.",
     auth_email:"Email", auth_password:"Password", auth_password2:"Confirm password",
     auth_forgot:"Forgot password?",
     auth_forgot_title:"Reset your password",
@@ -5458,9 +5475,9 @@ const I18N = {
     sign_in:"登录", sign_out:"退出登录",
     auth_cloud:"云端同步", auth_local:"仅本机", auth_offline:"离线模式",
     auth_signin:"登录", auth_signup:"注册", auth_create:"创建账户",
-    auth_signin_title:"登录 CTG BEP", auth_signin_sub:"仅限受邀用户。如未收到邀请，请联系 CTG 管理员。",
+    auth_signin_title:"登录 CTG 财务中心", auth_signin_sub:"仅限受邀用户。如未收到邀请，请联系 CTG 管理员。",
     auth_signup_title:"创建 CTG 账户", auth_signup_sub:"免费。方案可跨设备同步。",
-    auth_welcome_title:"欢迎使用 CTG BEP", auth_welcome_sub:"您已被邀请。请设置密码完成账户设置。",
+    auth_welcome_title:"欢迎使用 CTG 财务中心", auth_welcome_sub:"您已被邀请。请设置密码完成账户设置。",
     auth_email:"邮箱", auth_password:"密码", auth_password2:"确认密码",
     auth_forgot:"忘记密码？",
     auth_forgot_title:"重设密码",
@@ -7138,31 +7155,40 @@ function pcRenderProducts(){
     tbody.innerHTML = `<tr class="empty-row"><td colspan="16">No products yet. Click + Add Product to start building a costing.</td></tr>`;
     return;
   }
+  // Defense-in-depth: every value interpolated into HTML — even numeric fields
+  // — is run through escapeHtml(). If pcState ever gets corrupted (DB tamper,
+  // localStorage poisoning), a stray quote can't break out of an attribute.
+  // numAttr() also coerces non-finite values to '' to keep number inputs valid.
+  const numAttr = v => { const n = Number(v); return Number.isFinite(n) ? String(n) : ''; };
+  // flag/adv come from hardcoded helpers (pcMarginFlag, pcAdvisor) but we
+  // whitelist the class anyway in case those helpers grow user-derived inputs.
+  const cssCls = c => /^[a-z][\w-]*$/i.test(c) ? c : '';
   tbody.innerHTML = pcState.products.map((p,i) => {
     const c = pcComputeProduct(p);
     const marginPct = c.margin * 100;
     const flag = pcMarginFlag(marginPct);
     const adv  = pcAdvisor(p, c);
-    const skuBtnTitle = (p.skuComponents && p.skuComponents.length) ? 'Package SKU: '+p.skuComponents.length+' components' : 'Open Package SKU calculator';
+    const skuLen = (p.skuComponents && p.skuComponents.length) | 0;
+    const skuBtnTitle = skuLen ? 'Package SKU: ' + skuLen + ' components' : 'Open Package SKU calculator';
     return `<tr>
       <td>${i+1}</td>
       <td><input type="text" value="${escapeHtml(p.name)}" data-pcp="${i}" data-field="name"></td>
-      <td><input type="number" min="0" step="1"    value="${p.units}"          data-pcp="${i}" data-field="units"></td>
+      <td><input type="number" min="0" step="1"    value="${numAttr(p.units)}"          data-pcp="${i}" data-field="units"></td>
       <td><div class="pc-sku-cell">
-            <input type="number" min="0" step="0.01" value="${p.skuCost}" data-pcp="${i}" data-field="skuCost">
-            <button class="pc-sku-btn" data-pc-sku-open="${i}" title="${skuBtnTitle}" type="button">📦</button>
+            <input type="number" min="0" step="0.01" value="${numAttr(p.skuCost)}" data-pcp="${i}" data-field="skuCost">
+            <button class="pc-sku-btn" data-pc-sku-open="${i}" title="${escapeHtml(skuBtnTitle)}" type="button">📦</button>
           </div></td>
-      <td><input type="number" min="0" step="0.1"  value="${p.dutiesPct}"      data-pcp="${i}" data-field="dutiesPct"></td>
-      <td><input type="number" min="0" step="0.01" value="${p.inboundFreight}" data-pcp="${i}" data-field="inboundFreight"></td>
-      <td><input type="number" min="0" step="0.01" value="${p.warehousing}"    data-pcp="${i}" data-field="warehousing"></td>
-      <td><input type="number" min="0" step="0.01" value="${p.packagingMaterials}" data-pcp="${i}" data-field="packagingMaterials"></td>
-      <td class="num" data-pcp-out="${i}-landed">${fmt(c.landed)}</td>
-      <td><input type="number" min="0" max="100" step="0.1" value="${p.benchmarkPct}" data-pcp="${i}" data-field="benchmarkPct"></td>
-      <td class="num" data-pcp-out="${i}-suggested">${c.suggestedPrice > 0 ? fmt(c.suggestedPrice) : '—'}</td>
-      <td class="num" data-pcp-out="${i}-safe" style="color:#6ee7b7;font-weight:800;">${c.safeReachable && c.safePrice > 0 ? fmt(c.safePrice) : '—'}</td>
-      <td><input type="number" min="0" step="0.01" value="${p.sellingPrice}"   data-pcp="${i}" data-field="sellingPrice"></td>
-      <td data-pcp-out="${i}-margin"><span class="pc-margin-cell ${flag.cls}">${flag.icon} ${flag.text}</span></td>
-      <td data-pcp-out="${i}-advisor"><span class="pc-margin-cell ${adv.cls}" style="font-size:11.5px;font-weight:600;">${adv.text}</span></td>
+      <td><input type="number" min="0" step="0.1"  value="${numAttr(p.dutiesPct)}"      data-pcp="${i}" data-field="dutiesPct"></td>
+      <td><input type="number" min="0" step="0.01" value="${numAttr(p.inboundFreight)}" data-pcp="${i}" data-field="inboundFreight"></td>
+      <td><input type="number" min="0" step="0.01" value="${numAttr(p.warehousing)}"    data-pcp="${i}" data-field="warehousing"></td>
+      <td><input type="number" min="0" step="0.01" value="${numAttr(p.packagingMaterials)}" data-pcp="${i}" data-field="packagingMaterials"></td>
+      <td class="num" data-pcp-out="${i}-landed">${escapeHtml(fmt(c.landed))}</td>
+      <td><input type="number" min="0" max="100" step="0.1" value="${numAttr(p.benchmarkPct)}" data-pcp="${i}" data-field="benchmarkPct"></td>
+      <td class="num" data-pcp-out="${i}-suggested">${c.suggestedPrice > 0 ? escapeHtml(fmt(c.suggestedPrice)) : '—'}</td>
+      <td class="num" data-pcp-out="${i}-safe" style="color:#6ee7b7;font-weight:800;">${c.safeReachable && c.safePrice > 0 ? escapeHtml(fmt(c.safePrice)) : '—'}</td>
+      <td><input type="number" min="0" step="0.01" value="${numAttr(p.sellingPrice)}"   data-pcp="${i}" data-field="sellingPrice"></td>
+      <td data-pcp-out="${i}-margin"><span class="pc-margin-cell ${cssCls(flag.cls)}">${escapeHtml(flag.icon)} ${escapeHtml(flag.text)}</span></td>
+      <td data-pcp-out="${i}-advisor"><span class="pc-margin-cell ${cssCls(adv.cls)}" style="font-size:11.5px;font-weight:600;">${escapeHtml(adv.text)}</span></td>
       <td class="action"><button data-pcp-del="${i}">✕</button></td>
     </tr>`;
   }).join('');
@@ -7175,7 +7201,17 @@ function pcRenderSummary(){
   setText('pcKpiRevenue', empty ? '—' : fmt(a.totalRevenue));
   setText('pcKpiCost',    empty ? '—' : fmt(a.totalLanded));
   const contribEl = document.getElementById('pcKpiContrib');
-  if(contribEl) contribEl.innerHTML = empty ? '—' : sign(a.totalContrib);
+  if(contribEl){
+    contribEl.textContent = '';
+    if(empty){ contribEl.textContent = '—'; }
+    else {
+      const n = a.totalContrib;
+      const s = document.createElement('span');
+      s.className = n < 0 ? 'neg' : (n > 0 ? 'pos' : '');
+      s.textContent = fmt(n);
+      contribEl.appendChild(s);
+    }
+  }
   setText('pcKpiMargin',  (empty || a.totalRevenue <= 0) ? '—' : fmtPct(a.blendedMargin));
   // Product table footer
   setText('pcProdTotUnits',  empty ? '—' : a.totalUnits);
@@ -7206,8 +7242,25 @@ function pcPatchProductRow(i){
   if(landed)    landed.textContent    = fmt(c.landed);
   if(suggested) suggested.textContent = c.suggestedPrice > 0 ? fmt(c.suggestedPrice) : '—';
   if(safe)      safe.textContent      = (c.safeReachable && c.safePrice > 0) ? fmt(c.safePrice) : '—';
-  if(margin)    margin.innerHTML      = `<span class="pc-margin-cell ${flag.cls}">${flag.icon} ${flag.text}</span>`;
-  if(advisor)   advisor.innerHTML     = `<span class="pc-margin-cell ${adv.cls}" style="font-size:11.5px;font-weight:600;">${adv.text}</span>`;
+  // Build margin/advisor pills with DOM APIs instead of innerHTML so even if
+  // pcMarginFlag/pcAdvisor ever return user-derived text, no HTML executes.
+  const cssCls = c2 => /^[a-z][\w-]*$/i.test(c2) ? c2 : '';
+  if(margin){
+    margin.textContent = '';
+    const s = document.createElement('span');
+    s.className = 'pc-margin-cell ' + cssCls(flag.cls);
+    s.textContent = (flag.icon || '') + ' ' + (flag.text || '');
+    margin.appendChild(s);
+  }
+  if(advisor){
+    advisor.textContent = '';
+    const s = document.createElement('span');
+    s.className = 'pc-margin-cell ' + cssCls(adv.cls);
+    s.style.fontSize = '11.5px';
+    s.style.fontWeight = '600';
+    s.textContent = adv.text || '';
+    advisor.appendChild(s);
+  }
 }
 function pcPatchAllRows(){ pcState.products.forEach((_,i) => pcPatchProductRow(i)); }
 
@@ -7468,16 +7521,22 @@ async function pcRefreshSaved(){
     wrap.innerHTML = `<p class="note">${t('pc_saved_empty')}</p>`;
     return;
   }
+  // Whitelist s.color to a strict #rrggbb / #rgb pattern. Saved color values
+  // come from the DB; if an attacker ever managed to plant `red;width:expression(...)`
+  // it would be inserted straight into the inline style attribute. The regex
+  // limits to literal hex codes so nothing else slips through.
+  const safeColor = c => /^#[0-9a-fA-F]{3,8}$/.test(String(c || '')) ? c : '#E85D3C';
   wrap.innerHTML = _pcSavedCache.map(s => {
     const dt = new Date(s.updated_at || s.created_at).toLocaleString();
+    const col = safeColor(s.color);
     return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(7,13,23,.4);border:1px solid var(--border);border-radius:10px;">
-      <span style="width:10px;height:10px;border-radius:50%;background:${s.color || 'var(--coral)'};box-shadow:0 0 8px ${s.color || 'var(--coral)'};"></span>
+      <span style="width:10px;height:10px;border-radius:50%;background:${col};box-shadow:0 0 8px ${col};"></span>
       <div style="flex:1;min-width:0;">
         <div style="color:#fff;font-weight:600;">${escapeHtml(s.name)}</div>
-        <div style="font-size:11.5px;color:var(--muted);">${dt}</div>
+        <div style="font-size:11.5px;color:var(--muted);">${escapeHtml(dt)}</div>
       </div>
-      <button class="ghost" data-pc-saved-load="${s.id}">↻ ${t('pc_load')}</button>
-      <button class="danger" data-pc-saved-del="${s.id}" style="padding:6px 10px;font-size:11.5px;">✕</button>
+      <button class="ghost" data-pc-saved-load="${escapeHtml(s.id)}">↻ ${escapeHtml(t('pc_load'))}</button>
+      <button class="danger" data-pc-saved-del="${escapeHtml(s.id)}" style="padding:6px 10px;font-size:11.5px;">✕</button>
     </div>`;
   }).join('');
 }
@@ -9014,7 +9073,8 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
           try {
             showToast('⚠ ' + (entity.name || 'This entity') + ' has no TIN in Entities Management — add it under Admin → Entities.', 'warn');
           } catch(_e){
-            console.warn('[WHT] Entity has no TIN:', entity.name);
+            // Intentionally avoid logging entity.name (PII) to the browser console.
+            console.warn('[WHT] Working entity has no TIN — see Admin → Entities.');
           }
         }
         persist(); renderMaster();
