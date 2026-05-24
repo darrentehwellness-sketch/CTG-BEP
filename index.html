@@ -5645,17 +5645,29 @@ function _phoneSyncPadding(inp){
     const wrap = inp.closest('.iti');
     if(!wrap) return;
     const chip = wrap.querySelector('.iti__selected-country, .iti__country-container');
-    const chipW = chip ? chip.getBoundingClientRect().width : 80;
-    // 12px breathing room so digits never touch the divider
-    const pad = Math.max(80, Math.round(chipW + 12));
+    // BUGFIX: when the form is hidden (display:none), getBoundingClientRect
+    // returns 0 for all descendants. Don't update padding in that case —
+    // keep the 100px CSS fallback. Re-sync runs when the form opens.
+    const rect = chip ? chip.getBoundingClientRect() : null;
+    if(!rect || rect.width === 0) return;
+    const pad = Math.max(100, Math.round(rect.width + 14));
     inp.style.setProperty('padding-left', pad + 'px', 'important');
     inp.style.setProperty('padding-right', '14px', 'important');
-    inp.style.setProperty('padding-top', '10px', 'important');
-    inp.style.setProperty('padding-bottom', '10px', 'important');
-    inp.style.setProperty('min-height', '44px', 'important');
+    inp.style.setProperty('padding-top', '11px', 'important');
+    inp.style.setProperty('padding-bottom', '11px', 'important');
+    inp.style.setProperty('min-height', '46px', 'important');
     inp.style.setProperty('box-sizing', 'border-box', 'important');
   } catch(err){ /* fail-safe — leave CSS to handle */ }
 }
+
+// Re-sync all phone inputs' padding — called from form open handlers.
+// Needed because the chip width can't be measured while the form is
+// hidden (display:none gives all descendants 0×0 dimensions).
+window._phoneResyncAll = function(){
+  document.querySelectorAll('input[type="tel"]').forEach(inp => {
+    _phoneSyncPadding(inp);
+  });
+};
 
 function attachPhone(inp){
   if(!inp || _phoneItiMap.has(inp)) return _phoneItiMap.get(inp) || null;
@@ -10211,6 +10223,8 @@ async function renderSettingsTab(){
   setPhoneValue(document.getElementById('profPhone'),  profile.phone  || '');
   setPhoneValue(document.getElementById('profMobile'), profile.mobile || '');
   document.getElementById('profBio').value         = profile.bio          || '';
+  // Re-measure phone chip widths now that the form is visible.
+  setTimeout(() => { try { window._phoneResyncAll && window._phoneResyncAll(); } catch(_e){} }, 30);
 }
 
 document.getElementById('formProfile').addEventListener('submit', async e=>{
@@ -10540,6 +10554,9 @@ function openEntityForm(entity){
   }
   document.getElementById('entityFormCard').style.display = 'block';
   document.getElementById('entityFormCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Phone chip width can only be measured after the form becomes visible.
+  // Sync padding now that display:block has applied.
+  setTimeout(() => { try { window._phoneResyncAll && window._phoneResyncAll(); } catch(_e){} }, 30);
 }
 
 document.getElementById('btnNewEntity').onclick     = ()=>openEntityForm(null);
@@ -10701,11 +10718,24 @@ function openSupplierForm(supplier){
   document.querySelector('[data-supplier-error]').classList.remove('show');
   // Populate the Entity dropdown from the loaded entities cache.
   // Required field — supplier must belong to exactly one entity.
+  // BUGFIX: when editing a supplier whose linked entity has been
+  // soft-deleted (is_active=false), include it in the list anyway —
+  // otherwise the dropdown value silently fails to set and the field
+  // appears blank. Inactive entities are marked with "(inactive)".
   const entSel = document.getElementById('supEntity');
   if(entSel){
-    const activeEnt = (_entitiesCache || []).filter(e => e.is_active !== false);
-    entSel.innerHTML = '<option value="">— Select entity —</option>' +
-      activeEnt.map(e => '<option value="'+e.id+'">'+escapeHtml(e.name)+'</option>').join('');
+    const cache = _entitiesCache || [];
+    const supEntId = supplier && supplier.entity_id;
+    const activeList = cache.filter(e => e.is_active !== false);
+    const supEnt = supEntId ? cache.find(e => e.id === supEntId) : null;
+    // If the supplier's linked entity is inactive, prepend it so the
+    // dropdown can reflect the saved value correctly.
+    let opts = '<option value="">— Select entity —</option>';
+    if(supEnt && supEnt.is_active === false){
+      opts += '<option value="'+supEnt.id+'">' + escapeHtml(supEnt.name) + ' (inactive)</option>';
+    }
+    opts += activeList.map(e => '<option value="'+e.id+'">'+escapeHtml(e.name)+'</option>').join('');
+    entSel.innerHTML = opts;
   }
   if(supplier){
     document.getElementById('supplierFormTitle').textContent = t('suppliers_form_edit');
@@ -10758,6 +10788,8 @@ function openSupplierForm(supplier){
   }
   document.getElementById('supplierFormCard').style.display = 'block';
   document.getElementById('supplierFormCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Phone chip width can only be measured after the form becomes visible.
+  setTimeout(() => { try { window._phoneResyncAll && window._phoneResyncAll(); } catch(_e){} }, 30);
 }
 
 document.getElementById('btnNewSupplier').onclick     = () => openSupplierForm(null);
