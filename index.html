@@ -2739,7 +2739,18 @@
       </div>
     </div>
 
-    <!-- Section: Tax Calculator (level 3 — above Reporting) -->
+    <!-- Section: Cash Flow (level 3) -->
+    <div class="tab-section">
+      <button class="tab-section-toggle" data-section-id="cashflow" type="button">
+        <span data-i18n="nav_sec_cashflow">Cash Flow</span>
+        <svg class="chevron"><use href="#i-chevron-down"/></svg>
+      </button>
+      <div class="tab-section-items">
+        <button class="tab-btn" data-tab="po" title="PO Cash Flow Estimator"><svg class="ic"><use href="#i-cart"/></svg><span data-i18n="tab_po">PO Cash Flow Estimator</span></button>
+      </div>
+    </div>
+
+    <!-- Section: Tax Calculator (level 4) -->
     <div class="tab-section">
       <button class="tab-section-toggle" data-section-id="tax" type="button">
         <span data-i18n="nav_sec_tax">Tax Calculator</span>
@@ -3290,6 +3301,35 @@
       <!-- Decision log (scrollable) -->
       <div id="pnlAiLog" style="max-height:420px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;background:rgba(7,13,23,.30);padding:6px;"></div>
       <p class="note" style="margin-top:10px;" data-i18n="pnl_ai_export_note">A full copy of this reasoning trail is also embedded in your downloaded Excel as a sheet named "AI Decisions".</p>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- TAB: PO CASH FLOW ESTIMATOR — coming in chunks B–G                -->
+  <!-- Roadmap:                                                          -->
+  <!--   A  ✓  Sidebar entry + empty tab (this commit)                   -->
+  <!--   B  ☐  Suppliers DB + admin tab                                  -->
+  <!--   C  ☐  PO Header + Line Items                                    -->
+  <!--   D  ☐  Payment Terms + Per-SKU Monthly Forecast                  -->
+  <!--   E  ☐  Cash Flow Output Table + KPIs                             -->
+  <!--   F  ☐  Charts (cash flow / cumulative / inventory burn-down)     -->
+  <!--   G  ☐  PO Split Helper + Save/Export/Print                       -->
+  <!-- ============================================================== -->
+  <div class="tab-panel" id="tab-po">
+    <div class="card" style="text-align:center;padding:48px 24px;">
+      <h2 style="font-size:18px;margin-bottom:8px;">🛒 PO Cash Flow Estimator</h2>
+      <p style="color:var(--text-soft);margin-bottom:16px;">Coming soon — being built in 7 staged chunks. You're seeing the navigation skeleton now.</p>
+      <div style="display:inline-block;text-align:left;background:rgba(7,13,23,.4);border:1px solid var(--border);border-radius:8px;padding:14px 22px;font-size:12.5px;color:var(--text-soft);line-height:1.9;">
+        <b style="color:var(--sky-soft);">Build progress</b><br>
+        <span style="color:#16a34a;">✓ Chunk A — Sidebar + tab skeleton</span><br>
+        <span>☐ Chunk B — Suppliers admin tab + database</span><br>
+        <span>☐ Chunk C — PO Header + Line Items table</span><br>
+        <span>☐ Chunk D — Payment Terms + Sales Forecast</span><br>
+        <span>☐ Chunk E — Monthly Cash Flow Output</span><br>
+        <span>☐ Chunk F — Charts (cash flow / cumulative / burn-down)</span><br>
+        <span>☐ Chunk G — PO Split Helper + Save / Export / Print</span>
+      </div>
+      <p style="color:var(--muted);margin-top:18px;font-size:11.5px;">Each chunk ships independently — you can test as we go.</p>
     </div>
   </div>
 
@@ -3873,9 +3913,11 @@ const I18N = {
     tab_settings:"Profile", tab_users:"User Management",
     nav_sec_bep:"Exhibition BEP", nav_sec_account:"Account", nav_sec_admin:"Settings",
     nav_sec_ecomm:"Product Calculator", tab_pcalc:"Product Costing Calculator",
-    nav_sec_reporting:"Reporting", nav_sec_tax:"Tax Calculator", tab_pnl:"P&L Converter", tab_wht:"WHT Calculator",
+    nav_sec_reporting:"Reporting", nav_sec_tax:"Tax Calculator", nav_sec_cashflow:"Cash Flow",
+    tab_pnl:"P&L Converter", tab_wht:"WHT Calculator", tab_po:"PO Cash Flow Estimator",
     page_sub_pnl:"Convert any P&L (PDF/Excel) to your canonical COA format",
     page_sub_wht:"Compute Malaysian Withholding Tax on non-resident payments (CP37)",
+    page_sub_po:"Forecast cash inflows/outflows from purchase orders — break-even month, peak working capital, ROI",
     wht_add_payee:"Add Payee", wht_save_btn:"Save Scenario", wht_export_excel:"Export Excel",
     wht_note:"Auto-saved on this device · MYR only",
     wht_payer_title:"Payer Information", wht_payer_badge:"Your company",
@@ -5256,6 +5298,7 @@ const PAGE_HEADER_MAP = {
   pcalc:       { title: 'tab_pcalc',    sub: 'page_sub_pcalc' },
   pnl:         { title: 'tab_pnl',      sub: 'page_sub_pnl' },
   wht:         { title: 'tab_wht',      sub: 'page_sub_wht' },
+  po:          { title: 'tab_po',       sub: 'page_sub_po' },
   settings:    { title: 'tab_settings', sub: 'page_sub_settings' },
   entities:    { title: 'tab_entities', sub: 'page_sub_entities' },
   users:       { title: 'tab_users',    sub: 'page_sub_users' }
