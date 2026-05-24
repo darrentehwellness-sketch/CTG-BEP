@@ -100,6 +100,15 @@
       const parsed = parseWorkbook(wb, current.schema);
       current.parsed = parsed;
       renderPreview(parsed, current.schema);
+      // Give the user a clear reason why Confirm is disabled.
+      if (parsed.totalRows === 0) {
+        const wantedSheets = current.schema.sheets.map(s => '"' + s.name + '"').join(' or ');
+        const haveSheets   = wb.SheetNames.map(n => '"' + n + '"').join(', ') || '(none)';
+        showError('Nothing to import. Expected sheet(s) named ' + wantedSheets
+                + '. Your file has: ' + haveSheets + '. Download the template to see the required format.');
+      } else if (parsed.errorCount > 0) {
+        showError('Fix the highlighted row errors below before importing. Empty rows are skipped automatically.');
+      }
       $('impConfirmBtn').disabled = parsed.errorCount > 0 || parsed.totalRows === 0;
     } catch (e) {
       console.error('[CTGImport] parse failed:', e);

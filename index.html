@@ -447,9 +447,12 @@
   #viewerBanner .vi-ic{font-size:16px;line-height:1;}
   /* ===== Idle Session Warning Toast =====
      Floats fixed at bottom-right when the user is approaching idle
-     timeout. Has a "Stay signed in" button that resets the timer. */
+     timeout. Has a "Stay signed in" button that resets the timer.
+     z-index 7000 → above modals (5000) and toolbars, but below
+     auth-recovery (8000+) so a forced-password-change modal still
+     takes priority over an idle warning. */
   #idleWarning{
-    position:fixed;bottom:24px;right:24px;z-index:9999;
+    position:fixed;bottom:24px;right:24px;z-index:7000;
     display:flex;align-items:center;gap:14px;
     padding:14px 18px;max-width:380px;
     background:linear-gradient(135deg,rgba(232,93,60,.15),rgba(7,13,23,.92));
@@ -3489,17 +3492,21 @@
       inset 0 1px 0 rgba(255,255,255,.04);
   }
 
-  /* ── 6. Table polish — refined header + row hover ──────────────── */
+  /* ── 6. Table polish — refined header + row hover ────────────────
+     We only highlight rows that DON'T contain a focused input. This
+     prevents the gradient from washing out text contrast on the cell
+     a user is actively typing into, and avoids the inset-border layout
+     shift when the row is being edited. */
   table.data-table tbody tr,
   .table-wrap table tbody tr{
     transition:background-color .15s, box-shadow .15s;
   }
-  table.data-table tbody tr:hover:not(.empty-row),
-  .table-wrap table tbody tr:hover:not(.empty-row){
+  table.data-table tbody tr:hover:not(.empty-row):not(:focus-within),
+  .table-wrap table tbody tr:hover:not(.empty-row):not(:focus-within){
     background:linear-gradient(90deg,
-      rgba(232,93,60,.06) 0%,
-      rgba(91,155,213,.04) 100%) !important;
-    box-shadow:inset 3px 0 0 var(--coral);
+      rgba(232,93,60,.05) 0%,
+      rgba(91,155,213,.03) 100%);
+    box-shadow:inset 2px 0 0 var(--coral);
   }
   /* Header weight refinement */
   table.data-table thead th,
@@ -3527,6 +3534,12 @@
   .kpi-value, .kpi .v{
     background:linear-gradient(135deg, #fff 0%, #cbd5e1 100%);
     -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+    /* Pin the gradient to the text itself so the parent's hover
+       translateY doesn't reposition the gradient relative to the
+       glyphs (which caused a subtle flicker). */
+    background-attachment:local;
+    /* Stabilize sub-pixel rendering during transform animations. */
+    transform:translateZ(0);backface-visibility:hidden;
   }
 
   /* ── 8. Page header — refined typography ───────────────────────── */
