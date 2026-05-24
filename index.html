@@ -144,7 +144,7 @@
   } catch(_e){ /* localStorage disabled — nothing to wipe */ }
 })();
 </script>
-<script src="assets/js/supabase-client.js?v=30"></script>
+<script src="assets/js/supabase-client.js?v=31"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
 <script src="assets/js/wht-calculator.js?v=17"></script>
 <script src="assets/js/po-estimator.js?v=13"></script>
@@ -5410,6 +5410,35 @@
             <div class="note" data-i18n="users_is_active_hint">Uncheck to deactivate. Deactivated users cannot sign in, and any existing session loses access to all data immediately. Their scenarios and audit history are preserved.</div>
           </div>
 
+          <!-- Per-feature visibility — admin can pick which calculator tabs
+               this user sees. Admins always see everything regardless. -->
+          <div class="auth-field" style="border-top:1px solid var(--border);padding-top:14px;margin-top:6px;">
+            <label style="font-weight:700;display:block;margin-bottom:8px;"><span data-i18n="users_features_label">Visible calculators</span></label>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:6px 14px;">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:500;">
+                <input type="checkbox" id="userEditFeatBep" style="width:16px;height:16px;accent-color:var(--coral);" checked>
+                <span>BEP Calculator</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:500;">
+                <input type="checkbox" id="userEditFeatPc"  style="width:16px;height:16px;accent-color:var(--coral);" checked>
+                <span>Product Costing</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:500;">
+                <input type="checkbox" id="userEditFeatPo"  style="width:16px;height:16px;accent-color:var(--coral);" checked>
+                <span>PO Cash Flow</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:500;">
+                <input type="checkbox" id="userEditFeatWht" style="width:16px;height:16px;accent-color:var(--coral);" checked>
+                <span>WHT Calculator</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:500;">
+                <input type="checkbox" id="userEditFeatPnl" style="width:16px;height:16px;accent-color:var(--coral);" checked>
+                <span>P&amp;L Converter</span>
+              </label>
+            </div>
+            <div class="note" data-i18n="users_features_hint">Unchecked calculators are hidden from this user's sidebar. Admins see everything regardless.</div>
+          </div>
+
           <div class="auth-error" data-user-edit-error></div>
 
           <button type="submit" class="auth-submit"><span data-i18n="users_save">Save</span></button>
@@ -5859,6 +5888,8 @@ const I18N = {
     users_must_change_pw_hint:"Use this when offboarding a teammate, after a suspected leak, or for newly invited users.",
     users_is_active:"Account active",
     users_is_active_hint:"Uncheck to deactivate. Deactivated users cannot sign in, and any existing session loses access to all data immediately. Their scenarios and audit history are preserved.",
+    users_features_label:"Visible calculators",
+    users_features_hint:"Unchecked calculators are hidden from this user's sidebar. Admins see everything regardless.",
     users_badge_inactive:"DEACTIVATED",
     users_badge_pw_change:"PW CHANGE REQUIRED",
     account_deactivated:"Your account has been deactivated. Please contact your admin.",
@@ -6101,6 +6132,8 @@ const I18N = {
     users_must_change_pw_hint:"用于离职交接、密码疑似泄露、或新邀请的用户。",
     users_is_active:"账号已启用",
     users_is_active_hint:"取消勾选即停用。停用后无法登录，现有会话立即失去所有数据访问权限；历史记录与审计日志保留。",
+    users_features_label:"可见的计算器",
+    users_features_hint:"未勾选的计算器在该用户侧边栏中隐藏。管理员始终可见所有功能。",
     users_badge_inactive:"已停用",
     users_badge_pw_change:"待改密",
     account_deactivated:"您的账号已被停用。请联系管理员。",
@@ -12223,6 +12256,51 @@ async function refreshAdminFlag(){
   return _isAdminCache;
 }
 
+/* ───────────────────────────────────────────────────────────────
+   Per-feature tab visibility.
+   Each calculator tab belongs to one feature key; if the user's
+   enabled_features[key] is explicitly false, hide the sidebar
+   button AND the panel itself (in case they bookmark a tab they
+   shouldn't see). Admin role bypasses everything.
+   =============================================================== */
+function applyFeatureVisibility(role, features){
+  const FEATURE_MAP = {
+    bep: ['calc', 'setup', 'compare', 'sensitivity'],
+    pc:  ['pcalc'],
+    po:  ['po'],
+    wht: ['wht'],
+    pnl: ['pnl']
+  };
+  // Admin sees everything; clear any prior hidden marks and bail.
+  if(role === 'admin'){
+    Object.values(FEATURE_MAP).flat().forEach(tabId => {
+      const btn   = document.querySelector('.tab-btn[data-tab="' + tabId + '"]');
+      const panel = document.getElementById('tab-' + tabId);
+      if(btn)   btn.style.display   = '';
+      if(panel) panel.dataset.featureBlocked = '';
+    });
+    return;
+  }
+  const feats = (features && typeof features === 'object') ? features : {};
+  Object.keys(FEATURE_MAP).forEach(key => {
+    const allowed = feats[key] !== false;   // missing key = allowed
+    FEATURE_MAP[key].forEach(tabId => {
+      const btn   = document.querySelector('.tab-btn[data-tab="' + tabId + '"]');
+      const panel = document.getElementById('tab-' + tabId);
+      if(btn)   btn.style.display   = allowed ? '' : 'none';
+      // Mark the panel so activateTab() refuses to switch to it
+      if(panel) panel.dataset.featureBlocked = allowed ? '' : '1';
+    });
+  });
+  // If the currently-active tab just got blocked, jump to the first
+  // visible tab (usually Settings, which is always visible).
+  const activePanel = document.querySelector('.tab-panel.active');
+  if(activePanel && activePanel.dataset.featureBlocked === '1'){
+    const fallback = document.querySelector('.tab-btn:not([style*="none"])');
+    if(fallback && typeof activateTab === 'function') activateTab(fallback.dataset.tab);
+  }
+}
+
 async function renderSidebarProfile(){
   const card = document.getElementById('sidebarProfile');
   if(!card) return;
@@ -12237,18 +12315,25 @@ async function renderSidebarProfile(){
   const fullName = meta.full_name || meta.name || user.email || '';
 
   // Get richer info from profile RPC (role + entities[] + display_name)
-  let role = 'user', entityLabel = null, displayName = null;
+  let role = 'user', entityLabel = null, displayName = null, enabledFeatures = null;
   try {
     const profile = await CTG.getCurrentProfile();
     if(profile){
       role = profile.role || 'user';
       displayName = profile.display_name || profile.full_name || null;
+      enabledFeatures = profile.enabled_features || null;
       const names = Array.isArray(profile.entity_names) ? profile.entity_names : [];
       if(names.length === 1)      entityLabel = names[0];
       else if(names.length === 2) entityLabel = names[0] + ', ' + names[1];
       else if(names.length > 2)   entityLabel = names.length + (LANG === 'zh' ? ' 家公司' : ' entities');
     }
   } catch(e){}
+
+  // ─── Per-feature visibility — hide calculator tabs the user isn't
+  // permitted to access. Admins always see everything (hard-gate by role).
+  // Each tab maps to one feature flag; if the flag is missing/true the
+  // tab stays visible (backward compat for users without the column).
+  applyFeatureVisibility(role, enabledFeatures);
 
   const name = displayName || fullName.split('@')[0] || 'User';
   const initials = name.split(/\s+/).slice(0,2).map(s => (s[0]||'')).join('').toUpperCase() || 'U';
@@ -12444,6 +12529,12 @@ function openUserEditModal(user){
   if(mcpEl) mcpEl.checked = user.must_change_password === true;
   const actEl = document.getElementById('userEditIsActive');
   if(actEl) actEl.checked = user.is_active !== false;  // default: active
+  // Per-feature visibility checkboxes — default true if missing
+  const feats = (user.enabled_features && typeof user.enabled_features === 'object') ? user.enabled_features : {};
+  ['bep','pc','po','wht','pnl'].forEach(k => {
+    const el = document.getElementById('userEditFeat' + k.charAt(0).toUpperCase() + k.slice(1));
+    if(el) el.checked = feats[k] !== false;  // missing key → checked
+  });
   // Render checkbox list of all active entities, pre-checking the user's current assignments
   renderEntityCheckboxes(user.entity_ids || []);
   // Clear error and show modal
@@ -12543,12 +12634,19 @@ document.getElementById('formUserEdit').addEventListener('submit', async e=>{
   ).map(chip => chip.dataset.entityId);
   const mustChangePw = document.getElementById('userEditMustChangePw').checked;
   const isActive     = document.getElementById('userEditIsActive').checked;
+  const enabledFeatures = {
+    bep: document.getElementById('userEditFeatBep').checked,
+    pc:  document.getElementById('userEditFeatPc').checked,
+    po:  document.getElementById('userEditFeatPo').checked,
+    wht: document.getElementById('userEditFeatWht').checked,
+    pnl: document.getElementById('userEditFeatPnl').checked
+  };
   const errEl = document.querySelector('[data-user-edit-error]');
   errEl.classList.remove('show');
   const submit = e.currentTarget.querySelector('button[type="submit"]');
   submit.disabled = true;
   try {
-    await CTG.adminSetUserProfile(id, role, entity_ids, { isActive, mustChangePassword: mustChangePw });
+    await CTG.adminSetUserProfile(id, role, entity_ids, { isActive, mustChangePassword: mustChangePw, enabledFeatures });
     showToast(t('users_saved'), 'success');
     closeUserEditModal();
     await renderUsersTab();

@@ -204,6 +204,9 @@
     // that didn't opt in keep the existing values (NULL = leave-as-is on DB).
     if (typeof opts.isActive === 'boolean')           payload.p_is_active             = opts.isActive;
     if (typeof opts.mustChangePassword === 'boolean') payload.p_must_change_password  = opts.mustChangePassword;
+    if (opts.enabledFeatures && typeof opts.enabledFeatures === 'object') {
+      payload.p_enabled_features = opts.enabledFeatures;
+    }
     const { error } = await sb.rpc('admin_set_user_profile', payload);
     if (error) throw error;
   }
