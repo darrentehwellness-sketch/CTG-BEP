@@ -35,7 +35,7 @@
 <script src="assets/js/supabase-client.js?v=26"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
 <script src="assets/js/wht-calculator.js?v=17"></script>
-<script src="assets/js/po-estimator.js?v=2"></script>
+<script src="assets/js/po-estimator.js?v=3"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -3680,8 +3680,10 @@
           <label>Supplier</label>
           <select id="poSupplier" style="width:100%;padding:11px 14px;border:1px solid var(--border-strong);border-radius:8px;background:rgba(7,13,23,.6);color:var(--text);font:inherit;">
             <option value="">— Select supplier —</option>
+            <option value="__custom__">— Type custom name —</option>
           </select>
-          <div class="note" style="margin-top:6px;font-size:11px;">Picking a supplier auto-fills currency, lead time and payment terms. Manage list under Admin → Suppliers.</div>
+          <input type="text" id="poSupplierCustom" placeholder="e.g. IPOCARE Sdn Bhd" style="margin-top:8px;display:none;"/>
+          <div class="note" style="margin-top:6px;font-size:11px;">Pick a managed supplier to auto-fill currency/lead time/payment terms, OR type any custom name for a one-off PO. Manage saved list under Admin → Suppliers.</div>
         </div>
         <div class="input-group">
           <label>PO Number</label>
@@ -9014,11 +9016,33 @@ function populateDropdowns(){
     ent.value = poState.buyingEntityId || '';
   }
   const sup = document.getElementById('poSupplier');
+  const customInp = document.getElementById('poSupplierCustom');
   if(sup){
     const active = _safeCache('_suppliersCache').filter(s => s.is_active !== false);
     sup.innerHTML = '<option value="">— Select supplier —</option>' +
-      active.map(s => '<option value="'+s.id+'">'+escapeHtml(s.name)+'</option>').join('');
-    sup.value = poState.supplierId || '';
+      active.map(s => '<option value="'+s.id+'">'+escapeHtml(s.name)+'</option>').join('') +
+      '<option value="__custom__">— Type custom name —</option>';
+
+    // Decide what to select based on current state:
+    //   - supplierId set + matches a cached supplier → pick that option
+    //   - supplierName set but no ID match → custom mode, show input
+    //   - both blank → no selection
+    const matched = poState.supplierId
+      ? active.find(s => String(s.id) === String(poState.supplierId))
+      : null;
+    if(matched){
+      sup.value = poState.supplierId;
+      if(customInp){ customInp.style.display = 'none'; }
+    } else if(poState.supplierName){
+      sup.value = '__custom__';
+      if(customInp){
+        customInp.style.display = '';
+        if(document.activeElement !== customInp) customInp.value = poState.supplierName;
+      }
+    } else {
+      sup.value = '';
+      if(customInp){ customInp.style.display = 'none'; }
+    }
   }
 }
 
@@ -9364,26 +9388,56 @@ document.addEventListener('change', e => {
     return;
   }
   if(e.target.id === 'poSupplier'){
-    poState.supplierId = e.target.value || '';
-    if(e.target.value){
-      const cache = _safeCache('_suppliersCache');
-      const sup = cache.find(s => String(s.id) === String(e.target.value));
-      if(sup){
-        poState.supplierName  = sup.name || '';
-        poState.currency      = sup.base_currency || 'MYR';
-        poState.leadTimeWeeks = Number(sup.default_lead_time_weeks) || 8;
-        poState.depositPct    = Number(sup.default_deposit_pct) || 30;
-        poState.balancePct    = Number(sup.default_balance_pct) || 70;
-        poState.creditDays    = Number(sup.default_credit_days) || 0;
-        poState.importDutyPct = Number(sup.default_import_duty_pct) || 0;
-        poState.forwardingFee = Number(sup.default_forwarding_fee) || 0;
-        renderAll();
-        showToast('Supplier defaults loaded: '+sup.name, 'success');
-        return;
+    const v = e.target.value;
+    const customInp = document.getElementById('poSupplierCustom');
+    if(v === '__custom__'){
+      // Custom mode — reveal text input, clear supplier ID,
+      // keep any previously typed/picked name as a starting point
+      poState.supplierId = '';
+      if(customInp){
+        customInp.style.display = '';
+        // Focus the input so user can start typing immediately
+        setTimeout(() => { customInp.focus(); customInp.select && customInp.select(); }, 0);
       }
+      persist();
+      return;
+    }
+    if(v === ''){
+      // Cleared
+      poState.supplierId = '';
+      poState.supplierName = '';
+      if(customInp){ customInp.style.display = 'none'; customInp.value = ''; }
+      persist();
+      renderAll();
+      return;
+    }
+    // Picked a managed supplier by ID — copy all defaults
+    poState.supplierId = v;
+    const cache = _safeCache('_suppliersCache');
+    const sup = cache.find(s => String(s.id) === String(v));
+    if(sup){
+      poState.supplierName  = sup.name || '';
+      poState.currency      = sup.base_currency || 'MYR';
+      poState.leadTimeWeeks = Number(sup.default_lead_time_weeks) || 8;
+      poState.depositPct    = Number(sup.default_deposit_pct) || 30;
+      poState.balancePct    = Number(sup.default_balance_pct) || 70;
+      poState.creditDays    = Number(sup.default_credit_days) || 0;
+      poState.importDutyPct = Number(sup.default_import_duty_pct) || 0;
+      poState.forwardingFee = Number(sup.default_forwarding_fee) || 0;
+      if(customInp){ customInp.style.display = 'none'; }
+      renderAll();
+      showToast('Supplier defaults loaded: '+sup.name, 'success');
+      return;
     }
     persist();
   }
+});
+
+// Custom supplier name input handler
+document.addEventListener('input', e => {
+  if(e.target.id !== 'poSupplierCustom') return;
+  poState.supplierName = e.target.value;
+  persist();
 });
 
 // ─── Line / Channel / Forecast input handlers
