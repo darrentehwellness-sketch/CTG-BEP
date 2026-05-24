@@ -4672,6 +4672,7 @@
 
         <div style="display:flex;gap:10px;margin:14px 0;flex-wrap:wrap;align-items:center;">
           <button class="accent" id="btnNewEntity">+ <span data-i18n="entities_new">New Entity</span></button>
+          <button class="ghost" id="btnImportEntities"><span data-i18n="imp_btn">📥 Import Excel</span></button>
           <button class="ghost" id="btnRefreshEntities">↻ <span data-i18n="users_refresh">Refresh</span></button>
         </div>
 
@@ -4811,6 +4812,7 @@
 
         <div style="display:flex;gap:10px;margin:14px 0;flex-wrap:wrap;align-items:center;">
           <button class="accent" id="btnNewSupplier">+ <span data-i18n="suppliers_new">New Supplier</span></button>
+          <button class="ghost" id="btnImportSuppliers"><span data-i18n="imp_btn">📥 Import Excel</span></button>
           <button class="ghost" id="btnRefreshSuppliers">↻ <span data-i18n="users_refresh">Refresh</span></button>
         </div>
 
@@ -5028,6 +5030,7 @@
       <div id="usersAdmin" style="display:none;">
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;">
           <a class="accent" target="_blank" rel="noopener" id="lnkInviteUser" href="https://supabase.com/dashboard/project/msdfzzvdmmqzwcnxtrfn/auth/users" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;background:linear-gradient(135deg,var(--sky),var(--accent-dark));color:#fff;box-shadow:0 2px 6px rgba(91,155,213,.3);">+ <span data-i18n="users_invite">Invite User</span></a>
+          <button class="ghost" id="btnImportUsers"><span data-i18n="imp_btn">📥 Import Excel</span></button>
           <button class="ghost" id="btnRefreshUsers">↻ <span data-i18n="users_refresh">Refresh</span></button>
           <span class="note" data-i18n="users_note">Invite, delete, and edit users via the Supabase Dashboard (link above).</span>
         </div>
@@ -11403,6 +11406,206 @@ document.getElementById('btnCancelEntity').onclick  = ()=>{
   document.getElementById('entityId').value = '';
 };
 document.getElementById('btnRefreshEntities').onclick = renderEntitiesTab;
+
+// ═════════════════════════════════════════════════════════════════
+// Excel Import — Entities / Suppliers / Users (admin)
+// ─────────────────────────────────────────────────────────────────
+// Registered after the calc-tab schemas so we know CTGImport exists.
+// Each apply() function does parallel upserts via existing CTG.* APIs
+// then refreshes the relevant tab so the new rows appear instantly.
+// ═════════════════════════════════════════════════════════════════
+if(window.CTGImport){
+  // ─── Entities ─────────────────────────────────────────────────
+  window.CTGImport.register('entities', {
+    target: 'entities',
+    label:  'Entities (Companies)',
+    sheets: [{
+      name: 'Entities',
+      columns: [
+        { key:'name',                 label:'Name',                required:true,  type:'text',   help:'Short trading name, e.g. ILADY' },
+        { key:'legal_name',           label:'Legal Name',          required:false, type:'text',   help:'Registered legal entity name' },
+        { key:'registration_number',  label:'Registration No',     required:false, type:'text',   help:'SSM / company registration number' },
+        { key:'tax_number',           label:'Tax Number',          required:false, type:'text',   help:'SST registration number' },
+        { key:'tin_number',           label:'TIN',                 required:false, type:'text',   help:'LHDN Tax Identification Number' },
+        { key:'address_line1',        label:'Address Line 1',      required:false, type:'text' },
+        { key:'address_line2',        label:'Address Line 2',      required:false, type:'text' },
+        { key:'city',                 label:'City',                required:false, type:'text' },
+        { key:'state',                label:'State',               required:false, type:'text' },
+        { key:'postcode',             label:'Postcode',            required:false, type:'text' },
+        { key:'country',              label:'Country',             required:false, type:'text', help:'Default Malaysia' },
+        { key:'contact_person',       label:'Contact Person',      required:false, type:'text' },
+        { key:'contact_email',        label:'Contact Email',       required:false, type:'text' },
+        { key:'contact_phone',        label:'Contact Phone',       required:false, type:'text', help:'International format, e.g. +60123456789' },
+        { key:'notes',                label:'Notes',               required:false, type:'text' }
+      ],
+      sample: [
+        ['ILADY',  'iLady Beauty Sdn Bhd',  '202301012345', 'C12-3456-78901234', '', '', '', 'Petaling Jaya', 'Selangor', '46000', 'Malaysia', '', '', '', '']
+      ]
+    }],
+    async apply(parsed){
+      const rows = parsed.Entities || [];
+      let ok = 0, fail = 0;
+      for(const r of rows){
+        try {
+          await CTG.createEntity({
+            name: r.name,
+            legal_name: r.legal_name || null,
+            registration_number: r.registration_number || null,
+            tax_number: r.tax_number || null,
+            tin_number: r.tin_number || null,
+            address_line1: r.address_line1 || null,
+            address_line2: r.address_line2 || null,
+            city: r.city || null, state: r.state || null,
+            postcode: r.postcode || null,
+            country: r.country || 'Malaysia',
+            contact_person: r.contact_person || null,
+            contact_email: r.contact_email || null,
+            contact_phone: r.contact_phone || null,
+            notes: r.notes || null,
+            is_active: true
+          });
+          ok++;
+        } catch(e){ console.warn('[import entity]', r.name, e.message); fail++; }
+      }
+      showToast('✓ Created ' + ok + ' entity(ies)' + (fail ? ' · ' + fail + ' failed (likely duplicate name)' : ''), fail ? 'warn' : 'success');
+      try { await refreshEntitiesCache(); } catch(_e){}
+      renderEntitiesTab();
+    }
+  });
+
+  // ─── Suppliers ────────────────────────────────────────────────
+  window.CTGImport.register('suppliers', {
+    target: 'suppliers',
+    label:  'Suppliers',
+    sheets: [{
+      name: 'Suppliers',
+      columns: [
+        { key:'entity',                    label:'Entity Name',           required:true,  type:'text',   help:'Must match an existing entity name exactly (case-insensitive)' },
+        { key:'name',                      label:'Supplier Name',         required:true,  type:'text' },
+        { key:'code',                      label:'Code',                  required:false, type:'text',   help:'Short code / alias for the supplier dropdown' },
+        { key:'legal_name',                label:'Legal Name',            required:false, type:'text' },
+        { key:'registration_number',       label:'Registration No',      required:false, type:'text' },
+        { key:'tax_number',                label:'Tax Number',           required:false, type:'text' },
+        { key:'tin_number',                label:'TIN',                  required:false, type:'text' },
+        { key:'contact_person',            label:'Contact Person',       required:false, type:'text' },
+        { key:'contact_email',             label:'Contact Email',        required:false, type:'text' },
+        { key:'contact_phone',             label:'Contact Phone',        required:false, type:'text' },
+        { key:'base_currency',             label:'Base Currency',        required:false, type:'text', help:'3-letter code, e.g. MYR / USD / CNY' },
+        { key:'default_lead_time_weeks',   label:'Lead Time (weeks)',    required:false, type:'number', min:0 },
+        { key:'default_deposit_pct',       label:'Default Deposit %',    required:false, type:'number', min:0 },
+        { key:'default_balance_pct',       label:'Default Balance %',    required:false, type:'number', min:0 },
+        { key:'default_credit_days',       label:'Default Credit Days',  required:false, type:'number', min:0 },
+        { key:'default_import_duty_pct',   label:'Default Duty %',       required:false, type:'number', min:0 },
+        { key:'default_forwarding_fee',    label:'Default Forwarding (MYR)', required:false, type:'number', min:0 },
+        { key:'payment_terms_note',        label:'Payment Terms Note',   required:false, type:'text' },
+        { key:'notes',                     label:'Notes',                required:false, type:'text' }
+      ],
+      sample: [
+        ['ILADY', 'CHOMOS ENTERPRISE',  'CHOMOS', 'Chomos Enterprise Sdn Bhd', '202401012345', '', '', 'Mr Chin', 'chin@chomos.example', '+60123456789', 'MYR', 8, 30, 70, 30, 0, 5000, 'T/T 30/70', '']
+      ]
+    }],
+    async apply(parsed){
+      // Resolve entity names → IDs from the cache.
+      const ents = (typeof _entitiesCache !== 'undefined' && _entitiesCache) || [];
+      const byName = {};
+      ents.forEach(e => { byName[String(e.name || '').trim().toLowerCase()] = e.id; });
+      const rows = parsed.Suppliers || [];
+      let ok = 0, fail = 0, skipped = 0;
+      for(const r of rows){
+        const entId = byName[String(r.entity || '').trim().toLowerCase()];
+        if(!entId){ console.warn('[import supplier] entity not found:', r.entity); skipped++; continue; }
+        try {
+          await CTG.createSupplier({
+            entity_id: entId,
+            name: r.name,
+            code: r.code || null,
+            legal_name: r.legal_name || null,
+            registration_number: r.registration_number || null,
+            tax_number: r.tax_number || null,
+            tin_number: r.tin_number || null,
+            contact_person: r.contact_person || null,
+            contact_email: r.contact_email || null,
+            contact_phone: r.contact_phone || null,
+            base_currency: r.base_currency || 'MYR',
+            default_lead_time_weeks: r.default_lead_time_weeks || 8,
+            default_deposit_pct: r.default_deposit_pct || 30,
+            default_balance_pct: r.default_balance_pct || 70,
+            default_credit_days: r.default_credit_days || 30,
+            default_import_duty_pct: r.default_import_duty_pct || 0,
+            default_forwarding_fee: r.default_forwarding_fee || 0,
+            payment_terms_note: r.payment_terms_note || null,
+            notes: r.notes || null,
+            is_active: true
+          });
+          ok++;
+        } catch(e){ console.warn('[import supplier]', r.name, e.message); fail++; }
+      }
+      let msg = '✓ Created ' + ok + ' supplier(s)';
+      if(skipped) msg += ' · ' + skipped + ' skipped (entity name not found)';
+      if(fail)    msg += ' · ' + fail + ' failed';
+      showToast(msg, (fail || skipped) ? 'warn' : 'success');
+      try { await refreshSuppliersCache(); } catch(_e){}
+      if(typeof renderSuppliersTab === 'function') renderSuppliersTab();
+    }
+  });
+
+  // ─── Users ────────────────────────────────────────────────────
+  // NOTE: We can't CREATE auth.users from the client — invitations
+  // must be sent via the Supabase Auth dashboard first. This import
+  // only updates existing users' role + entity assignments in bulk.
+  window.CTGImport.register('users', {
+    target: 'users',
+    label:  'Users (profiles + entity assignments)',
+    sheets: [{
+      name: 'Users',
+      columns: [
+        { key:'email',    label:'Email',    required:true,  type:'text',   help:'Must already exist in Supabase Auth — invite them first if not' },
+        { key:'role',     label:'Role',     required:true,  type:'enum',   values:['admin','user','viewer'], help:'admin / user / viewer' },
+        { key:'entities', label:'Entities', required:false, type:'text',   help:'Comma-separated entity names, e.g. "ILADY, SKINDAE". Ignored for admins.' }
+      ],
+      sample: [
+        ['user1@example.com', 'user',   'ILADY'],
+        ['boss@example.com',  'viewer', 'ILADY, SKINDAE, MFormula']
+      ]
+    }],
+    async apply(parsed){
+      // Load current users + entities for resolution.
+      let users = [];
+      try { users = await CTG.adminListUsers(); } catch(e){ showToast('Need to be admin to import users', 'error'); return; }
+      const usersByEmail = {};
+      users.forEach(u => { usersByEmail[String(u.email || '').trim().toLowerCase()] = u; });
+      const ents = (typeof _entitiesCache !== 'undefined' && _entitiesCache) || [];
+      const entByName = {};
+      ents.forEach(e => { entByName[String(e.name || '').trim().toLowerCase()] = e.id; });
+      const rows = parsed.Users || [];
+      let ok = 0, missing = 0, fail = 0;
+      for(const r of rows){
+        const u = usersByEmail[String(r.email || '').trim().toLowerCase()];
+        if(!u){ console.warn('[import user] not found:', r.email); missing++; continue; }
+        // Resolve entity names → IDs (ignore unknown silently)
+        const entIds = String(r.entities || '')
+          .split(',').map(s => s.trim()).filter(Boolean)
+          .map(n => entByName[n.toLowerCase()])
+          .filter(Boolean);
+        try {
+          await CTG.adminSetUserProfile(u.user_id, r.role, entIds);
+          ok++;
+        } catch(e){ console.warn('[import user]', r.email, e.message); fail++; }
+      }
+      let msg = '✓ Updated ' + ok + ' user(s)';
+      if(missing) msg += ' · ' + missing + ' not in Auth (invite them first)';
+      if(fail)    msg += ' · ' + fail + ' failed';
+      showToast(msg, (fail || missing) ? 'warn' : 'success');
+      if(typeof renderUsersTab === 'function') renderUsersTab();
+    }
+  });
+}
+
+// Wire admin Import buttons
+['Entities','Suppliers','Users'].forEach(name => {
+  const btn = document.getElementById('btnImport' + name);
+  if(btn) btn.onclick = () => window.CTGImport && window.CTGImport.open(name.toLowerCase());
+});
 
 // Warn on browser close/reload while form is open and dirty (browser shows native dialog)
 window.addEventListener('beforeunload', e => {
