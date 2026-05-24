@@ -505,17 +505,23 @@
     outline:none !important;
     background:linear-gradient(180deg, rgba(91,155,213,.32), rgba(91,155,213,.18)) !important;
   }
-  /* Bigger, cleaner flag */
+  /* Flag — DO NOT override width/height or background-size!
+     The library uses a CSS sprite where each flag is at a precise
+     X-offset. Resizing the sprite shifts every offset and breaks
+     every flag (Malaysia ends up showing as Maldives, etc).
+     Only safe to add visual polish (radius + shadow). */
   .iti__flag-container,
   .iti__flag{
     flex-shrink:0 !important;
   }
   .iti__flag{
-    width:24px !important;
-    height:18px !important;
-    background-size:5616px 18px !important;   /* default sprite is taller; preserves clarity */
     border-radius:2px !important;
-    box-shadow:0 1px 2px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.06);
+    box-shadow:0 1px 2px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.05);
+  }
+  /* The flag list inside the dropdown — keep the library's default
+     sprite math intact, just style the row colors below. */
+  .iti__country .iti__flag{
+    box-shadow:0 0 0 1px rgba(0,0,0,.20);
   }
   /* Dial code — crisp, prominent */
   .iti__selected-dial-code{
