@@ -4734,7 +4734,6 @@
     <div class="toolbar">
       <button class="ghost" id="btnWhtReset">↺ <span data-i18n="reset">Reset Sample</span></button>
       <button class="ghost" id="btnWhtAddPayee">+ <span data-i18n="wht_add_payee">Add Payee</span></button>
-      <button class="ghost" id="btnWhtImport"><span data-i18n="imp_btn">📥 Import Excel</span></button>
       <button class="success" id="btnWhtSave">⭐ <span data-i18n="wht_save_btn">Save Scenario</span></button>
       <button class="accent" id="btnWhtExport">⬇ <span data-i18n="wht_export_excel">Export Excel</span></button>
       <div style="flex:1"></div>
@@ -9952,64 +9951,8 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     renderAll();
   }
 
-  // ─── Excel Import — WHT schema + button wire-up
-  if(window.CTGImport){
-    window.CTGImport.register('wht', {
-      target: 'wht',
-      label:  'WHT Calculator',
-      sheets: [
-        {
-          name: 'Payees',
-          columns: [
-            { key:'name',        label:'Payee Name',     required:true,  type:'text',   help:'Non-resident vendor / service provider' },
-            { key:'country',     label:'Country',        required:false, type:'text',   help:'Country of residence; pick the exact LHDN DTA list label or "No DTA / Other"' },
-            { key:'foreignTin',  label:'Foreign TIN',    required:false, type:'text',   help:'Vendor\'s tax ID in their home country' },
-            { key:'section',     label:'Section',        required:false, type:'enum', values:['royalty','interest','technical','rental','contract','other'], help:'LHDN payment-type category (royalty/interest/technical/rental/contract/other)' },
-            { key:'whtRate',     label:'WHT Rate %',     required:false, type:'number', min:0, help:'Withholding rate from LHDN section / DTA, e.g. 10 for royalty' },
-            { key:'sstRate',     label:'SST Rate %',     required:false, type:'number', min:0, help:'Usually 8 for digital services, 0 if not applicable' },
-            { key:'sstInclusive',label:'SST Inclusive?', required:false, type:'enum', values:['yes','no','true','false','y','n'], help:'Is the invoice amount already SST-inclusive? yes / no' },
-            { key:'dateRange',   label:'Date Range',     required:false, type:'text',   help:'Free-text label like "2026-01 → 2026-03"' },
-            { key:'invoiceNo',   label:'Invoice No',     required:false, type:'text',   help:'Reference invoice / receipt number' },
-            { key:'invoiceDate', label:'Invoice Date',   required:false, type:'text',   help:'YYYY-MM-DD' },
-            { key:'gross',       label:'Gross Amount (MYR)', required:true, type:'number', min:0, help:'Invoice amount in MYR' }
-          ],
-          sample: [
-            ['Adobe Inc',           'United States',    'US12-3456789', 'royalty',   10, 8, 'yes', '2026-Q1', 'INV-2026-001', '2026-01-15', 12000],
-            ['Google Cloud (S\'pore)','Singapore',      'SG-201234567', 'technical', 8,  8, 'yes', '2026-Q1', 'GC-X9923',     '2026-01-31', 8500]
-          ]
-        }
-      ],
-      apply(parsed, mode){
-        const incoming = (parsed.Payees || []).map(r => {
-          const sstInc = String(r.sstInclusive || 'yes').toLowerCase();
-          return {
-            name: r.name || 'Unnamed Payee',
-            country: r.country || 'No DTA / Other',
-            foreignTin: r.foreignTin || '',
-            section: r.section || 'royalty',
-            whtRate: Number(r.whtRate) || 10,
-            sstInclusive: (sstInc === 'yes' || sstInc === 'true' || sstInc === 'y'),
-            sstRate: Number(r.sstRate) || 0,
-            latePenalty: false,
-            dateRange: r.dateRange || '',
-            lines: [{
-              date: r.invoiceDate || '',
-              receiptNo: r.invoiceNo || '',
-              gross: Number(r.gross) || 0
-            }]
-          };
-        });
-        if(mode === 'replace'){
-          whtState.payees = incoming;
-        } else {
-          whtState.payees = whtState.payees.concat(incoming);
-        }
-        renderAll();
-      }
-    });
-  }
-  const _btnWhtImport = document.getElementById('btnWhtImport');
-  if(_btnWhtImport){ _btnWhtImport.onclick = () => window.CTGImport && window.CTGImport.open('wht'); }
+  // (Excel Import for WHT removed — payee data is entered manually
+  //  via Add Payee. Other calculators still support import.)
   function delPayee(i){
     if(!confirm(t('wht_confirm_del_payee'))) return;
     whtState.payees.splice(i,1);
