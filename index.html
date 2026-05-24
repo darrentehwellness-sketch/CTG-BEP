@@ -35,7 +35,7 @@
 <script src="assets/js/supabase-client.js?v=26"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
 <script src="assets/js/wht-calculator.js?v=17"></script>
-<script src="assets/js/po-estimator.js?v=9"></script>
+<script src="assets/js/po-estimator.js?v=10"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -9345,13 +9345,28 @@ function refreshForecastTotals(){
   });
 }
 
-// ─── Surgical refresh: just numbers, keeps inputs intact
+// ─── Surgical refresh: just numbers, keeps inputs intact.
+// Splits work into IMMEDIATE (per-keystroke, cheap) and DEFERRED
+// (debounced 200ms, expensive). Without this split, every keystroke
+// in a line/forecast input would block the main thread for 200-500ms
+// rebuilding the cash flow table + 3 Chart.js charts — making fast
+// continuous typing feel sluggish or dropping keystrokes.
+let _poDeferredTimer = null;
 function refreshNumbers(){
-  refreshLineComputed();   // line ext amts + margins (no input rebuild)
-  refreshForecastTotals(); // forecast Σ Units + monthly totals (no input rebuild)
-  renderCashFlow();        // KPIs + monthly table (no inputs in this section)
-  renderCharts();          // chart redraw
-  persist();
+  // IMMEDIATE — these are sub-millisecond (just textContent + style):
+  refreshLineComputed();
+  refreshForecastTotals();
+  // DEFERRED — debounced 200ms so a stream of keystrokes only triggers
+  // one Chart.js redraw at the end, not one per char. Cash flow table
+  // also rebuilt here (no inputs in that table so focus isn't at risk).
+  if(_poDeferredTimer) clearTimeout(_poDeferredTimer);
+  _poDeferredTimer = setTimeout(() => {
+    try {
+      renderCashFlow();
+      renderCharts();
+      persist();
+    } catch(err){ console.error('[PO refreshNumbers deferred]', err); }
+  }, 200);
 }
 
 // ─── Header input handlers
