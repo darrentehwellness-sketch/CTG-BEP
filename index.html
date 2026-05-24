@@ -3644,8 +3644,12 @@
     mix-blend-mode:overlay;
   }
 
-  /* Don't let the body::before overlay catch clicks on real content */
-  .login-gate, .main-content, .sidebar, #authModal, #importExcelModal{position:relative;z-index:2;}
+  /* Don't let the body::before overlay catch clicks on real content.
+     BUGFIX: don't include .login-gate here — its own CSS already sets
+     position:fixed inset:0 z-index:300, and overriding with relative
+     made it collapse to natural document height, exposing the app
+     content below to signed-out users. */
+  .main-content, .sidebar, #authModal, #importExcelModal{position:relative;z-index:2;}
 
   /* ── 21. Reduce-motion safety — respect user preference ────────── */
   @media (prefers-reduced-motion: reduce){
