@@ -34,7 +34,7 @@
 <script src="config.js?v=22"></script>
 <script src="assets/js/supabase-client.js?v=26"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
-<script src="assets/js/wht-calculator.js?v=13"></script>
+<script src="assets/js/wht-calculator.js?v=14"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -1245,6 +1245,22 @@
   td.wht-wht-cell.wht-flash{ animation:wht-flash .6s ease-out; }
   @media (prefers-reduced-motion: reduce){
     .wht-flash{ animation:none !important; }
+  }
+
+  /* Receipt / Invoice No validation — when the row has an Invoice
+     Amount but the Receipt No field is empty, paint a coral border
+     + soft tinted background so the user can't miss it. Required
+     for LHDN audit trail (every receipt must be identifiable). */
+  input.wht-receipt-input.is-required-empty{
+    border-color:var(--coral) !important;
+    background:rgba(232,93,60,.10) !important;
+    box-shadow:0 0 0 2px rgba(232,93,60,.18) !important;
+  }
+  input.wht-receipt-input.is-required-empty::placeholder{
+    color:var(--coral-soft) !important; opacity:.85;
+  }
+  input.wht-receipt-input.is-required-empty:focus{
+    box-shadow:0 0 0 3px rgba(232,93,60,.32) !important;
   }
 
   /* Formula caption shown above each payee's receipts table */
@@ -6941,9 +6957,50 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
         p.lines[lineIdx].gross = invoice;
         persist();
         try { refreshPayeeTotals(payeeIdx); } catch(_e){}
+        // Toggle the "missing receipt" warning right after the user types
+        // a value (Receipt becomes required as soon as Invoice > 0).
+        try { _whtValidateReceipts(payeeIdx); } catch(_e){}
       }
     } catch(err){ console.error('[WHT _whtComputeRow]', err); }
   };
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // RECEIPT-NO VALIDATION — every row that has an Invoice Amount > 0 must
+  // also have a non-empty Receipt / Invoice No (LHDN audit-trail rule).
+  // Walks one payee's rows and toggles the .is-required-empty class on
+  // each Receipt input. Used for both live UI feedback and the pre-save
+  // / pre-export gate.
+  // Returns { missing:[{payee, line, lineNo}], total:N } so callers
+  // can block save/export when missing > 0.
+  // ═══════════════════════════════════════════════════════════════════════
+  function _whtValidateReceipts(payeeIdx){
+    const p = whtState.payees[payeeIdx]; if(!p) return { missing:[], total:0 };
+    const card = document.querySelector('[data-pi="' + payeeIdx + '"]');
+    const missing = [];
+    (p.lines || []).forEach((L, li) => {
+      const hasInvoice = Number(L.gross || 0) > 0;
+      const hasReceipt = String(L.receiptNo || '').trim().length > 0;
+      const needsWarning = hasInvoice && !hasReceipt;
+      if(needsWarning) missing.push({ payee: payeeIdx, line: li, lineNo: li + 1 });
+      // Toggle the CSS class on the DOM input (if rendered)
+      if(card){
+        const inp = card.querySelector('input.wht-receipt-input[data-line="' + li + '"]');
+        if(inp){
+          if(needsWarning) inp.classList.add('is-required-empty');
+          else             inp.classList.remove('is-required-empty');
+        }
+      }
+    });
+    return { missing, total: (p.lines || []).length };
+  }
+  function _whtValidateAllReceipts(){
+    let all = [];
+    (whtState.payees || []).forEach((p, i) => {
+      const r = _whtValidateReceipts(i);
+      all = all.concat(r.missing.map(m => ({ ...m, payeeName: p.name || ('Payee ' + (i+1)) })));
+    });
+    return all;
+  }
 
   // ═══════════════════════════════════════════════════════════════════════
   // DIRECT NET UPDATE — user types in the Net column, we back-calculate
@@ -7258,7 +7315,7 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
                 return '<tr>' +
                   '<td>' + (li+1) + '</td>' +
                   '<td>' + buildSingleDateWidget(L.date || '', { wpl: i, line: li }) + '</td>' +
-                  '<td><input type="text" value="' + escapeHtml(L.receiptNo||'') + '" data-wpl="' + i + '" data-line="' + li + '" data-field="receiptNo"></td>' +
+                  '<td><input type="text" value="' + escapeHtml(L.receiptNo||'') + '" data-wpl="' + i + '" data-line="' + li + '" data-field="receiptNo" class="wht-receipt-input" placeholder="Required — receipt / invoice no."></td>' +
                   // SINGLE SOURCE OF TRUTH = Invoice Amount.
                   //   Net  = Invoice ÷ 1.08   (LHDN PR 11/2018 reverse-calc)
                   //   SST  = Invoice − Net
@@ -7489,6 +7546,10 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
 
     // Master summary KPIs + table — text-only, safe to call any time
     renderMaster();
+
+    // Receipt-No validation paint (red border on rows with Invoice > 0
+    // but no receipt number — see _whtValidateReceipts).
+    try { _whtValidateReceipts(i); } catch(_e){}
   }
 
   // ---- Surgical refresh: update only the chip title text in one payee card
@@ -7556,6 +7617,8 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     renderPayees();
     renderMaster();
     persist();
+    // Paint the "missing receipt" warning borders for every payee.
+    try { _whtValidateAllReceipts(); } catch(_e){}
   }
 
   // Entity dropdown change → set payerName (+ TIN if entity has tax_number)
@@ -7718,9 +7781,11 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
         p.lines[li][f] = isoToDmy(tgt.value);
         persist();
       } else {
-        // receiptNo — text input
+        // receiptNo — text input. Required field; toggle the warning
+        // border as soon as the user types (or empties) the field.
         p.lines[li][f] = tgt.value;
         persist();
+        try { _whtValidateReceipts(i); } catch(_e){}
         // No render — preserves typing focus
       }
       return;
@@ -7861,6 +7926,21 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     }).join('');
   }
   if(btnSave) btnSave.onclick = () => {
+    // LHDN audit gate: every row with an Invoice Amount must also have a
+    // Receipt / Invoice No. Warn before saving — user can override if
+    // they want to save a work-in-progress draft.
+    const missing = _whtValidateAllReceipts();
+    if(missing.length > 0){
+      const sample = missing.slice(0, 5).map(m => '· ' + m.payeeName + ' — row ' + m.lineNo).join('\n');
+      const more = missing.length > 5 ? '\n…and ' + (missing.length - 5) + ' more' : '';
+      const ok = confirm(
+        '⚠ ' + missing.length + ' row' + (missing.length>1?'s':'') +
+        ' missing Receipt / Invoice No (red border):\n\n' +
+        sample + more +
+        '\n\nReceipt No is required for LHDN audit trail. Save anyway?'
+      );
+      if(!ok) return;
+    }
     const name = prompt(t('wht_save_prompt'), 'WHT ' + (whtState.period || new Date().toLocaleDateString()));
     if(!name) return;
     const list = loadScenarios();
@@ -7894,6 +7974,19 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     if(typeof XLSX === 'undefined'){
       showToast('Excel library not loaded — reload the page.', 'error');
       return;
+    }
+    // LHDN audit gate — same as Save Scenario
+    const missing = _whtValidateAllReceipts();
+    if(missing.length > 0){
+      const sample = missing.slice(0, 5).map(m => '· ' + m.payeeName + ' — row ' + m.lineNo).join('\n');
+      const more = missing.length > 5 ? '\n…and ' + (missing.length - 5) + ' more' : '';
+      const ok = confirm(
+        '⚠ ' + missing.length + ' row' + (missing.length>1?'s':'') +
+        ' missing Receipt / Invoice No (red border):\n\n' +
+        sample + more +
+        '\n\nReceipt No is required for LHDN audit trail. Export anyway?'
+      );
+      if(!ok) return;
     }
     try {
       const wb = W.buildWorkbook(whtState);
