@@ -35,7 +35,7 @@
 <script src="assets/js/supabase-client.js?v=26"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
 <script src="assets/js/wht-calculator.js?v=17"></script>
-<script src="assets/js/po-estimator.js?v=5"></script>
+<script src="assets/js/po-estimator.js?v=6"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -3790,34 +3790,9 @@
       </div>
     </div>
 
-    <!-- ④ SALES CHANNELS -->
+    <!-- ④ SALES FORECAST -->
     <div class="card">
-      <h2><span class="ic">④</span>Sales Channels<span class="badge">Cash in lag</span></h2>
-      <div class="note" style="margin-bottom:10px;">Each channel takes a share of revenue and receives payment after its Net days. Share % across channels should sum to 100.</div>
-      <div class="table-wrap">
-        <table id="poChannelsTable">
-          <thead><tr>
-            <th>Channel Name</th>
-            <th style="width:120px;">Share %</th>
-            <th style="width:140px;">Payment Days</th>
-            <th style="width:42px;"></th>
-          </tr></thead>
-          <tbody id="poChannelsBody"></tbody>
-          <tfoot>
-            <tr>
-              <td style="text-align:right;color:var(--coral-soft);font-weight:700;">TOTAL</td>
-              <td class="num" id="poChannelTotalPct">—</td>
-              <td colspan="2"></td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-      <div class="add-row" style="margin-top:10px;"><button id="btnPoAddChannel">+ Add Channel</button></div>
-    </div>
-
-    <!-- ⑤ SALES FORECAST -->
-    <div class="card">
-      <h2><span class="ic">⑤</span>Sales Forecast<span class="badge">Per-SKU monthly units</span></h2>
+      <h2><span class="ic">④</span>Sales Forecast<span class="badge">Per-SKU monthly units</span></h2>
       <div class="note" style="margin-bottom:10px;">Type units sold per month for each SKU. Months start from the PO Date. Quick-fill buttons populate common curves.</div>
 
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center;">
@@ -3842,7 +3817,7 @@
 
     <!-- ⑥ CASH FLOW OUTPUT + KPIs -->
     <div class="card" id="poCashFlowCard">
-      <h2><span class="ic">⑥</span>Monthly Cash Flow<span class="badge">The output</span></h2>
+      <h2><span class="ic">⑤</span>Monthly Cash Flow<span class="badge">The output</span></h2>
       <div class="grid-4" style="margin-bottom:14px;">
         <div class="kpi">
           <div class="label"><span class="dot"></span>Total PO Cost</div>
@@ -3881,7 +3856,7 @@
 
     <!-- ⑦ CHARTS -->
     <div class="card" id="poChartsCard">
-      <h2><span class="ic">⑦</span>Visualization<span class="badge">Cash flow charts</span></h2>
+      <h2><span class="ic">⑥</span>Visualization<span class="badge">Cash flow charts</span></h2>
       <div class="grid-2" style="margin-bottom:14px;">
         <div class="chart-box" style="height:300px;">
           <h3 style="font-size:13px;margin-bottom:8px;color:var(--sky-soft);">Monthly Cash Flow (in vs out)</h3>
@@ -3898,25 +3873,9 @@
       </div>
     </div>
 
-    <!-- ⑧ PO SPLIT HELPER -->
+    <!-- ⑦ SAVED SCENARIOS -->
     <div class="card">
-      <h2><span class="ic">⑧</span>PO Split Helper<span class="badge">Smart suggestion</span></h2>
-      <div class="grid-2" style="margin-bottom:10px;align-items:end;">
-        <div class="input-group">
-          <label>Max Deposit per Batch (MYR)</label>
-          <input type="number" id="poSplitThreshold" min="0" step="100" value="50000"/>
-          <div class="note" style="margin-top:6px;font-size:11px;">Lines whose deposit exceeds this amount will be flagged for splitting.</div>
-        </div>
-        <div class="input-group">
-          <button class="accent" id="btnPoSuggestSplit" style="width:100%;">🔍 Suggest Splits</button>
-        </div>
-      </div>
-      <div id="poSplitResult"></div>
-    </div>
-
-    <!-- ⑨ SAVED SCENARIOS -->
-    <div class="card">
-      <h2><span class="ic">⑨</span>Saved Scenarios</h2>
+      <h2><span class="ic">⑦</span>Saved Scenarios</h2>
       <div id="poSavedList" style="display:flex;flex-direction:column;gap:8px;">
         <p class="note">No saved scenarios yet. Click ⭐ Save Scenario above.</p>
       </div>
@@ -9062,25 +9021,9 @@ function renderLines(){
 }
 
 // ─── Render the Channels table
-function renderChannels(){
-  const tbody = document.getElementById('poChannelsBody');
-  if(!tbody) return;
-  const channels = poState.channels || [];
-  tbody.innerHTML = channels.map((ch, i) =>
-    '<tr>'+
-      '<td><input type="text"   data-po-ch="'+i+'" data-field="name"        value="'+escapeHtml(ch.name||'')+'"></td>'+
-      '<td><input type="number" data-po-ch="'+i+'" data-field="sharePct"    value="'+(Number(ch.sharePct)||0)+'" min="0" max="100" step="1"></td>'+
-      '<td><input type="number" data-po-ch="'+i+'" data-field="paymentDays" value="'+(Number(ch.paymentDays)||0)+'" min="0" max="365" step="1"></td>'+
-      '<td class="action"><button data-po-del-ch="'+i+'" title="Delete">✕</button></td>'+
-    '</tr>'
-  ).join('');
-  const sum = channels.reduce((s,c) => s + (Number(c.sharePct)||0), 0);
-  const totEl = document.getElementById('poChannelTotalPct');
-  if(totEl){
-    totEl.textContent = sum.toFixed(0) + '%';
-    totEl.style.color = Math.abs(sum - 100) < 0.5 ? 'var(--success)' : 'var(--coral-soft)';
-  }
-}
+// (renderChannels removed — Sales Channels section was dropped from UI.
+//  Forced single "Sales" channel below means revenue lands in the
+//  same month as the forecast unit, with zero payment lag.)
 
 // ─── Render the per-SKU Sales Forecast grid
 function renderForecast(){
@@ -9158,8 +9101,12 @@ function renderCashFlow(){
   const body = document.getElementById('poCashFlowBody');
   if(!head || !body) return;
   const channels = poState.channels || [];
+  // When there's only one channel (the default "Sales" since the
+  // editor was removed) the per-channel breakdown column would
+  // duplicate the Revenue total — skip it.
+  const showChannels = channels.length > 1;
   let h = '<tr><th>Month</th><th>Deposit</th><th>Balance</th><th>Total Out</th>';
-  channels.forEach(ch => h += '<th>Rev: '+escapeHtml(ch.name)+'</th>');
+  if(showChannels) channels.forEach(ch => h += '<th>Rev: '+escapeHtml(ch.name)+'</th>');
   h += '<th>Revenue</th><th>Net</th><th>Cumulative</th></tr>';
   head.innerHTML = h;
 
@@ -9171,10 +9118,12 @@ function renderCashFlow(){
       '<td class="num">'+(m.deposit > 0 ? '<span style="color:var(--coral-soft);">-'+P.fmt(m.deposit)+'</span>' : '—')+'</td>'+
       '<td class="num">'+(m.balance > 0 ? '<span style="color:var(--coral-soft);">-'+P.fmt(m.balance)+'</span>' : '—')+'</td>'+
       '<td class="num" style="color:var(--coral-soft);font-weight:700;">'+(m.totalOut > 0 ? P.fmt(m.totalOut) : '—')+'</td>';
-    channels.forEach(ch => {
-      const v = m.byChannel[ch.name] || 0;
-      row += '<td class="num">'+(v > 0 ? '<span style="color:var(--success);">+'+P.fmt(v)+'</span>' : '—')+'</td>';
-    });
+    if(showChannels){
+      channels.forEach(ch => {
+        const v = m.byChannel[ch.name] || 0;
+        row += '<td class="num">'+(v > 0 ? '<span style="color:var(--success);">+'+P.fmt(v)+'</span>' : '—')+'</td>';
+      });
+    }
     row += '<td class="num" style="color:var(--success);font-weight:700;">'+(m.revenue > 0 ? P.fmt(m.revenue) : '—')+'</td>';
     row += '<td class="num" style="color:'+netColor+';font-weight:700;">'+(m.net !== 0 ? (m.net > 0 ? '+' : '') + P.fmt(m.net) : '—')+'</td>';
     row += '<td class="num" style="color:'+cumColor+';font-weight:800;">'+(m.cumulative >= 0 ? '+' : '')+P.fmt(m.cumulative)+'</td>';
@@ -9267,30 +9216,9 @@ function renderCharts(){
   }
 }
 
-// ─── Smart split suggestion (Chunk G)
-function renderSplitSuggestion(threshold){
-  const out = document.getElementById('poSplitResult');
-  if(!out) return;
-  const sug = P.suggestSplits(poState, threshold);
-  if(sug.length === 0){
-    out.innerHTML = '<div class="note" style="color:var(--success);">✓ No line exceeds the deposit threshold. Current PO structure is cash-flow friendly.</div>';
-    return;
-  }
-  out.innerHTML = '<div class="note" style="margin-bottom:8px;">⚠ '+sug.length+' line(s) exceed the deposit threshold. Suggested splits:</div>' +
-    '<div class="table-wrap"><table>'+
-      '<thead><tr><th>SKU</th><th>Product</th><th class="num">Current Qty</th><th class="num">Current Deposit (MYR)</th><th class="num">→ Suggested Batches</th><th class="num">Qty per Batch</th><th class="num">Deposit per Batch (MYR)</th></tr></thead>'+
-      '<tbody>'+ sug.map(s =>
-        '<tr>'+
-          '<td><b style="color:var(--sky-soft);font-family:Consolas,monospace;font-size:11.5px;">'+escapeHtml(s.sku)+'</b></td>'+
-          '<td style="font-size:11.5px;color:var(--text-soft);">'+escapeHtml((s.name||'').substring(0,50))+'</td>'+
-          '<td class="num">'+P.fmt0(s.currentQty)+'</td>'+
-          '<td class="num" style="color:var(--coral-soft);">'+P.fmt(s.currentDepositMyr)+'</td>'+
-          '<td class="num" style="color:var(--success);font-weight:700;">'+s.suggestedBatches+'</td>'+
-          '<td class="num">'+P.fmt0(s.qtyPerBatch)+'</td>'+
-          '<td class="num" style="color:var(--success);">'+P.fmt(s.depositPerBatchMyr)+'</td>'+
-        '</tr>'
-      ).join('') +'</tbody></table></div>';
-}
+// (renderSplitSuggestion removed — PO Split Helper section was
+//  dropped from UI. Engine function P.suggestSplits still exists
+//  in po-estimator.js for any future use.)
 
 // ─── Full re-render
 function renderAll(){
@@ -9310,8 +9238,11 @@ function renderAll(){
   poState.importDutyPct = 0;
   poState.forwardingFee = 0;
   poState.fxBufferPct   = 0;
+  // Sales Channels removed — collapse to a single 100% no-lag bucket
+  // labeled "Sales". The compute engine still supports channels but
+  // we no longer expose the editor.
+  poState.channels = [{ name:'Sales', sharePct:100, paymentDays:0 }];
   setV('poForecastMonths', poState.forecastMonths ?? 12);
-  setV('poSplitThreshold', poState.splitThresholdMyr ?? 50000);
 
   // FX field visibility
   const fxGrp = document.getElementById('poFxGroup');
@@ -9319,7 +9250,7 @@ function renderAll(){
 
   populateDropdowns();
   renderLines();
-  renderChannels();
+  // renderChannels() removed — Sales Channels section dropped from UI.
   renderForecast();
   renderCashFlow();
   renderCharts();
@@ -9338,7 +9269,7 @@ function refreshNumbers(){
 // ─── Header input handlers
 ['poNumber','poDate','poCurrency','poFxRate','poLeadWeeks','poNotes',
  'poDepositPct','poBalancePct','poCreditDays',
- 'poForecastMonths','poSplitThreshold'].forEach(id => {
+ 'poForecastMonths'].forEach(id => {
   document.addEventListener('input', e => {
     if(e.target.id !== id) return;
     const v = e.target.value;
@@ -9353,7 +9284,6 @@ function refreshNumbers(){
       case 'poBalancePct':     poState.balancePct = Number(v) || 0; refreshNumbers(); break;
       case 'poCreditDays':     poState.creditDays = Number(v) || 0; refreshNumbers(); break;
       case 'poForecastMonths': poState.forecastMonths = Math.max(3, Math.min(24, Number(v) || 12)); renderForecast(); refreshNumbers(); break;
-      case 'poSplitThreshold': poState.splitThresholdMyr = Number(v) || 50000; persist(); break;
     }
   });
 });
@@ -9447,16 +9377,7 @@ document.addEventListener('input', e => {
     else { line[f] = Math.max(0, Number(t.value) || 0); refreshNumbers(); }
     return;
   }
-  // Channel field
-  if(t.dataset.poCh !== undefined){
-    const i = +t.dataset.poCh;
-    const f = t.dataset.field;
-    const ch = poState.channels[i];
-    if(!ch) return;
-    if(f === 'name'){ ch.name = t.value; refreshNumbers(); }
-    else { ch[f] = Math.max(0, Number(t.value) || 0); refreshNumbers(); }
-    return;
-  }
+  // (Channel field handler removed — Sales Channels section dropped.)
   // Forecast cell
   if(t.dataset.poFc !== undefined){
     const sku = t.dataset.poFc;
@@ -9507,17 +9428,7 @@ document.addEventListener('click', e => {
     renderAll();
     return;
   }
-  if(t.id === 'btnPoAddChannel'){
-    poState.channels.push({ name:'New Channel', sharePct:0, paymentDays:0 });
-    renderAll();
-    return;
-  }
-  if(t.dataset.poDelCh !== undefined){
-    if(!confirm('Delete this channel?')) return;
-    poState.channels.splice(+t.dataset.poDelCh, 1);
-    renderAll();
-    return;
-  }
+  // (Add Channel / Delete Channel handlers removed — section dropped.)
   // Forecast quick-fill
   if(t.dataset.poFill !== undefined){
     const kind = t.dataset.poFill;
@@ -9546,11 +9457,7 @@ document.addEventListener('click', e => {
     showToast('Forecast filled: ' + kind, 'success');
     return;
   }
-  // Split suggestion
-  if(t.id === 'btnPoSuggestSplit'){
-    renderSplitSuggestion(poState.splitThresholdMyr || 50000);
-    return;
-  }
+  // (Suggest Splits handler removed — PO Split Helper section dropped.)
   // Save scenario (localStorage by name)
   if(t.id === 'btnPoSave'){
     const name = prompt('Name this PO scenario:', 'PO '+(poState.poNumber || new Date().toLocaleDateString()));
