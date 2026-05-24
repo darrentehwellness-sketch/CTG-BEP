@@ -34,7 +34,7 @@
 <script src="config.js?v=22"></script>
 <script src="assets/js/supabase-client.js?v=26"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
-<script src="assets/js/wht-calculator.js?v=14"></script>
+<script src="assets/js/wht-calculator.js?v=15"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -6957,6 +6957,11 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
         p.lines[lineIdx].gross = invoice;
         persist();
         try { refreshPayeeTotals(payeeIdx); } catch(_e){}
+        // Belt-and-suspenders: even if refreshPayeeTotals threw or no-op'd
+        // (e.g. card lookup failed), force the Master Summary to update
+        // independently. This guarantees the Total Invoice / Total Net /
+        // Total Payable KPIs + grand-total table reflect the new state.
+        try { renderMaster(); } catch(_e){}
         // Toggle the "missing receipt" warning right after the user types
         // a value (Receipt becomes required as soon as Invoice > 0).
         try { _whtValidateReceipts(payeeIdx); } catch(_e){}
@@ -7457,7 +7462,17 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
   // input's displayed value.
   function refreshPayeeTotals(i){
     const p = whtState.payees[i]; if(!p) return;
-    const card = document.querySelector('[data-pi="' + i + '"]'); if(!card) return;
+    const card = document.querySelector('[data-pi="' + i + '"]');
+    // CRITICAL: even if the per-card DOM update can't run (card not
+    // found / stale ref), we MUST still call renderMaster() at the end
+    // so the Master Summary KPIs + table reflect the latest state.
+    // Previous bug: this function returned early on missing card, so
+    // typing in Invoice updated the per-row cells but the Master
+    // Summary stayed stale until a full renderAll() ran.
+    if(!card){
+      try { renderMaster(); } catch(_e){}
+      return;
+    }
     const c = W.calcPayee(p);
 
     // Per-line refresh:
