@@ -34,7 +34,7 @@
 <script src="config.js?v=22"></script>
 <script src="assets/js/supabase-client.js?v=26"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
-<script src="assets/js/wht-calculator.js?v=12"></script>
+<script src="assets/js/wht-calculator.js?v=13"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -7416,11 +7416,22 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
         const grossInp = tr.querySelector('input.wht-gross-input');
         if(grossInp && document.activeElement !== grossInp){
           const newGross = Number(L.gross || 0);
-          // Avoid floating-point churn: only overwrite if the displayed
-          // value materially differs from state (> 0.5 sen).
-          if(Math.abs(Number(grossInp.value || 0) - newGross) > 0.005){
-            grossInp.value = newGross.toFixed(2);
-            _flashCell(grossInp);
+          if(newGross === 0){
+            // State says zero → SHOW EMPTY so the "0.00" placeholder is
+            // visible (clean, empty-looking field). This lets the user
+            // actually clear the Invoice column — previously a leftover
+            // "0" string would stick around even after delete.
+            if(grossInp.value !== ''){
+              grossInp.value = '';
+              _flashCell(grossInp);
+            }
+          } else {
+            // Avoid floating-point churn: only overwrite if the displayed
+            // value materially differs from state (> 0.5 sen).
+            if(Math.abs(Number(grossInp.value || 0) - newGross) > 0.005){
+              grossInp.value = newGross.toFixed(2);
+              _flashCell(grossInp);
+            }
           }
         }
         // SST display cell (Invoice ÷ 0.92 × 0.08 for 8% SST) — always update.
