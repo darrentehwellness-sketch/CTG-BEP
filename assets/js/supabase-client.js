@@ -189,17 +189,32 @@
     return _profileCache;
   }
 
-  async function adminSetUserProfile(userId, role, entityIds) {
+  async function adminSetUserProfile(userId, role, entityIds, opts) {
     _ensureSb();
     // entityIds is an array; backward-compat: accept null/undefined/single uuid
     let ids = entityIds;
     if (!Array.isArray(ids)) ids = ids ? [ids] : [];
-    const { error } = await sb.rpc('admin_set_user_profile', {
+    opts = opts || {};
+    const payload = {
       p_user_id: userId,
       p_role: role,
       p_entity_ids: ids
-    });
+    };
+    // Optional security flags — pass through only when provided so callers
+    // that didn't opt in keep the existing values (NULL = leave-as-is on DB).
+    if (typeof opts.isActive === 'boolean')           payload.p_is_active             = opts.isActive;
+    if (typeof opts.mustChangePassword === 'boolean') payload.p_must_change_password  = opts.mustChangePassword;
+    const { error } = await sb.rpc('admin_set_user_profile', payload);
     if (error) throw error;
+  }
+
+  // Called by the user after a successful password change to clear the
+  // "must change password" gate so they don't get re-prompted next login.
+  async function clearMyMustChangePassword() {
+    if (!sb || !currentUser) return;
+    try {
+      await sb.rpc('clear_my_must_change_password');
+    } catch (e) { console.warn('[clear_my_must_change_password]', e); }
   }
 
   // Any signed-in user updates their own profile row.
@@ -528,6 +543,7 @@
     adminListScenarios,
     getCurrentProfile,
     adminSetUserProfile,
+    clearMyMustChangePassword,
     updateMyProfile,
     listEntities,
     createEntity,

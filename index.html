@@ -54,7 +54,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
 <script src="config.js?v=22"></script>
-<script src="assets/js/supabase-client.js?v=28"></script>
+<script src="assets/js/supabase-client.js?v=29"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
 <script src="assets/js/wht-calculator.js?v=17"></script>
 <script src="assets/js/po-estimator.js?v=12"></script>
@@ -4930,6 +4930,23 @@
             <div class="note" data-i18n="users_entities_hint">Normal users can save scenarios only against their assigned entities. Admins ignore this list.</div>
           </div>
 
+          <!-- Security flags — both default to safe values for existing users. -->
+          <div class="auth-field" style="border-top:1px solid var(--border);padding-top:14px;margin-top:6px;">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;">
+              <input type="checkbox" id="userEditMustChangePw" style="width:18px;height:18px;accent-color:var(--coral);">
+              <span data-i18n="users_must_change_pw">Force password change on next login</span>
+            </label>
+            <div class="note" data-i18n="users_must_change_pw_hint">Use this when offboarding a teammate, after a suspected leak, or for newly invited users.</div>
+          </div>
+
+          <div class="auth-field" style="margin-top:6px;">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;">
+              <input type="checkbox" id="userEditIsActive" style="width:18px;height:18px;accent-color:#10b981;" checked>
+              <span data-i18n="users_is_active">Account active</span>
+            </label>
+            <div class="note" data-i18n="users_is_active_hint">Uncheck to deactivate. Deactivated users cannot sign in, and any existing session loses access to all data immediately. Their scenarios and audit history are preserved.</div>
+          </div>
+
           <div class="auth-error" data-user-edit-error></div>
 
           <button type="submit" class="auth-submit"><span data-i18n="users_save">Save</span></button>
@@ -5334,6 +5351,15 @@ const I18N = {
     users_edit:"Edit", users_edit_title:"Edit user",
     users_role_label:"Role", users_role_user:"Normal User", users_role_admin:"Admin", users_role_viewer:"Viewer (Read-only)",
     viewer_banner:"You are signed in as a Viewer — read-only access. Save, edit, and delete are disabled.",
+    users_must_change_pw:"Force password change on next login",
+    users_must_change_pw_hint:"Use this when offboarding a teammate, after a suspected leak, or for newly invited users.",
+    users_is_active:"Account active",
+    users_is_active_hint:"Uncheck to deactivate. Deactivated users cannot sign in, and any existing session loses access to all data immediately. Their scenarios and audit history are preserved.",
+    users_badge_inactive:"DEACTIVATED",
+    users_badge_pw_change:"PW CHANGE REQUIRED",
+    account_deactivated:"Your account has been deactivated. Please contact your admin.",
+    force_pw_blocked:"You must set a new password before continuing.",
+    force_pw_banner:"Your administrator requires you to set a new password before continuing.",
     users_entity_label:"Assigned entity", users_entity_none:"— No entity —",
     users_entity_hint:"Normal users are locked to this entity when saving scenarios. Admins can pick any entity freely.",
     users_entities_label:"Assigned entities",
@@ -5552,6 +5578,15 @@ const I18N = {
     users_edit:"编辑", users_edit_title:"编辑用户",
     users_role_label:"角色", users_role_user:"普通用户", users_role_admin:"管理员", users_role_viewer:"查看者 (只读)",
     viewer_banner:"您以「查看者」身份登录 — 只读权限。保存、编辑、删除均已禁用。",
+    users_must_change_pw:"下次登录强制修改密码",
+    users_must_change_pw_hint:"用于离职交接、密码疑似泄露、或新邀请的用户。",
+    users_is_active:"账号已启用",
+    users_is_active_hint:"取消勾选即停用。停用后无法登录，现有会话立即失去所有数据访问权限；历史记录与审计日志保留。",
+    users_badge_inactive:"已停用",
+    users_badge_pw_change:"待改密",
+    account_deactivated:"您的账号已被停用。请联系管理员。",
+    force_pw_blocked:"必须设置新密码后才能继续。",
+    force_pw_banner:"管理员要求您先设置新密码才能继续使用。",
     users_entity_label:"所属公司", users_entity_none:"— 不选 —",
     users_entity_hint:"普通用户保存方案时会锁定为此公司。管理员可任意选择。",
     users_entities_label:"所属公司（可多选）",
@@ -6261,6 +6296,12 @@ function openAuthModal(stateName){
   document.body.style.overflow = 'hidden';
 }
 function closeAuthModal(){
+  // Force-password-change mode: don't allow the user to dismiss the modal.
+  // They must successfully complete the form for the flag to clear.
+  if(window.__forcePasswordChange){
+    showToast(t('force_pw_blocked') || 'You must set a new password before continuing.', 'warn');
+    return;
+  }
   const modal = document.getElementById('authModal');
   modal.classList.remove('open');
   document.body.style.overflow = '';
@@ -6400,6 +6441,12 @@ document.querySelector('.auth-state[data-auth-state="recovery"]').addEventListen
   try {
     await CTG.updatePassword(password);
     window.__authInviteMode = false;
+    // If we got here via the force-password-change flow, clear the flag
+    // server-side so the user isn't prompted again on next sign-in.
+    if(window.__forcePasswordChange){
+      try { await CTG.clearMyMustChangePassword(); } catch(_e){}
+      window.__forcePasswordChange = false;
+    }
     // Clean the URL hash so the invite/recovery flow doesn't re-trigger on refresh
     if(window.history && window.history.replaceState){
       window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
@@ -11426,15 +11473,25 @@ async function renderUsersTab(){
     tbody.innerHTML = _usersCache.map(u => {
       const roleLabel = u.role === 'admin'
         ? `<span class="pill" style="background:rgba(232,93,60,.18);color:var(--coral-soft);border:1px solid rgba(232,93,60,.30);">${t('users_role_admin')}</span>`
+        : u.role === 'viewer'
+        ? `<span class="pill" style="background:rgba(168,181,204,.18);color:#cbd5e1;border:1px solid rgba(168,181,204,.30);">${t('users_role_viewer')}</span>`
         : `<span class="pill" style="background:rgba(91,155,213,.15);color:var(--sky-soft);border:1px solid rgba(91,155,213,.30);">${t('users_role_user')}</span>`;
       // Multi-entity: show comma-separated list, fallback to dash
       const names = Array.isArray(u.entity_names) ? u.entity_names : [];
       const entityLabel = names.length > 0
         ? `<span style="color:#fff;font-weight:600;">🏢 ${escapeHtml(names.join(', '))}</span>`
         : `<span style="color:var(--muted);">—</span>`;
+      // Status flags — inactive grey-out + amber "PW change" indicator
+      const inactive   = u.is_active === false;
+      const mustChange = u.must_change_password === true;
+      const flagPills = [
+        inactive   ? `<span class="pill" style="background:rgba(168,181,204,.25);color:#94a3b8;border:1px solid rgba(168,181,204,.45);font-size:10px;letter-spacing:.5px;">${t('users_badge_inactive')}</span>` : '',
+        mustChange ? `<span class="pill" style="background:rgba(245,158,11,.18);color:#fbbf24;border:1px solid rgba(245,158,11,.40);font-size:10px;letter-spacing:.5px;">${t('users_badge_pw_change')}</span>` : ''
+      ].filter(Boolean).join(' ');
+      const rowStyle = inactive ? ' style="opacity:.55;"' : '';
       return `
-      <tr>
-        <td>${escapeHtml(u.email || '')}</td>
+      <tr${rowStyle}>
+        <td>${escapeHtml(u.email || '')} ${flagPills ? '<br>' + flagPills : ''}</td>
         <td>${roleLabel}</td>
         <td>${entityLabel}</td>
         <td>${u.email_confirmed ? '<span class="pos">✓</span>' : '<span class="neg">✗</span>'}</td>
@@ -11454,6 +11511,11 @@ function openUserEditModal(user){
   document.getElementById('userEditId').value    = user.id;
   document.getElementById('userEditEmail').textContent = user.email || '';
   document.getElementById('userEditRole').value  = user.role || 'user';
+  // New security flags (default-safe for missing fields)
+  const mcpEl = document.getElementById('userEditMustChangePw');
+  if(mcpEl) mcpEl.checked = user.must_change_password === true;
+  const actEl = document.getElementById('userEditIsActive');
+  if(actEl) actEl.checked = user.is_active !== false;  // default: active
   // Render checkbox list of all active entities, pre-checking the user's current assignments
   renderEntityCheckboxes(user.entity_ids || []);
   // Clear error and show modal
@@ -11551,12 +11613,14 @@ document.getElementById('formUserEdit').addEventListener('submit', async e=>{
   const entity_ids = Array.from(
     document.querySelectorAll('#userEditEntities .ent-chip.selected')
   ).map(chip => chip.dataset.entityId);
+  const mustChangePw = document.getElementById('userEditMustChangePw').checked;
+  const isActive     = document.getElementById('userEditIsActive').checked;
   const errEl = document.querySelector('[data-user-edit-error]');
   errEl.classList.remove('show');
   const submit = e.currentTarget.querySelector('button[type="submit"]');
   submit.disabled = true;
   try {
-    await CTG.adminSetUserProfile(id, role, entity_ids);
+    await CTG.adminSetUserProfile(id, role, entity_ids, { isActive, mustChangePassword: mustChangePw });
     showToast(t('users_saved'), 'success');
     closeUserEditModal();
     await renderUsersTab();
@@ -11624,6 +11688,30 @@ async function init(){
     if(event === 'SIGNED_IN' && window.__authInviteMode){
       openAuthModal('recovery');
     }
+
+    // ──────────────────────────────────────────────────────────────
+    // Security gates: deactivation + force-password-change.
+    // Run on SIGNED_IN and the initial INITIAL_SESSION so a user with
+    // the flags set can't slip through a page-refresh either.
+    // ──────────────────────────────────────────────────────────────
+    if(user && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')){
+      try {
+        const prof = await CTG.getCurrentProfile();
+        // Gate 1: account deactivated → force sign-out immediately.
+        if(prof && prof.is_active === false){
+          try { await CTG.signOut(); } catch(_e){}
+          showToast(t('account_deactivated') || 'Your account has been deactivated. Contact your admin.', 'error');
+          return;  // Don't continue loading data — gate already shown.
+        }
+        // Gate 2: must change password → open the recovery (set-password) modal
+        // and don't dismiss it until the password change succeeds.
+        if(prof && prof.must_change_password === true){
+          window.__forcePasswordChange = true;
+          openAuthModal('recovery');
+        }
+      } catch (e) { console.warn('[security gates]', e); }
+    }
+    // ──────────────────────────────────────────────────────────────
     try {
       scenarios = await CTG.listScenarios();
     } catch (err) {
