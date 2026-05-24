@@ -432,15 +432,20 @@
      Default styles are light/white. Override to match the CTG dark
      theme so the phone field blends with surrounding form inputs.
      ============================================================ */
-  .iti{ width:100%; display:block !important; position:relative; }
-  /* BUGFIX: the +60 dial-code chip was overlapping the placeholder text
-     because 58px padding-left wasn't enough to clear the flag + chip.
-     New widths: flag ~30px + chip ~52px + 8px gap = 90px clearance.
-     Also force the input to a min-height so the chip sits comfortably
-     centered vertically. */
-  .iti__tel-input{
+  /* ───── Phone input wrapper — sets up the positioning context ───── */
+  .iti{
     width:100% !important;
-    padding:10px 14px 10px 92px !important;   /* room for flag + dial code */
+    display:block !important;
+    position:relative !important;
+  }
+  /* ───── The tel input itself.
+     Padding-left is set INLINE by JS (_phoneSyncPadding) to match the
+     measured chip width — see attachPhone(). This CSS is the safety
+     fallback if JS hasn't run yet. ───── */
+  .iti__tel-input,
+  .iti input[type="tel"]{
+    width:100% !important;
+    padding:10px 14px 10px 96px !important;
     min-height:44px !important;
     background:rgba(7,13,23,.65) !important;
     border:1px solid var(--border-strong) !important;
@@ -448,37 +453,54 @@
     color:var(--text) !important;
     font:inherit !important;
     font-size:13px !important;
-    line-height:1.4;
+    line-height:1.4 !important;
     box-sizing:border-box !important;
   }
-  .iti__tel-input:focus{
-    outline:none;
+  .iti__tel-input:focus,
+  .iti input[type="tel"]:focus{
+    outline:none !important;
     border-color:var(--sky) !important;
     box-shadow:0 0 0 3px rgba(91,155,213,.20) !important;
   }
-  /* Flag-button + dial code chip on the left side. Pin to the input's
-     left edge with explicit width so the input padding can clear it
-     deterministically. */
+  /* ───── Flag + dial-code chip — absolutely positioned so it sits on
+     top of the input's padding area. width:auto lets it size to its
+     own content; JS measures it and sets the matching padding. ───── */
   .iti__country-container,
   .iti__selected-country{
-    background:rgba(91,155,213,.10) !important;
-    border-right:1px solid var(--border) !important;
+    position:absolute !important;
+    top:1px !important;
+    left:1px !important;
+    bottom:1px !important;
+    z-index:2 !important;
+    background:rgba(91,155,213,.14) !important;
+    border-right:1px solid rgba(91,155,213,.30) !important;
     border-radius:8px 0 0 8px !important;
-    padding:0 8px 0 10px !important;
-    height:100% !important;
+    padding:0 10px !important;
     display:flex !important;
     align-items:center !important;
-    gap:4px !important;
+    gap:6px !important;
+    cursor:pointer !important;
+  }
+  .iti__country-container:hover,
+  .iti__selected-country:hover{
+    background:rgba(91,155,213,.22) !important;
   }
   .iti__selected-dial-code{
     color:var(--text) !important;
-    font-weight:600;
+    font-weight:700 !important;
     font-size:13px !important;
-    margin-left:2px !important;
+    font-variant-numeric:tabular-nums !important;
     white-space:nowrap !important;
   }
-  .iti__flag{ flex-shrink:0; }
-  .iti__arrow{ border-top-color:var(--sky-soft) !important; margin-left:4px !important; }
+  .iti__flag{
+    flex-shrink:0 !important;
+    box-shadow:0 1px 3px rgba(0,0,0,.4);
+  }
+  .iti__arrow{
+    border-top-color:var(--sky-soft) !important;
+    margin-left:2px !important;
+    flex-shrink:0;
+  }
   /* The dropdown panel listing all countries */
   .iti__dropdown-content,
   .iti__country-list{
@@ -5556,6 +5578,30 @@ function escapeHtml(s){return String(s??'').replace(/[&<>"']/g, m=>({ '&':'&amp;
    behavior so the form still works.
    ============================================================ */
 const _phoneItiMap = new WeakMap();
+
+// Measure the flag+dial-code chip width and apply matching inline
+// padding-left to the input. CSS-only padding wasn't winning against
+// the library's computed inline styles in some browsers, leaving the
+// chip overlapping the placeholder. Inline padding from JS is the
+// last-word in specificity.
+function _phoneSyncPadding(inp){
+  if(!inp) return;
+  try {
+    const wrap = inp.closest('.iti');
+    if(!wrap) return;
+    const chip = wrap.querySelector('.iti__selected-country, .iti__country-container');
+    const chipW = chip ? chip.getBoundingClientRect().width : 80;
+    // 12px breathing room so digits never touch the divider
+    const pad = Math.max(80, Math.round(chipW + 12));
+    inp.style.setProperty('padding-left', pad + 'px', 'important');
+    inp.style.setProperty('padding-right', '14px', 'important');
+    inp.style.setProperty('padding-top', '10px', 'important');
+    inp.style.setProperty('padding-bottom', '10px', 'important');
+    inp.style.setProperty('min-height', '44px', 'important');
+    inp.style.setProperty('box-sizing', 'border-box', 'important');
+  } catch(err){ /* fail-safe — leave CSS to handle */ }
+}
+
 function attachPhone(inp){
   if(!inp || _phoneItiMap.has(inp)) return _phoneItiMap.get(inp) || null;
   if(typeof window.intlTelInput !== 'function') return null;
@@ -5569,6 +5615,23 @@ function attachPhone(inp){
       utilsScript: 'https://cdn.jsdelivr.net/npm/intl-tel-input@23.0.10/build/js/utils.js'
     });
     _phoneItiMap.set(inp, iti);
+    // Initial padding sync — the chip's final width is known after the
+    // library injects its DOM. A few measurement ticks give the browser
+    // time to lay out before we measure (fonts / icon loading can shift
+    // the chip width by a few pixels).
+    setTimeout(() => _phoneSyncPadding(inp),  0);
+    setTimeout(() => _phoneSyncPadding(inp), 50);
+    setTimeout(() => _phoneSyncPadding(inp), 250);
+    // Re-sync whenever the user changes country (some dial codes are
+    // wider, e.g. +355 Albania > +60 Malaysia).
+    inp.addEventListener('countrychange', () => _phoneSyncPadding(inp));
+    // Re-sync on window resize (font scaling, dev tools, etc.)
+    if(!window._phoneResizeBound){
+      window._phoneResizeBound = true;
+      window.addEventListener('resize', () => {
+        document.querySelectorAll('input[type="tel"]').forEach(el => _phoneSyncPadding(el));
+      });
+    }
     return iti;
   } catch(err){ console.warn('[attachPhone] init failed', err); return null; }
 }
