@@ -32,10 +32,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
 <script src="config.js?v=22"></script>
-<script src="assets/js/supabase-client.js?v=26"></script>
+<script src="assets/js/supabase-client.js?v=27"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
 <script src="assets/js/wht-calculator.js?v=17"></script>
-<script src="assets/js/po-estimator.js?v=11"></script>
+<script src="assets/js/po-estimator.js?v=12"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -421,6 +421,50 @@
     margin:0;font-size:12.5px;color:var(--text-soft);font-weight:500;
   }
   .page-header-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+
+  /* Working Entity selector — sits between title and toolbar actions.
+     The active entity scopes all per-entity data (Suppliers, saved
+     scenarios) for non-admins. Admins also use it but see all entities. */
+  .working-entity-pick{
+    display:flex; align-items:center; gap:10px;
+    padding:6px 12px;
+    background:linear-gradient(180deg, rgba(91,155,213,.10), rgba(91,155,213,.04));
+    border:1px solid rgba(91,155,213,.30);
+    border-radius:10px;
+    margin:0 12px;
+  }
+  .working-entity-label{
+    font-size:10px; color:var(--sky-soft); font-weight:700;
+    text-transform:uppercase; letter-spacing:.7px;
+    white-space:nowrap;
+  }
+  .working-entity-select{
+    background:rgba(7,13,23,.65);
+    border:1px solid var(--border-strong);
+    border-radius:7px;
+    color:var(--text);
+    font:inherit; font-size:12.5px; font-weight:600;
+    padding:6px 28px 6px 10px;
+    min-width:160px;
+    cursor:pointer;
+    appearance:none;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%235B9BD5' d='M0 0l5 6 5-6z'/></svg>");
+    background-repeat:no-repeat;
+    background-position:right 9px center;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  .working-entity-select:hover{ border-color:rgba(91,155,213,.55); }
+  .working-entity-select:focus{
+    outline:none;
+    border-color:var(--sky);
+    box-shadow:0 0 0 3px rgba(91,155,213,.18);
+  }
+  .working-entity-select.is-admin-all{
+    color:var(--coral-soft); font-style:italic;
+  }
+  @media print{
+    .working-entity-pick{ display:none !important; }
+  }
   @media (max-width: 700px){
     .page-header{padding-bottom:14px;margin-bottom:16px;}
     .page-header h1{font-size:18px;}
@@ -3142,6 +3186,14 @@
       <h1 id="pageHeaderTitle" data-i18n="tab_calc">Calculator</h1>
       <p id="pageHeaderSubtitle" data-i18n="page_sub_calc">Build budgets and compute break-even in real-time</p>
     </div>
+    <!-- Working Entity selector: scopes Suppliers + saved scenarios for
+         non-admins. Admins see all entities + "All entities" option. -->
+    <div class="working-entity-pick" id="workingEntityWrap" style="display:none;">
+      <label for="workingEntitySelect" class="working-entity-label">Working Entity</label>
+      <select id="workingEntitySelect" class="working-entity-select" title="Switch the entity context — Suppliers, WHT and PO scenarios are filtered to this entity.">
+        <option value="">— Loading —</option>
+      </select>
+    </div>
     <div class="page-header-actions">
       <button class="ghost" id="btnExport">⬇ <span data-i18n="export">Export CSV</span></button>
       <button class="accent" id="btnPrint">🖨 <span data-i18n="print">Print/PDF</span></button>
@@ -4322,6 +4374,7 @@
             <thead><tr>
               <th data-i18n="sup_th_name">Name</th>
               <th data-i18n="sup_th_code">Code</th>
+              <th>Entity</th>
               <th data-i18n="sup_th_country">Country</th>
               <th data-i18n="sup_th_currency">Currency</th>
               <th data-i18n="sup_th_lead">Lead Time</th>
@@ -4330,7 +4383,7 @@
               <th data-i18n="sup_th_active">Active</th>
               <th style="width:120px;text-align:center;" data-i18n="sup_th_actions">Actions</th>
             </tr></thead>
-            <tbody><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px;">Loading…</td></tr></tbody>
+            <tbody><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px;">Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -4348,10 +4401,20 @@
             <input type="text" id="supName" required placeholder="IPOCARE Sdn Bhd"/>
           </div>
           <div class="input-group">
+            <label>Belongs to Entity *</label>
+            <select id="supEntity" required style="width:100%;padding:11px 14px;border:1px solid var(--border-strong);border-radius:8px;background:rgba(7,13,23,.6);color:var(--text);font:inherit;">
+              <option value="">— Select entity —</option>
+            </select>
+            <div class="note" style="margin-top:4px;">Only users assigned to this entity can see this supplier.</div>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="input-group">
             <label data-i18n="sup_f_code">Short Code</label>
             <input type="text" id="supCode" placeholder="IPOCARE"/>
             <div class="note" style="margin-top:4px;" data-i18n="sup_f_code_note">Short reference for SKU prefixes and PO lookups.</div>
           </div>
+          <div class="input-group"></div>
         </div>
 
         <div class="grid-2">
@@ -8787,40 +8850,47 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     renderAll();
   };
 
-  // ---- Save scenario (localStorage list) ----
-  const WHT_SCN_LS = 'ctg_wht_scenarios_v1';
-  function loadScenarios(){
-    try { return JSON.parse(localStorage.getItem(WHT_SCN_LS) || '[]'); } catch(e){ return []; }
-  }
-  function persistScenarios(list){
-    try { localStorage.setItem(WHT_SCN_LS, JSON.stringify(list)); } catch(e){}
-  }
-  function refreshSavedList(){
+  // ---- Save scenario (Supabase DB, entity-scoped via Working Entity) ----
+  // Previously localStorage-only; now persisted to wht_scenarios with
+  // entity_id. RLS enforces non-admin can only see/manage scenarios
+  // for entities they're assigned to.
+  let _whtScnCache = [];
+  async function refreshSavedList(){
     const wrap = document.getElementById('whtSavedList');
     if(!wrap) return;
-    const list = loadScenarios();
-    if(list.length === 0){
+    if(!CTG.HAS_SUPABASE || !CTG.isSignedIn()){
+      wrap.innerHTML = '<p class="note">Sign in to save and load WHT scenarios.</p>';
+      _whtScnCache = [];
+      return;
+    }
+    try {
+      _whtScnCache = await CTG.listWhtScenarios({ entityId: window.currentWorkingEntityId });
+    } catch(err){ console.error('[WHT scenarios.list]', err); _whtScnCache = []; }
+    if(_whtScnCache.length === 0){
       wrap.innerHTML = '<p class="note">' + t('wht_saved_empty') + '</p>';
       return;
     }
-    wrap.innerHTML = list.map((s, idx) => {
-      const dt = new Date(s.savedAt).toLocaleString();
+    wrap.innerHTML = _whtScnCache.map((s) => {
+      const dt = new Date(s.created_at).toLocaleString();
       const calcTotal = (() => { try { return W.calcSession(s.data).totals.payable; } catch(e){ return 0; } })();
+      const ent = (_entitiesCache || []).find(e => e.id === s.entity_id);
+      const entLabel = ent ? ent.name : '—';
       return '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(7,13,23,.4);border:1px solid var(--border);border-radius:10px;">' +
         '<span style="width:10px;height:10px;border-radius:50%;background:var(--coral);box-shadow:0 0 8px var(--coral);"></span>' +
         '<div style="flex:1;min-width:0;">' +
-          '<div style="color:#fff;font-weight:600;">' + escapeHtml(s.name) + '</div>' +
+          '<div style="color:#fff;font-weight:600;">' + escapeHtml(s.name) +
+            ' <span style="display:inline-block;margin-left:6px;padding:1px 7px;background:rgba(91,155,213,.14);border:1px solid rgba(91,155,213,.30);border-radius:4px;font-size:10.5px;font-weight:600;color:var(--sky-soft);">' + escapeHtml(entLabel) + '</span>' +
+          '</div>' +
           '<div style="font-size:11.5px;color:var(--muted);">' + dt + ' · ' + (s.data.payees||[]).length + ' payees · Total payable RM ' + W.fmt(calcTotal) + '</div>' +
         '</div>' +
-        '<button class="ghost" data-wht-scn-load="' + idx + '">↻ Load</button>' +
-        '<button class="danger" data-wht-scn-del="' + idx + '" style="padding:6px 10px;font-size:11.5px;">✕</button>' +
+        '<button class="ghost" data-wht-scn-load="' + s.id + '">↻ Load</button>' +
+        '<button class="danger" data-wht-scn-del="' + s.id + '" style="padding:6px 10px;font-size:11.5px;">✕</button>' +
       '</div>';
     }).join('');
   }
-  if(btnSave) btnSave.onclick = () => {
-    // LHDN audit gate: every row with an Invoice Amount must also have a
-    // Receipt / Invoice No. Warn before saving — user can override if
-    // they want to save a work-in-progress draft.
+  if(btnSave) btnSave.onclick = async () => {
+    // LHDN audit gate: every row with an Invoice Amount must also have
+    // a Receipt / Invoice No.
     const missing = _whtValidateAllReceipts();
     if(missing.length > 0){
       const sample = missing.slice(0, 5).map(m => '· ' + m.payeeName + ' — row ' + m.lineNo).join('\n');
@@ -8833,33 +8903,57 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
       );
       if(!ok) return;
     }
+    if(!CTG.isSignedIn()){
+      showToast('Please sign in to save scenarios to the cloud.', 'error');
+      return;
+    }
+    // Determine the entity to save under. If user is in "All entities"
+    // mode, prompt them to pick one (admin only edge case).
+    let entityId = window.currentWorkingEntityId;
+    if(!entityId || entityId === '*'){
+      // Admin in "All entities" mode — must pick a target entity
+      const active = (_entitiesCache || []).filter(e => e.is_active !== false);
+      if(!active.length){ showToast('No entities available. Set up entities first.', 'error'); return; }
+      const choices = active.map((e,i) => (i+1) + '. ' + e.name).join('\n');
+      const pick = prompt('Pick which entity to save this WHT scenario under:\n\n' + choices + '\n\nEnter the number:');
+      const idx = parseInt(pick, 10) - 1;
+      if(!isFinite(idx) || idx < 0 || idx >= active.length) return;
+      entityId = active[idx].id;
+    }
     const name = prompt(t('wht_save_prompt'), 'WHT ' + (whtState.period || new Date().toLocaleDateString()));
     if(!name) return;
-    const list = loadScenarios();
-    list.unshift({ name: name.trim(), savedAt: Date.now(), data: JSON.parse(JSON.stringify(whtState)) });
-    persistScenarios(list);
-    refreshSavedList();
-    showToast(t('wht_saved_ok'), 'success');
-  };
-  document.addEventListener('click', e => {
-    if(e.target.dataset.whtScnLoad !== undefined){
-      const idx = +e.target.dataset.whtScnLoad;
-      const list = loadScenarios();
-      if(list[idx] && list[idx].data){
-        whtState = JSON.parse(JSON.stringify(list[idx].data));
-        renderAll();
-        showToast('Loaded: ' + list[idx].name, 'success');
-      }
+    try {
+      await CTG.saveWhtScenario({ name: name.trim(), entityId, data: JSON.parse(JSON.stringify(whtState)) });
+      await refreshSavedList();
+      showToast(t('wht_saved_ok'), 'success');
+    } catch(err){
+      console.error(err);
+      showToast('Save failed: ' + (err.message || err), 'error');
     }
-    if(e.target.dataset.whtScnDel !== undefined){
+  };
+  document.addEventListener('click', async e => {
+    const loadId = e.target.dataset.whtScnLoad;
+    if(loadId){
+      const item = _whtScnCache.find(x => x.id === loadId);
+      if(item && item.data){
+        whtState = JSON.parse(JSON.stringify(item.data));
+        renderAll();
+        showToast('Loaded: ' + item.name, 'success');
+      }
+      return;
+    }
+    const delId = e.target.dataset.whtScnDel;
+    if(delId){
       if(!confirm(t('wht_confirm_del_scn'))) return;
-      const idx = +e.target.dataset.whtScnDel;
-      const list = loadScenarios();
-      list.splice(idx, 1);
-      persistScenarios(list);
-      refreshSavedList();
+      try {
+        await CTG.deleteWhtScenario(delId);
+        await refreshSavedList();
+        showToast('Deleted.', 'success');
+      } catch(err){ showToast('Delete failed: ' + (err.message || err), 'error'); }
     }
   });
+  // Re-load saved list when the user switches Working Entity
+  document.addEventListener('ctg-working-entity-changed', () => { refreshSavedList(); });
 
   // ---- Excel export ----
   if(btnExport) btnExport.onclick = () => {
@@ -9010,13 +9104,16 @@ function populateDropdowns(){
   }
   // Supplier: populate the <datalist> with managed supplier names so the
   // text input shows them as autocomplete suggestions. User can still
-  // type any custom name not on the list.
+  // type any custom name not on the list. Filtered by Working Entity
+  // (except for admin in "*" mode).
   const supList = document.getElementById('poSuppliersList');
   if(supList){
-    const active = _safeCache('_suppliersCache').filter(s => s.is_active !== false);
+    const wid = window.currentWorkingEntityId;
+    let active = _safeCache('_suppliersCache').filter(s => s.is_active !== false);
+    if(wid && wid !== '*'){
+      active = active.filter(s => String(s.entity_id) === String(wid));
+    }
     supList.innerHTML = active.map(s => {
-      // Include the supplier's country / currency as a hint in the option
-      // (browsers show this as secondary text on the suggestion row)
       const hint = [s.country, s.base_currency].filter(Boolean).join(' · ');
       return '<option value="' + escapeHtml(s.name) + '"' +
              (hint ? ' label="' + escapeHtml(hint) + '"' : '') + '></option>';
@@ -9512,11 +9609,17 @@ document.addEventListener('input', e => {
   poState.supplierName = typed;
 
   // Look up an exact name match in the managed Suppliers cache.
-  // Case-insensitive on whitespace-trimmed strings, so "IPOCARE Sdn Bhd"
-  // and "ipocare sdn bhd" both match.
+  // Case-insensitive on whitespace-trimmed strings. Also entity-scoped
+  // to the active Working Entity so a non-admin only auto-fills from
+  // suppliers under their entity.
   const cache = _safeCache('_suppliersCache');
   const trimmed = typed.trim().toLowerCase();
-  const sup = cache.find(s => (s.name||'').trim().toLowerCase() === trimmed && s.is_active !== false);
+  const wid = window.currentWorkingEntityId;
+  const sup = cache.find(s =>
+    (s.name||'').trim().toLowerCase() === trimmed &&
+    s.is_active !== false &&
+    (!wid || wid === '*' || String(s.entity_id) === String(wid))
+  );
 
   if(sup){
     // Bind to the managed supplier — copy all defaults
@@ -9661,60 +9764,94 @@ document.addEventListener('click', e => {
     showToast('Forecast filled: ' + kind, 'success');
     return;
   }
-  // (Suggest Splits handler removed — PO Split Helper section dropped.)
-  // Save scenario (localStorage by name)
+  // Save scenario — DB-backed via Supabase, entity-scoped via Working Entity
   if(t.id === 'btnPoSave'){
-    const name = prompt('Name this PO scenario:', 'PO '+(poState.poNumber || new Date().toLocaleDateString()));
-    if(!name) return;
-    try {
-      const key = 'ctg_po_scenarios_v1';
-      const list = JSON.parse(localStorage.getItem(key) || '[]');
-      list.unshift({ name: name.trim(), savedAt: Date.now(), data: JSON.parse(JSON.stringify(poState)) });
-      localStorage.setItem(key, JSON.stringify(list));
-      refreshSavedList();
-      showToast('PO scenario saved.', 'success');
-    } catch(err){ showToast('Save failed: '+(err.message||err), 'error'); }
+    (async () => {
+      if(!CTG.isSignedIn()){
+        showToast('Please sign in to save scenarios.', 'error');
+        return;
+      }
+      let entityId = window.currentWorkingEntityId;
+      if(!entityId || entityId === '*'){
+        const active = (_entitiesCache || []).filter(e => e.is_active !== false);
+        if(!active.length){ showToast('No entities available.', 'error'); return; }
+        const choices = active.map((e,i) => (i+1) + '. ' + e.name).join('\n');
+        const pick = prompt('Pick which entity to save this PO scenario under:\n\n' + choices + '\n\nEnter the number:');
+        const idx = parseInt(pick, 10) - 1;
+        if(!isFinite(idx) || idx < 0 || idx >= active.length) return;
+        entityId = active[idx].id;
+      }
+      const name = prompt('Name this PO scenario:', 'PO '+(poState.poNumber || new Date().toLocaleDateString()));
+      if(!name) return;
+      try {
+        await CTG.savePoScenario({ name: name.trim(), entityId, data: JSON.parse(JSON.stringify(poState)) });
+        await refreshSavedList();
+        showToast('PO scenario saved.', 'success');
+      } catch(err){
+        console.error(err);
+        showToast('Save failed: '+(err.message||err), 'error');
+      }
+    })();
     return;
   }
   // Load / delete saved
   if(t.dataset.poScnLoad !== undefined){
-    try {
-      const list = JSON.parse(localStorage.getItem('ctg_po_scenarios_v1') || '[]');
-      const item = list[+t.dataset.poScnLoad];
-      if(item && item.data){ poState = item.data; renderAll(); showToast('Loaded: '+item.name, 'success'); }
-    } catch(err){}
+    const id = t.dataset.poScnLoad;
+    const item = _poScnCache.find(x => x.id === id);
+    if(item && item.data){
+      poState = item.data;
+      renderAll();
+      showToast('Loaded: '+item.name, 'success');
+    }
     return;
   }
   if(t.dataset.poScnDel !== undefined){
     if(!confirm('Delete this saved PO scenario?')) return;
-    try {
-      const list = JSON.parse(localStorage.getItem('ctg_po_scenarios_v1') || '[]');
-      list.splice(+t.dataset.poScnDel, 1);
-      localStorage.setItem('ctg_po_scenarios_v1', JSON.stringify(list));
-      refreshSavedList();
-    } catch(err){}
+    (async () => {
+      try {
+        await CTG.deletePoScenario(t.dataset.poScnDel);
+        await refreshSavedList();
+        showToast('Deleted.', 'success');
+      } catch(err){ showToast('Delete failed: '+(err.message||err), 'error'); }
+    })();
     return;
   }
 });
 
-// ─── Saved scenarios list
-function refreshSavedList(){
+// ─── Saved scenarios list — DB-backed
+let _poScnCache = [];
+async function refreshSavedList(){
   const wrap = document.getElementById('poSavedList');
   if(!wrap) return;
-  let list = [];
-  try { list = JSON.parse(localStorage.getItem('ctg_po_scenarios_v1') || '[]'); } catch(e){}
-  if(!list.length){
+  if(!CTG.HAS_SUPABASE || !CTG.isSignedIn()){
+    wrap.innerHTML = '<p class="note">Sign in to save and load PO scenarios.</p>';
+    _poScnCache = [];
+    return;
+  }
+  try {
+    _poScnCache = await CTG.listPoScenarios({ entityId: window.currentWorkingEntityId });
+  } catch(err){ console.error('[PO scenarios.list]', err); _poScnCache = []; }
+  if(!_poScnCache.length){
     wrap.innerHTML = '<p class="note">No saved scenarios yet. Click ⭐ Save Scenario above.</p>';
     return;
   }
-  wrap.innerHTML = list.map((s, i) =>
-    '<div style="display:flex;gap:10px;align-items:center;padding:8px 12px;background:rgba(7,13,23,.4);border:1px solid var(--border);border-radius:8px;">'+
-      '<div style="flex:1;"><b>'+escapeHtml(s.name)+'</b><div style="font-size:11px;color:var(--muted);">'+new Date(s.savedAt).toLocaleString('en-MY')+'</div></div>'+
-      '<button class="ghost" data-po-scn-load="'+i+'">↻ Load</button>'+
-      '<button class="danger" data-po-scn-del="'+i+'" style="padding:6px 10px;font-size:11.5px;">✕</button>'+
-    '</div>'
-  ).join('');
+  wrap.innerHTML = _poScnCache.map((s) => {
+    const dt = new Date(s.created_at).toLocaleString('en-MY');
+    const ent = (_safeCache('_entitiesCache') || []).find(e => e.id === s.entity_id);
+    const entLabel = ent ? ent.name : '—';
+    const lines = (s.data && s.data.lines) ? s.data.lines.length : 0;
+    return '<div style="display:flex;gap:10px;align-items:center;padding:8px 12px;background:rgba(7,13,23,.4);border:1px solid var(--border);border-radius:8px;">'+
+      '<div style="flex:1;"><b>'+escapeHtml(s.name)+'</b>'+
+        ' <span style="display:inline-block;margin-left:6px;padding:1px 7px;background:rgba(91,155,213,.14);border:1px solid rgba(91,155,213,.30);border-radius:4px;font-size:10.5px;font-weight:600;color:var(--sky-soft);">'+escapeHtml(entLabel)+'</span>'+
+        '<div style="font-size:11px;color:var(--muted);">'+dt+' · '+lines+' lines</div></div>'+
+      '<button class="ghost" data-po-scn-load="'+s.id+'">↻ Load</button>'+
+      '<button class="danger" data-po-scn-del="'+s.id+'" style="padding:6px 10px;font-size:11.5px;">✕</button>'+
+    '</div>';
+  }).join('');
 }
+
+// Re-load saved list when the user switches Working Entity
+document.addEventListener('ctg-working-entity-changed', () => { refreshSavedList(); });
 
 // ─── Excel export
 const btnExport = document.getElementById('btnPoExport');
@@ -9870,12 +10007,119 @@ document.getElementById('formChangePassword').addEventListener('submit', async e
 let _entitiesCache = [];
 
 async function refreshEntitiesCache(){
-  if(!CTG.isSignedIn()) { _entitiesCache = []; populateScenarioEntityDropdown(); return; }
+  if(!CTG.isSignedIn()) { _entitiesCache = []; populateScenarioEntityDropdown(); populateWorkingEntitySelector(); return; }
   try {
     _entitiesCache = await CTG.listEntities();
   } catch (err) { console.error(err); _entitiesCache = []; }
   populateScenarioEntityDropdown();
+  // Working Entity selector is the new global filter — repopulate
+  // alongside the scenario dropdown so they stay in sync.
+  populateWorkingEntitySelector();
 }
+
+// ════════════════════════════════════════════════════════════════════
+// WORKING ENTITY — global multi-tenant filter
+// ────────────────────────────────────────────────────────────────────
+// Persistent selector in the page header. Non-admin users see only
+// their assigned entities. Admins see all + "All entities" option.
+// The active selection (window.currentWorkingEntityId) scopes:
+//   - Suppliers admin tab + PO Estimator supplier datalist
+//   - WHT + PO saved scenario lists
+//   - (future) any other per-entity data
+// Persists in localStorage so the user lands on the same entity next
+// time they sign in.
+// ════════════════════════════════════════════════════════════════════
+const WORKING_ENTITY_LS_KEY = 'ctg_working_entity_v1';
+window.currentWorkingEntityId = null;
+
+async function populateWorkingEntitySelector(){
+  const wrap = document.getElementById('workingEntityWrap');
+  const sel  = document.getElementById('workingEntitySelect');
+  if(!wrap || !sel) return;
+  if(!CTG.isSignedIn()){
+    wrap.style.display = 'none';
+    window.currentWorkingEntityId = null;
+    return;
+  }
+
+  // Determine the user's allowed entities. Admin = all active.
+  // Non-admin = only those in their user_entities membership.
+  let allowed = [];
+  let isAdmin = false;
+  try {
+    const profile = await CTG.getCurrentProfile();
+    isAdmin = !!(profile && profile.role === 'admin');
+    if(isAdmin){
+      allowed = (_entitiesCache || []).filter(e => e.is_active !== false);
+    } else {
+      const ids = (profile && Array.isArray(profile.entity_ids)) ? profile.entity_ids : [];
+      allowed = (_entitiesCache || []).filter(e =>
+        e.is_active !== false && ids.includes(e.id)
+      );
+    }
+  } catch(err){ console.warn('[Working Entity] profile load failed', err); }
+
+  // Hide the selector entirely if the user has no entities to pick from
+  if(!allowed.length){
+    wrap.style.display = 'none';
+    window.currentWorkingEntityId = null;
+    return;
+  }
+
+  wrap.style.display = '';
+  // Build options. Admin gets an "All entities" sentinel as the first
+  // option (value="*") for unrestricted views.
+  let html = '';
+  if(isAdmin) html += '<option value="*">All entities (admin)</option>';
+  html += allowed.map(e =>
+    '<option value="'+e.id+'">'+escapeHtml(e.name)+'</option>'
+  ).join('');
+  sel.innerHTML = html;
+
+  // Decide the active selection. Priority:
+  //   1. localStorage saved choice (if it's still in the allowed list)
+  //   2. The user's first assigned entity
+  //   3. For admin: "*" (all entities)
+  let saved = null;
+  try { saved = localStorage.getItem(WORKING_ENTITY_LS_KEY); } catch(_e){}
+  let active = null;
+  if(saved === '*' && isAdmin){
+    active = '*';
+  } else if(saved && allowed.find(e => e.id === saved)){
+    active = saved;
+  } else {
+    active = isAdmin ? '*' : allowed[0].id;
+  }
+  sel.value = active;
+  window.currentWorkingEntityId = active;
+  sel.classList.toggle('is-admin-all', active === '*');
+  // Persist whatever we landed on (resolves first-time login)
+  try { localStorage.setItem(WORKING_ENTITY_LS_KEY, active); } catch(_e){}
+}
+
+// Change handler: persist + notify any open tab to refresh its data
+document.addEventListener('change', e => {
+  if(e.target && e.target.id === 'workingEntitySelect'){
+    const v = e.target.value;
+    window.currentWorkingEntityId = v;
+    e.target.classList.toggle('is-admin-all', v === '*');
+    try { localStorage.setItem(WORKING_ENTITY_LS_KEY, v); } catch(_e){}
+    // Broadcast — listeners in suppliers / WHT / PO tabs can refresh
+    document.dispatchEvent(new CustomEvent('ctg-working-entity-changed', { detail: { entityId: v } }));
+    // Refresh whichever tab is currently active so it picks up the
+    // new scope immediately.
+    try {
+      if(currentTab === 'suppliers' && typeof renderSuppliersTab === 'function') renderSuppliersTab();
+      if(currentTab === 'po'        && typeof window._poRefresh    === 'function') window._poRefresh();
+      if(currentTab === 'wht'       && typeof window._whtRefresh   === 'function') window._whtRefresh();
+    } catch(_e){}
+    // Visual toast confirming the switch
+    try {
+      const ent = (_entitiesCache || []).find(en => en.id === v);
+      showToast(v === '*' ? 'Switched to: All entities (admin view)' : ('Switched to: ' + (ent ? ent.name : v)), 'info');
+    } catch(_e){}
+  }
+});
 
 function populateScenarioEntityDropdown(){
   const sel = document.getElementById('scenarioEntity');
@@ -10126,19 +10370,34 @@ async function renderSuppliersTab(){
   if(!admin) return;
 
   await refreshSuppliersCache();
+  // Apply Working Entity filter. "*" or no selection = show all (admin).
+  // Otherwise filter to suppliers belonging to the active entity.
+  const wid = window.currentWorkingEntityId;
+  const filtered = (wid && wid !== '*')
+    ? _suppliersCache.filter(s => String(s.entity_id) === String(wid))
+    : _suppliersCache;
+
   const tbody = document.querySelector('#suppliersTable tbody');
-  if(_suppliersCache.length === 0){
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px;">' + t('sup_none') + '</td></tr>';
+  if(filtered.length === 0){
+    const msg = (wid && wid !== '*')
+      ? 'No suppliers under this entity yet. Click "+ New Supplier" to add one.'
+      : t('sup_none');
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px;">' + escapeHtml(msg) + '</td></tr>';
     return;
   }
-  tbody.innerHTML = _suppliersCache.map(s => {
+  // Lookup entity names from _entitiesCache for the new Entity column
+  const entityNameById = {};
+  (_entitiesCache || []).forEach(e => { entityNameById[e.id] = e.name; });
+  tbody.innerHTML = filtered.map(s => {
     const contact = [s.contact_person, s.contact_email, s.contact_phone].filter(Boolean).join(' · ');
     const lead = s.default_lead_time_weeks ? Number(s.default_lead_time_weeks) + 'w' : '—';
     const terms = (Number(s.default_deposit_pct)||0) + '/' + (Number(s.default_balance_pct)||0) +
                   (Number(s.default_credit_days) > 0 ? ' · N' + Number(s.default_credit_days) : '');
+    const entName = entityNameById[s.entity_id] || '—';
     return '<tr>' +
       '<td><b style="color:#fff;">' + escapeHtml(s.name) + '</b></td>' +
       '<td style="color:var(--coral-soft);font-family:Consolas,Menlo,monospace;font-size:12px;font-weight:600;">' + escapeHtml(s.code || '—') + '</td>' +
+      '<td><span style="display:inline-block;padding:2px 8px;background:rgba(91,155,213,.14);border:1px solid rgba(91,155,213,.30);border-radius:4px;font-size:11px;font-weight:600;color:var(--sky-soft);">' + escapeHtml(entName) + '</span></td>' +
       '<td style="color:var(--text-soft);font-size:12px;">' + escapeHtml(s.country || '—') + '</td>' +
       '<td style="color:var(--sky-soft);font-family:Consolas,Menlo,monospace;font-size:12px;font-weight:700;">' + escapeHtml(s.base_currency || 'MYR') + '</td>' +
       '<td style="color:var(--text-soft);font-family:Consolas,Menlo,monospace;font-size:12px;">' + escapeHtml(lead) + '</td>' +
@@ -10157,9 +10416,18 @@ function openSupplierForm(supplier){
   const form = document.getElementById('formSupplier');
   form.reset();
   document.querySelector('[data-supplier-error]').classList.remove('show');
+  // Populate the Entity dropdown from the loaded entities cache.
+  // Required field — supplier must belong to exactly one entity.
+  const entSel = document.getElementById('supEntity');
+  if(entSel){
+    const activeEnt = (_entitiesCache || []).filter(e => e.is_active !== false);
+    entSel.innerHTML = '<option value="">— Select entity —</option>' +
+      activeEnt.map(e => '<option value="'+e.id+'">'+escapeHtml(e.name)+'</option>').join('');
+  }
   if(supplier){
     document.getElementById('supplierFormTitle').textContent = t('suppliers_form_edit');
     document.getElementById('supplierId').value         = supplier.id;
+    document.getElementById('supEntity').value          = supplier.entity_id || '';
     document.getElementById('supName').value            = supplier.name || '';
     document.getElementById('supCode').value            = supplier.code || '';
     document.getElementById('supLegalName').value       = supplier.legal_name || '';
@@ -10188,6 +10456,12 @@ function openSupplierForm(supplier){
   } else {
     document.getElementById('supplierFormTitle').textContent = t('suppliers_form_new');
     document.getElementById('supplierId').value = '';
+    // Pre-fill entity from the active Working Entity (if not "*" admin
+    // mode). Saves the user from picking it manually for the common case.
+    const wid = window.currentWorkingEntityId;
+    if(wid && wid !== '*'){
+      document.getElementById('supEntity').value = wid;
+    }
     document.getElementById('supCurrency').value = 'MYR';
     document.getElementById('supLeadWeeks').value = 8;
     document.getElementById('supDepositPct').value = 30;
@@ -10222,7 +10496,9 @@ document.getElementById('formSupplier').addEventListener('submit', async e => {
   errEl.classList.remove('show');
   const id = document.getElementById('supplierId').value;
   const name = document.getElementById('supName').value.trim();
+  const entityId = document.getElementById('supEntity').value;
   if(!name){ errEl.textContent = 'Supplier name is required.'; errEl.classList.add('show'); return; }
+  if(!entityId){ errEl.textContent = 'Please pick which Entity this supplier belongs to.'; errEl.classList.add('show'); return; }
 
   // Numeric helpers — clamp + sane defaults
   const num = (id, def) => {
@@ -10238,6 +10514,7 @@ document.getElementById('formSupplier').addEventListener('submit', async e => {
 
   const payload = {
     name,
+    entity_id:               entityId,
     code:                    document.getElementById('supCode').value.trim() || null,
     legal_name:              document.getElementById('supLegalName').value.trim() || null,
     registration_number:     document.getElementById('supRegNo').value.trim() || null,

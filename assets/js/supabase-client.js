@@ -256,7 +256,7 @@
   // (lead time, deposit%, balance%, credit days, duty%, forwarding fee)
   // auto-populate when an admin picks a supplier. Read by all signed-in
   // users so dropdowns work for non-admins too.
-  const SUPPLIER_FIELDS = 'id,name,code,legal_name,registration_number,tax_number,tin_number,address_line1,address_line2,city,state,postcode,country,contact_person,contact_email,contact_phone,base_currency,default_lead_time_weeks,default_deposit_pct,default_balance_pct,default_credit_days,default_import_duty_pct,default_forwarding_fee,payment_terms_note,notes,is_active,created_at,updated_at';
+  const SUPPLIER_FIELDS = 'id,entity_id,name,code,legal_name,registration_number,tax_number,tin_number,address_line1,address_line2,city,state,postcode,country,contact_person,contact_email,contact_phone,base_currency,default_lead_time_weeks,default_deposit_pct,default_balance_pct,default_credit_days,default_import_duty_pct,default_forwarding_fee,payment_terms_note,notes,is_active,created_at,updated_at';
 
   async function listSuppliers({ activeOnly = false } = {}) {
     if (!sb || !currentUser) return [];
@@ -284,6 +284,64 @@
   async function deleteSupplier(id) {
     _ensureSb();
     const { error } = await sb.from('suppliers').delete().eq('id', id);
+    if (error) throw error;
+  }
+
+  // ---------- WHT scenarios (DB-backed, entity-scoped) ----------
+  // RLS on the table already enforces that non-admins only see scenarios
+  // for entities they're assigned to. Admins see all.
+  const WHT_SCN_FIELDS = 'id,user_id,entity_id,name,data,created_at,updated_at';
+
+  async function listWhtScenarios({ entityId = null } = {}) {
+    if (!sb || !currentUser) return [];
+    let q = sb.from('wht_scenarios').select(WHT_SCN_FIELDS).order('created_at', { ascending: false });
+    if (entityId && entityId !== '*') q = q.eq('entity_id', entityId);
+    const { data, error } = await q;
+    if (error) { console.error('[wht_scenarios.list]', error); return []; }
+    return data || [];
+  }
+
+  async function saveWhtScenario({ name, entityId, data }) {
+    _ensureSb();
+    if (!name || !entityId) throw new Error('Name and entity are required.');
+    const { data: row, error } = await sb.from('wht_scenarios').insert({
+      user_id: currentUser.id, entity_id: entityId, name, data
+    }).select(WHT_SCN_FIELDS).single();
+    if (error) throw error;
+    return row;
+  }
+
+  async function deleteWhtScenario(id) {
+    _ensureSb();
+    const { error } = await sb.from('wht_scenarios').delete().eq('id', id);
+    if (error) throw error;
+  }
+
+  // ---------- PO scenarios (DB-backed, entity-scoped) ----------
+  const PO_SCN_FIELDS = 'id,user_id,entity_id,name,data,created_at,updated_at';
+
+  async function listPoScenarios({ entityId = null } = {}) {
+    if (!sb || !currentUser) return [];
+    let q = sb.from('po_scenarios').select(PO_SCN_FIELDS).order('created_at', { ascending: false });
+    if (entityId && entityId !== '*') q = q.eq('entity_id', entityId);
+    const { data, error } = await q;
+    if (error) { console.error('[po_scenarios.list]', error); return []; }
+    return data || [];
+  }
+
+  async function savePoScenario({ name, entityId, data }) {
+    _ensureSb();
+    if (!name || !entityId) throw new Error('Name and entity are required.');
+    const { data: row, error } = await sb.from('po_scenarios').insert({
+      user_id: currentUser.id, entity_id: entityId, name, data
+    }).select(PO_SCN_FIELDS).single();
+    if (error) throw error;
+    return row;
+  }
+
+  async function deletePoScenario(id) {
+    _ensureSb();
+    const { error } = await sb.from('po_scenarios').delete().eq('id', id);
     if (error) throw error;
   }
 
@@ -423,6 +481,12 @@
     createSupplier,
     updateSupplier,
     deleteSupplier,
+    listWhtScenarios,
+    saveWhtScenario,
+    deleteWhtScenario,
+    listPoScenarios,
+    savePoScenario,
+    deletePoScenario,
     pcListSavedScenarios,
     pcSaveSavedScenario,
     pcDeleteSavedScenario,
