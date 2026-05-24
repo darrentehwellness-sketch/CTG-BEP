@@ -479,6 +479,57 @@
     box-shadow:0 0 0 3px rgba(91,155,213,.20),
                inset 0 1px 2px rgba(0,0,0,.25) !important;
   }
+  /* ── Country-scoped validation states (set by JS) ──────────────── */
+  /* Invalid: number doesn't match the selected country's format/length */
+  .iti input[type="tel"].phone-invalid,
+  .iti__tel-input.phone-invalid{
+    border-color:rgba(232,93,60,.55) !important;
+    background:rgba(232,93,60,.06) !important;
+  }
+  .iti input[type="tel"].phone-invalid:focus,
+  .iti__tel-input.phone-invalid:focus{
+    border-color:var(--coral) !important;
+    box-shadow:0 0 0 3px rgba(232,93,60,.20),
+               inset 0 1px 2px rgba(0,0,0,.25) !important;
+  }
+  /* Valid: subtle green tint, only visible on focus to avoid noise */
+  .iti input[type="tel"].phone-valid:focus,
+  .iti__tel-input.phone-valid:focus{
+    border-color:#16a34a !important;
+    box-shadow:0 0 0 3px rgba(22,163,74,.18),
+               inset 0 1px 2px rgba(0,0,0,.20) !important;
+  }
+  /* Tiny check / x indicator on the right side of the input.
+     Pure CSS — uses ::after on the .iti wrapper, content varies by
+     state class. */
+  .iti{ position:relative !important; }
+  .iti::after{
+    content:'';
+    position:absolute;
+    right:12px; top:50%;
+    width:16px; height:16px;
+    transform:translateY(-50%);
+    pointer-events:none;
+    opacity:0;
+    transition:opacity .15s;
+  }
+  .iti:has(input.phone-valid)::after{
+    opacity:1;
+    background-color:#16a34a;
+    -webkit-mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M3 8l3.5 3.5L13 5' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") center / contain no-repeat;
+            mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M3 8l3.5 3.5L13 5' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") center / contain no-repeat;
+  }
+  .iti:has(input.phone-invalid)::after{
+    opacity:1;
+    background-color:var(--coral);
+    -webkit-mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M4 4l8 8M12 4l-8 8' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") center / contain no-repeat;
+            mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M4 4l8 8M12 4l-8 8' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") center / contain no-repeat;
+  }
+  /* Make room for the check/x icon when present */
+  .iti:has(input.phone-valid) input[type="tel"],
+  .iti:has(input.phone-invalid) input[type="tel"]{
+    padding-right:36px !important;
+  }
 
   /* ── Chip wrapper — invisible (positioning only) ─────────────────── */
   .iti__country-container{
@@ -5710,21 +5761,74 @@ function attachPhone(inp){
       preferredCountries: ['my','sg','id','th','cn','hk','tw','us','gb','au'],
       separateDialCode: true,
       formatOnDisplay: true,
+      // autoPlaceholder=aggressive uses the library's example number
+      // database to show the country-specific format as placeholder
+      // (e.g. "12-345 6789" for MY, "(201) 555-0123" for US).
       autoPlaceholder: 'aggressive',
+      // strictMode = library blocks invalid characters as user types
+      // (only numerics + spaces/dashes allowed) AND enforces the
+      // maximum length for the selected country. Switch country →
+      // length cap updates automatically.
+      strictMode: true,
+      // nationalMode=false → input value treated as international.
+      // Combined with formatOnDisplay, library formats the digits
+      // per the country's national pattern on blur.
+      nationalMode: false,
       utilsScript: 'https://cdn.jsdelivr.net/npm/intl-tel-input@23.0.10/build/js/utils.js'
     });
     _phoneItiMap.set(inp, iti);
-    // Initial padding sync — the chip's final width is known after the
-    // library injects its DOM. A few measurement ticks give the browser
-    // time to lay out before we measure (fonts / icon loading can shift
-    // the chip width by a few pixels).
+    // Initial padding sync — three ticks to catch any layout shift.
     setTimeout(() => _phoneSyncPadding(inp),  0);
     setTimeout(() => _phoneSyncPadding(inp), 50);
     setTimeout(() => _phoneSyncPadding(inp), 250);
-    // Re-sync whenever the user changes country (some dial codes are
-    // wider, e.g. +355 Albania > +60 Malaysia).
-    inp.addEventListener('countrychange', () => _phoneSyncPadding(inp));
-    // Re-sync on window resize (font scaling, dev tools, etc.)
+
+    // ── COUNTRY-SCOPED VALIDATION ─────────────────────────────────
+    // Re-validate as the user types. Library's isValidNumber()
+    // checks the typed number against the SELECTED country's:
+    //   - dial code prefix
+    //   - mobile/landline length rules
+    //   - format conventions
+    // Visual feedback via .phone-invalid / .phone-valid classes.
+    const validate = () => {
+      // Empty field = neutral (no warning)
+      if(!inp.value || !inp.value.trim()){
+        inp.classList.remove('phone-invalid', 'phone-valid');
+        return;
+      }
+      // Library exposes utils only after the async utilsScript loads.
+      // Until then, treat any non-empty value as valid (avoids false
+      // red borders on initial paint).
+      if(typeof iti.isValidNumber !== 'function'){
+        inp.classList.remove('phone-invalid');
+        return;
+      }
+      const ok = iti.isValidNumber();
+      inp.classList.toggle('phone-invalid', !ok);
+      inp.classList.toggle('phone-valid',    ok);
+    };
+    inp.addEventListener('input',  validate);
+    inp.addEventListener('blur',   () => {
+      validate();
+      // On blur, reformat the typed digits to the country's clean
+      // national display format (e.g. "+60123456789" → "12-345 6789").
+      try {
+        if(iti.isValidNumber && iti.isValidNumber() && window.intlTelInputUtils){
+          const formatted = iti.getNumber(window.intlTelInputUtils.numberFormat.NATIONAL);
+          if(formatted) inp.value = formatted;
+        }
+      } catch(_e){}
+    });
+    // Re-validate + re-sync padding when country changes
+    inp.addEventListener('countrychange', () => {
+      _phoneSyncPadding(inp);
+      validate();
+    });
+    // Re-validate once utils finishes loading (async). The library
+    // dispatches 'open' on the dropdown when it's ready; simpler to
+    // just re-check after a beat.
+    setTimeout(validate, 800);
+
+    // Resize listener — bound once
     if(!window._phoneResizeBound){
       window._phoneResizeBound = true;
       window.addEventListener('resize', () => {
