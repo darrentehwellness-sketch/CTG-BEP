@@ -54,6 +54,40 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
 <script src="config.js?v=22"></script>
+<!-- ────────────────────────────────────────────────────────────────
+     Factory-reset trigger (CTG admin tool).
+     ────────────────────────────────────────────────────────────────
+     Bump CTG_RESET_VERSION any time you wipe DB scenarios so users'
+     local in-progress calculator state (BEP working state, WHT typing
+     buffer, PO drafts, PC drafts, old localStorage scenarios) gets
+     cleared too on next page load. Preserves auth tokens, language,
+     accent color, and the working-entity selector.
+     Runs SYNC + BEFORE any other script reads localStorage. -->
+<script>
+(function(){
+  const CTG_RESET_VERSION = '2026-05-24-r1';   // ← bump to trigger a wipe
+  const SEEN_KEY = 'ctg_reset_seen';
+  // Keys that hold actual calculator/cost data. We wipe these.
+  const DATA_KEYS = [
+    'ctg_bep_state_v1',         // BEP working state (products, costs, sales target)
+    'ctg_bep_scenarios_v1',     // Legacy local BEP scenarios
+    'ctg_pc_state_v2',          // Product Costing working state
+    'ctg_pc_state_v1',          // Legacy PC state
+    'ctg_wht_state_v1',         // WHT calculator working state
+    'ctg_po_state_v1',          // PO Cash Flow working state
+    'ctg_current_tab_v1'        // Reset to default tab too
+  ];
+  try {
+    const seen = localStorage.getItem(SEEN_KEY);
+    if (seen !== CTG_RESET_VERSION) {
+      DATA_KEYS.forEach(k => { try { localStorage.removeItem(k); } catch(_e){} });
+      localStorage.setItem(SEEN_KEY, CTG_RESET_VERSION);
+      // Flag the rest of the app so it can show a one-time toast.
+      window.__ctgFactoryReset = true;
+    }
+  } catch(_e){ /* localStorage disabled — nothing to wipe */ }
+})();
+</script>
 <script src="assets/js/supabase-client.js?v=29"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
 <script src="assets/js/wht-calculator.js?v=17"></script>
@@ -5392,6 +5426,7 @@ const I18N = {
     idle_warn_sub:"You'll be signed out in 5 minutes due to inactivity.",
     idle_warn_cta:"Stay signed in",
     idle_signed_out:"You were signed out after 30 minutes of inactivity. Please sign in again.",
+    factory_reset_toast:"Your calculator workspace has been reset by an administrator. Saved scenarios are preserved on the server.",
     users_entity_label:"Assigned entity", users_entity_none:"— No entity —",
     users_entity_hint:"Normal users are locked to this entity when saving scenarios. Admins can pick any entity freely.",
     users_entities_label:"Assigned entities",
@@ -5623,6 +5658,7 @@ const I18N = {
     idle_warn_sub:"由于闲置, 您将在 5 分钟后被自动登出。",
     idle_warn_cta:"继续使用",
     idle_signed_out:"由于 30 分钟无操作, 您已被自动登出。请重新登录。",
+    factory_reset_toast:"您的计算器工作区已被管理员重置。云端已保存的方案不受影响。",
     users_entity_label:"所属公司", users_entity_none:"— 不选 —",
     users_entity_hint:"普通用户保存方案时会锁定为此公司。管理员可任意选择。",
     users_entities_label:"所属公司（可多选）",
@@ -11673,6 +11709,15 @@ document.getElementById('formUserEdit').addEventListener('submit', async e=>{
 
 /* ============ INIT ============ */
 async function init(){
+  // If the factory-reset trigger in the early-load <script> wiped local
+  // calculator state on this page load, surface a friendly one-time toast
+  // so users aren't confused why their in-progress work is gone.
+  if(window.__ctgFactoryReset){
+    setTimeout(() => {
+      try { showToast(t('factory_reset_toast'), 'info'); } catch(_e){}
+    }, 1200);  // delay so toast lands AFTER the auth flow settles
+    window.__ctgFactoryReset = false;
+  }
   // restore working state + language
   const savedState = CTG.loadWorkingState();
   if(savedState){
