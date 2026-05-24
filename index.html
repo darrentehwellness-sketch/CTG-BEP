@@ -432,35 +432,53 @@
      Default styles are light/white. Override to match the CTG dark
      theme so the phone field blends with surrounding form inputs.
      ============================================================ */
-  .iti{ width:100%; display:block !important; }
+  .iti{ width:100%; display:block !important; position:relative; }
+  /* BUGFIX: the +60 dial-code chip was overlapping the placeholder text
+     because 58px padding-left wasn't enough to clear the flag + chip.
+     New widths: flag ~30px + chip ~52px + 8px gap = 90px clearance.
+     Also force the input to a min-height so the chip sits comfortably
+     centered vertically. */
   .iti__tel-input{
     width:100% !important;
-    padding-left:58px !important;   /* room for flag + dial code */
+    padding:10px 14px 10px 92px !important;   /* room for flag + dial code */
+    min-height:44px !important;
     background:rgba(7,13,23,.65) !important;
     border:1px solid var(--border-strong) !important;
     border-radius:8px !important;
     color:var(--text) !important;
     font:inherit !important;
     font-size:13px !important;
+    line-height:1.4;
+    box-sizing:border-box !important;
   }
   .iti__tel-input:focus{
     outline:none;
     border-color:var(--sky) !important;
     box-shadow:0 0 0 3px rgba(91,155,213,.20) !important;
   }
-  /* Flag-button + dial code chip on the left side */
+  /* Flag-button + dial code chip on the left side. Pin to the input's
+     left edge with explicit width so the input padding can clear it
+     deterministically. */
   .iti__country-container,
   .iti__selected-country{
     background:rgba(91,155,213,.10) !important;
     border-right:1px solid var(--border) !important;
     border-radius:8px 0 0 8px !important;
+    padding:0 8px 0 10px !important;
+    height:100% !important;
+    display:flex !important;
+    align-items:center !important;
+    gap:4px !important;
   }
   .iti__selected-dial-code{
     color:var(--text) !important;
     font-weight:600;
-    margin-left:4px;
+    font-size:13px !important;
+    margin-left:2px !important;
+    white-space:nowrap !important;
   }
-  .iti__arrow{ border-top-color:var(--sky-soft) !important; }
+  .iti__flag{ flex-shrink:0; }
+  .iti__arrow{ border-top-color:var(--sky-soft) !important; margin-left:4px !important; }
   /* The dropdown panel listing all countries */
   .iti__dropdown-content,
   .iti__country-list{
