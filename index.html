@@ -476,34 +476,64 @@
     background:rgba(7,13,23,.85) !important;
     box-shadow:0 0 0 3px rgba(91,155,213,.22) !important;
   }
-  /* Chip — flag + dial code. Absolute-positioned, polished look. */
-  .iti__country-container,
-  .iti__selected-country{
+  /* Chip wrapper — invisible. Only the inner button is styled.
+     Avoids the "double rectangle" effect the user saw where both
+     the wrapper AND the button had backgrounds + borders. */
+  .iti__country-container{
     position:absolute !important;
     top:1px !important;
     left:1px !important;
     bottom:1px !important;
     z-index:2 !important;
+    background:transparent !important;
+    border:none !important;
+    padding:0 !important;
+    margin:0 !important;
+    box-shadow:none !important;
+  }
+  /* The actual interactive chip — flag + dial code button.
+     All visual styling lives here. Aggressively suppress any
+     default browser button chrome (focus ring, outline, dotted
+     border, inset shadow) so only OUR styling shows. */
+  .iti__selected-country{
+    position:relative !important;
+    height:100% !important;
     background:linear-gradient(180deg, rgba(91,155,213,.18), rgba(91,155,213,.10)) !important;
     border:none !important;
     border-right:1px solid rgba(91,155,213,.35) !important;
     border-radius:8px 0 0 8px !important;
+    outline:none !important;
     padding:0 12px !important;
+    margin:0 !important;
     display:flex !important;
     align-items:center !important;
     gap:8px !important;
     cursor:pointer !important;
     transition:background .15s;
-    box-shadow:inset 0 0 0 1px rgba(255,255,255,.03);
+    -webkit-tap-highlight-color:transparent !important;
+    -webkit-appearance:none !important;
+    appearance:none !important;
+    box-shadow:none !important;
   }
-  .iti__country-container:hover,
+  /* Suppress every variant of focus outline browsers add by default
+     (Chrome's :focus-visible, Firefox's dotted ring, Safari's blue glow) */
+  .iti__selected-country:focus,
+  .iti__selected-country:focus-visible,
+  .iti__selected-country:focus-within,
+  .iti__selected-country:active,
+  .iti__selected-country::-moz-focus-inner{
+    outline:none !important;
+    border-color:rgba(91,155,213,.35) !important;
+    border-right:1px solid rgba(91,155,213,.35) !important;
+    box-shadow:none !important;
+  }
+  /* Hide the inner focus outline Firefox / older Chrome add */
+  .iti__selected-country::-moz-focus-inner{
+    border:0 !important;
+    padding:0 !important;
+  }
   .iti__selected-country:hover{
     background:linear-gradient(180deg, rgba(91,155,213,.28), rgba(91,155,213,.16)) !important;
-  }
-  .iti__country-container:focus,
-  .iti__selected-country:focus{
-    outline:none !important;
-    background:linear-gradient(180deg, rgba(91,155,213,.32), rgba(91,155,213,.18)) !important;
   }
   /* Flag — DO NOT override width/height or background-size!
      The library uses a CSS sprite where each flag is at a precise
