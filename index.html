@@ -8096,7 +8096,7 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
           '<button class="danger" data-wht-del-payee="' + i + '" style="padding:6px 12px;font-size:11.5px;">' + t('wht_remove_payee') + '</button>' +
         '</div>' +
         '<div class="grid-2">' +
-          '<div class="input-group"><label>' + t('wht_payee_name') + '</label><input type="text" value="' + escapeHtml(p.name||'') + '" data-wpf="' + i + '" data-field="name"></div>' +
+          '<div class="input-group"><label>' + t('wht_payee_name') + '</label><input type="text" value="' + escapeHtml(p.name||'') + '" data-wpf="' + i + '" data-field="name" oninput="window._whtUpdatePayeeName && window._whtUpdatePayeeName(' + i + ', this.value)" onkeyup="window._whtUpdatePayeeName && window._whtUpdatePayeeName(' + i + ', this.value)"></div>' +
           '<div class="input-group"><label>' + t('wht_payee_country') + '</label><select data-wpf="' + i + '" data-field="country" style="width:100%;padding:11px 14px;border:1px solid var(--border-strong);border-radius:8px;background:rgba(7,13,23,.6);color:var(--text);font:inherit;">' + buildCountryOptions(p.country) + '</select></div>' +
         '</div>' +
         '<div class="grid-3">' +
@@ -8390,6 +8390,26 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
       (sec.lhdnCode ? ' · Code ' + sec.lhdnCode : '') +
       '</div>';
   }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // DIRECT PAYEE-NAME UPDATE — bound via inline oninput/onkeyup attrs on
+  // the Payee Name input. Guarantees the card header chip title stays in
+  // sync with the typed name, regardless of whether the delegated 'input'
+  // event handler fires (browser extensions / CSP can silently intercept
+  // delegated events). Same belt-and-suspenders pattern we used for the
+  // WHT Invoice Amount input.
+  // ═══════════════════════════════════════════════════════════════════════
+  window._whtUpdatePayeeName = function(payeeIdx, rawValue){
+    try {
+      const p = whtState.payees[payeeIdx];
+      if(!p) return;
+      const newName = String(rawValue || '');
+      if(p.name === newName) return;   // no change → skip work
+      p.name = newName;
+      persist();
+      refreshPayeeHeader(payeeIdx);
+    } catch(err){ console.error('[WHT _whtUpdatePayeeName]', err); }
+  };
 
   // Build the entity dropdown options from the global _entitiesCache.
   function buildPayerEntityOptions(){
