@@ -1,177 +1,76 @@
-# CTG Finance Hub — Monitoring Setup Guide
+# CTG Finance Hub — Monitoring (Zero-Setup Version)
 
-This site is hosted on **GitHub Pages** (basically infinite uptime — Microsoft's CDN) with **Supabase** as the backend. The realistic failure modes:
+You don't need to sign up for anything. The site already monitors itself:
 
-1. Supabase project hits a quota / is paused.
-2. A bad deploy ships a JavaScript error.
-3. Users hit a slow query path.
+| Layer | Where | Setup needed? |
+|---|---|---|
+| 1. JS errors | Activity Log tab → filter `⚠ JavaScript error` | ✅ **None — already wired** |
+| 2. User actions | Activity Log tab | ✅ **None — already wired** |
+| 3. Session timeouts | Activity Log tab → filter `Session timeout` | ✅ **None — already wired** |
+| 4. DB performance | Supabase Dashboard → Database → Performance | ✅ **None — built into Supabase** |
 
-This guide wires up three layers of observability:
-
-| Layer | Tool | Cost | What it catches |
-|---|---|---|---|
-| 1. Frontend error tracking | **Sentry** (free) | $0 / 5k events/mo | Unhandled JS errors, perf slow-downs |
-| 2. External uptime ping | **Better Uptime** (free) | $0 / 10 monitors | Site down, SSL cert expired, response > N sec |
-| 3. Load testing | `scripts/loadtest.ps1` | $0 | Pre-deploy perf regression check |
-
----
-
-## 1. Sentry — Frontend Error Tracking (10 min setup)
-
-### Sign up
-1. Go to <https://sentry.io/signup/> — free, no credit card.
-2. Pick **"JavaScript → Browser"** as the platform.
-3. Project name: `ctg-finance-hub`.
-
-### Get the DSN
-1. After project creation, you land on the "Get started" page.
-2. Copy the **DSN** from the code snippet — it looks like:
-   ```
-   https://abc123def456@o4506xxx.ingest.us.sentry.io/4506xxx
-   ```
-
-### Paste it into config.js
-Open `config.js` and fill in:
-```js
-SENTRY_DSN: 'https://abc123def456@o4506xxx.ingest.us.sentry.io/4506xxx',
-SENTRY_ENVIRONMENT: 'production',
-SENTRY_TRACES_RATE: 0.1
-```
-
-Commit + push:
-```bash
-git add config.js
-git commit -m "Enable Sentry error tracking"
-git push
-```
-
-### What gets captured
-- ✅ Unhandled JS errors (`window.onerror`, unhandled promise rejections)
-- ✅ Slow page loads + slow API requests (10% sample by default)
-- ✅ Source maps for readable stack traces (Sentry inlines the bundle URL)
-- ❌ **Never** user emails or payloads (scrubbed in `beforeSend` hook)
-
-### Verify it works
-1. After deploy, open browser DevTools console on the live site.
-2. Run: `throw new Error('Sentry test error - safe to ignore')`
-3. Within 30 seconds you'll see the error in your Sentry dashboard.
+That's it. Open the **Activity Log** tab as admin and you'll see:
+- ⚠ Every JavaScript error that fired in any user's browser
+- 📝 Every save / edit / delete
+- 🔐 Every sign-in
+- ⏰ Every auto-logout
+- 📦 Every migration / data import
 
 ---
 
-## 2. Better Uptime — External Ping (5 min setup)
+## How JS error capture works
 
-Better Uptime pings your site from 12 global locations and pages you on Slack / email / SMS when it's down.
+When any JavaScript error fires in a signed-in user's browser:
 
-### Sign up
-1. Go to <https://betteruptime.com/> — free tier: 10 monitors, 3-min check interval.
-2. Sign in with Google.
+1. `window.addEventListener('error', ...)` catches it.
+2. `CTG.logActivity('js_error', { metadata: { msg, file, line, stack, ua } })` writes to `activity_log`.
+3. You see it in the Activity Log tab (filter action = `⚠ JavaScript error`).
 
-### Create the monitor
-1. Click **+ Monitor** → **HTTP / HTTPS**.
-2. Configure:
-   - **URL**: `https://ctg-financehub.com/` (or your GitHub Pages URL)
-   - **Check interval**: 3 minutes (free tier)
-   - **Request timeout**: 30 seconds
-   - **Verify SSL**: ON
-   - **Required status codes**: `200-299`
-   - **Required content** (optional): `CTG Finance Hub` (matches page title)
+**Built-in safety:**
+- Rate-limited: max 1 error logged every 5 seconds.
+- Capped at 30 errors per session (prevents flooding if something loops).
+- Cross-origin "Script error." messages (no useful info) are filtered out.
+- Only signed-in users — anonymous errors aren't logged (can't write to activity_log without auth).
 
-### Create the Supabase API monitor
-This catches Supabase-side outages even when GitHub Pages is up:
-1. **+ Monitor** → **HTTP / HTTPS**.
-2. **URL**: `https://msdfzzvdmmqzwcnxtrfn.supabase.co/auth/v1/health`
-3. **Required status codes**: `200`
-4. **Check interval**: 5 minutes.
-
-### Alerts
-1. Settings → Notifications → **Add channel**.
-2. Pick Slack / Email / SMS / Telegram.
-3. Free tier includes 50 SMS/month.
-
-### Status page (optional, also free)
-Better Uptime auto-creates a public status page (e.g. `ctg.betteruptime.com`) you can link from your footer for transparency with users.
-
-### Alternative: Pingdom
-If you prefer Pingdom (better UI, ~$15/mo Starter plan):
-- Same setup as above; sign up at <https://www.pingdom.com/>.
-- Use the same `/auth/v1/health` URL for the API check.
-- The page-content check uses Pingdom's "Transaction monitor" feature.
+**Privacy:**
+- Only stack trace + filename + line number + user-agent are stored.
+- **Never** scenario data, supplier names, or anything else from the page.
 
 ---
 
-## 3. Load Testing — Pre-Deploy Perf Check
+## Daily admin check (60 seconds)
 
-A PowerShell script that hits Supabase with progressive concurrency and reports p50/p95/p99 latency.
+1. Open the site as admin.
+2. Sidebar → **Activity Log**.
+3. Filter `⚠ JavaScript error` over the last 7 days.
+4. If empty → all good 👍.
+5. If something shows → click "Details" to see the stack trace, share with me.
 
-### Run it
+---
+
+## Bonus: pre-deploy load test (optional)
+
+If you ever want to test the backend can handle a busy day:
+
 ```powershell
 PowerShell -ExecutionPolicy Bypass -File scripts\loadtest.ps1
 ```
 
-Output looks like:
-```
---- Endpoint: Auth health --- (GET /auth/v1/health)
-  Concurrency   1 for 4s ... done.    25 req, p50  120ms, p95  141ms, p99  980ms
-  Concurrency  10 for 8s ... done.   155 req, p50  531ms, p95  567ms, p99  675ms
-  Concurrency  25 for 8s ... done.   172 req, p50 1310ms, p95 1428ms, p99 1434ms
-  Concurrency  50 for 8s ... done.   196 req, p50 2691ms, p95 2732ms, p99 2756ms
-```
-
-### Interpret the numbers
-- **p50** = half of all requests finish faster than this.
-- **p95** = 95% of all requests finish faster than this — this is your "real worst case".
-- **p99** = the slowest 1% — your tail latency.
-
-### Baseline (recorded 2026-05-24)
-| Concurrent users | p95 (Auth) | Status |
-|---|---|---|
-| 1 (idle) | 141ms | 🟢 Excellent |
-| 10 (small team) | 567ms | 🟢 Acceptable |
-| 25 (busy day) | 1428ms | 🟡 Slowing (rate limits kicking in) |
-| 50 (DDoS scenario) | 2732ms | 🔴 Saturated |
-
-The slowdown at 25+ concurrent is **expected** — Supabase deliberately throttles auth endpoints to prevent brute-force attacks. For a 6-user organization, this is non-issue.
-
-### When to re-run
-- After any DB migration that adds/changes RLS policies.
-- After Supabase tier upgrade.
-- Quarterly as part of routine ops.
+Baseline numbers (recorded 2026-05-24):
+- 1 user idle: **141ms** ✓
+- 10 concurrent: **567ms** ✓
+- Your team is 6 people max → comfortably in the green zone.
 
 ---
 
-## Layered alert flow (what to do when X breaks)
+## If you ever decide you want external monitoring later
 
-```
-Better Uptime SMS → site is down
-   ├─ GitHub Pages outage  → check https://www.githubstatus.com/
-   ├─ Supabase outage      → check https://status.supabase.com/
-   └─ DNS / cert            → check the Better Uptime detail panel
+The Sentry hook is already in `config.js` — just paste a DSN to activate. No code changes needed. But honestly, the in-app Activity Log is sufficient for a 6-user team — Sentry's main value is for apps with thousands of users where errors slip past testing.
 
-Sentry email → JS errors spiking
-   ├─ See the stack trace, the release tag, and the URL
-   ├─ Rollback via `git revert <commit> && git push`
-   └─ Or hotfix forward + push
-
-Load test p95 > 1500ms
-   ├─ Run get_advisors via Supabase MCP
-   ├─ Check if a new RLS policy is slow
-   └─ Re-run after fix
-```
+The same applies to Better Uptime / Pingdom: useful if customers complain "the site is down", but with 6 internal users, **they'll tell you directly** the moment something breaks. External uptime alerts are overkill at this scale.
 
 ---
 
-## Costs at a glance
+## TL;DR
 
-| Service | Tier you need | $/mo |
-|---|---|---|
-| GitHub Pages | Free | $0 |
-| Supabase (current scale) | Free | $0 |
-| Sentry | Developer (free) | $0 |
-| Better Uptime | Free | $0 |
-| **Total** | | **$0** |
-
-You can run this stack for **zero dollars** until you hit serious scale. The first paid tier you'd hit is Supabase Pro ($25/mo) when you cross 500MB DB or 2GB bandwidth, which based on current usage is years away.
-
----
-
-**Setup time**: 15 minutes total (10 Sentry + 5 Better Uptime). Once configured, you'll get paged before users notice problems.
+You already have monitoring. It's the **Activity Log** tab. Filter `⚠ JavaScript error` to see if anything's broken. No external accounts, no DSNs, no SaaS to manage.

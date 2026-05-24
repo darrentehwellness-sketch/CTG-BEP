@@ -5441,6 +5441,11 @@
             <option value="user_profiles.update">User role/profile change</option>
             <option value="user_entities.insert">User → Entity assigned</option>
             <option value="user_entities.delete">User → Entity removed</option>
+            <option value="app.js_error">⚠ JavaScript error</option>
+            <option value="app.js_unhandled_rejection">⚠ Unhandled promise rejection</option>
+            <option value="app.session_timeout">Session timeout</option>
+            <option value="app.activity_log_migrate">Activity log migration</option>
+            <option value="app.scenarios_migrate">Scenarios migration</option>
           </select>
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;min-width:180px;">
@@ -12908,7 +12913,12 @@ function _actActionLabel(a){
     'entities.insert':'➕ Entity — Create',   'entities.update':'✎ Entity — Update',   'entities.delete':'🗑 Entity — Delete',
     'user_profiles.update':'👤 User profile change',
     'user_entities.insert':'🔗 Entity assigned to user',
-    'user_entities.delete':'🔗 Entity removed from user'
+    'user_entities.delete':'🔗 Entity removed from user',
+    'app.js_error':'⚠ JavaScript error',
+    'app.js_unhandled_rejection':'⚠ Unhandled promise rejection',
+    'app.session_timeout':'⏰ Session timeout',
+    'app.activity_log_migrate':'📦 Activity log migration',
+    'app.scenarios_migrate':'📦 Scenarios migration'
   };
   return map[a] || a;
 }
@@ -13096,6 +13106,66 @@ function _actExportCsv(){
 
   // Periodic check.
   setInterval(tick, CHECK_EVERY_MS);
+})();
+
+/* ===================================================================
+   In-app error tracker (zero external dependencies)
+   -------------------------------------------------------------------
+   Routes every unhandled JS error + promise rejection into the
+   Activity Log table via CTG.logActivity. Admin views them in the
+   existing Activity Log tab — filter action='app.js_error' to see
+   the full list. No Sentry / DataDog / external service needed.
+   Rate-limited: max 1 error every 5 seconds + max 30 per session
+   to avoid flooding when something loops forever.
+   =================================================================== */
+(function(){
+  if (typeof window === 'undefined' || !window.CTG) return;
+  let _lastLogTs   = 0;
+  let _sessionErrs = 0;
+  const MIN_GAP_MS = 5000;   // de-dupe noisy errors
+  const MAX_PER_SESSION = 30;
+
+  function pickStack(stack){
+    if (!stack) return '';
+    // Trim to first ~6 frames to keep payload small.
+    return String(stack).split('\n').slice(0, 6).join('\n');
+  }
+
+  function reportError(action, payload){
+    if (!CTG.HAS_SUPABASE || !CTG.isSignedIn()) return;  // can't write to activity_log when signed out
+    if (_sessionErrs >= MAX_PER_SESSION) return;
+    const now = Date.now();
+    if (now - _lastLogTs < MIN_GAP_MS) return;
+    _lastLogTs = now;
+    _sessionErrs++;
+    try { CTG.logActivity(action, { metadata: payload }); } catch(_e){}
+  }
+
+  window.addEventListener('error', function(e){
+    if (!e) return;
+    // Filter out cross-origin "Script error." — no useful info
+    if (e.message === 'Script error.' || !e.message) return;
+    reportError('js_error', {
+      msg:    String(e.message || '').slice(0, 300),
+      file:   String(e.filename || '').slice(0, 200),
+      line:   e.lineno || 0,
+      col:    e.colno  || 0,
+      stack:  pickStack(e.error && e.error.stack),
+      url:    location.pathname,
+      ua:     navigator.userAgent.slice(0, 200)
+    });
+  });
+
+  window.addEventListener('unhandledrejection', function(e){
+    if (!e) return;
+    const r = e.reason || {};
+    reportError('js_unhandled_rejection', {
+      msg:    String(r.message || r || '').slice(0, 300),
+      stack:  pickStack(r.stack),
+      url:    location.pathname,
+      ua:     navigator.userAgent.slice(0, 200)
+    });
+  });
 })();
 
 init();
