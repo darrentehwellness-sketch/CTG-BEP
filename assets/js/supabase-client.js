@@ -394,10 +394,6 @@
     loadWorkingState,
     saveWorkingState,
     loadLang,
-    saveLang,
-    // Raw SDK handle — exposed so individual tabs (e.g. WHT OCR drop
-    // zone) can read the access_token to call Edge Functions directly.
-    // Null in offline mode.
-    _sb: sb
+    saveLang
   };
 })();
