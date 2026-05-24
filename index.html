@@ -35,6 +35,7 @@
 <script src="assets/js/supabase-client.js?v=26"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
 <script src="assets/js/wht-calculator.js?v=17"></script>
+<script src="assets/js/po-estimator.js?v=1"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -3306,32 +3307,294 @@
   </div>
 
   <!-- ============================================================== -->
-  <!-- TAB: PO CASH FLOW ESTIMATOR — coming in chunks B–G                -->
-  <!-- Roadmap:                                                          -->
-  <!--   A  ✓  Sidebar entry + empty tab (this commit)                   -->
-  <!--   B  ☐  Suppliers DB + admin tab                                  -->
-  <!--   C  ☐  PO Header + Line Items                                    -->
-  <!--   D  ☐  Payment Terms + Per-SKU Monthly Forecast                  -->
-  <!--   E  ☐  Cash Flow Output Table + KPIs                             -->
-  <!--   F  ☐  Charts (cash flow / cumulative / inventory burn-down)     -->
-  <!--   G  ☐  PO Split Helper + Save/Export/Print                       -->
+  <!-- TAB: PO CASH FLOW ESTIMATOR (Chunks C–G complete)                -->
+  <!-- 8 sections: Header → Lines → Payment Terms → Channels →           -->
+  <!--             Sales Forecast → Cash Flow Output → Charts → Split   -->
   <!-- ============================================================== -->
   <div class="tab-panel" id="tab-po">
-    <div class="card" style="text-align:center;padding:48px 24px;">
-      <h2 style="font-size:18px;margin-bottom:8px;">🛒 PO Cash Flow Estimator</h2>
-      <p style="color:var(--text-soft);margin-bottom:16px;">Coming soon — being built in 7 staged chunks. You're seeing the navigation skeleton now.</p>
-      <div style="display:inline-block;text-align:left;background:rgba(7,13,23,.4);border:1px solid var(--border);border-radius:8px;padding:14px 22px;font-size:12.5px;color:var(--text-soft);line-height:1.9;">
-        <b style="color:var(--sky-soft);">Build progress</b><br>
-        <span style="color:#16a34a;">✓ Chunk A — Sidebar + tab skeleton</span><br>
-        <span style="color:#16a34a;">✓ Chunk B — Suppliers admin tab + database</span><br>
-        <span>☐ Chunk C — PO Header + Line Items table</span><br>
-        <span>☐ Chunk D — Payment Terms + Sales Forecast</span><br>
-        <span>☐ Chunk E — Monthly Cash Flow Output</span><br>
-        <span>☐ Chunk F — Charts (cash flow / cumulative / burn-down)</span><br>
-        <span>☐ Chunk G — PO Split Helper + Save / Export / Print</span>
-      </div>
-      <p style="color:var(--muted);margin-top:18px;font-size:11.5px;">Each chunk ships independently — you can test as we go.</p>
+
+    <div class="toolbar">
+      <button class="ghost" id="btnPoReset">↺ Reset Sample</button>
+      <button class="ghost" id="btnPoAddLine">+ Add Line</button>
+      <button class="success" id="btnPoSave">⭐ Save Scenario</button>
+      <button class="accent" id="btnPoExport">⬇ Export Excel</button>
+      <div style="flex:1"></div>
+      <span class="note">Auto-saved on this device · MYR cash flow</span>
     </div>
+
+    <!-- ① PO HEADER -->
+    <div class="card">
+      <h2><span class="ic">①</span>PO Header<span class="badge">Buying side</span></h2>
+      <div class="grid-3">
+        <div class="input-group">
+          <label>Buying Entity</label>
+          <select id="poBuyingEntity" style="width:100%;padding:11px 14px;border:1px solid var(--border-strong);border-radius:8px;background:rgba(7,13,23,.6);color:var(--text);font:inherit;">
+            <option value="">— Select entity —</option>
+          </select>
+          <div class="note" style="margin-top:6px;font-size:11px;">Your CTG company placing the order. Manage list under Admin → Entities.</div>
+        </div>
+        <div class="input-group">
+          <label>Supplier</label>
+          <select id="poSupplier" style="width:100%;padding:11px 14px;border:1px solid var(--border-strong);border-radius:8px;background:rgba(7,13,23,.6);color:var(--text);font:inherit;">
+            <option value="">— Select supplier —</option>
+          </select>
+          <div class="note" style="margin-top:6px;font-size:11px;">Picking a supplier auto-fills currency, lead time and payment terms. Manage list under Admin → Suppliers.</div>
+        </div>
+        <div class="input-group">
+          <label>PO Number</label>
+          <input type="text" id="poNumber" placeholder="PO-2026-001"/>
+        </div>
+      </div>
+      <div class="grid-3">
+        <div class="input-group">
+          <label>PO Date</label>
+          <input type="date" id="poDate"/>
+        </div>
+        <div class="input-group">
+          <label>Currency</label>
+          <select id="poCurrency" style="width:100%;padding:11px 14px;border:1px solid var(--border-strong);border-radius:8px;background:rgba(7,13,23,.6);color:var(--text);font:inherit;">
+            <option value="MYR">MYR — Malaysian Ringgit</option>
+            <option value="USD">USD — US Dollar</option>
+            <option value="CNY">CNY — Chinese Yuan</option>
+            <option value="SGD">SGD — Singapore Dollar</option>
+            <option value="EUR">EUR — Euro</option>
+            <option value="GBP">GBP — British Pound</option>
+            <option value="JPY">JPY — Japanese Yen</option>
+            <option value="HKD">HKD — Hong Kong Dollar</option>
+            <option value="THB">THB — Thai Baht</option>
+            <option value="IDR">IDR — Indonesian Rupiah</option>
+          </select>
+        </div>
+        <div class="input-group" id="poFxGroup" style="display:none;">
+          <label>FX Rate to MYR</label>
+          <input type="number" id="poFxRate" min="0.0001" step="0.0001" value="1"/>
+          <div class="note" style="margin-top:6px;font-size:11px;">e.g. 1 USD = 4.7 MYR → type 4.7</div>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="input-group">
+          <label>Lead Time (weeks)</label>
+          <input type="number" id="poLeadWeeks" min="0" max="52" step="0.5" value="8"/>
+          <div class="note" style="margin-top:6px;font-size:11px;">Production + shipping until goods arrive. Drives the Balance/Duty/Forwarding payment month.</div>
+        </div>
+        <div class="input-group">
+          <label>Notes</label>
+          <input type="text" id="poNotes" placeholder="Internal notes for this PO scenario"/>
+        </div>
+      </div>
+      <div class="kpi" style="margin-top:14px;">
+        <div class="label"><span class="dot"></span>Master PO Total</div>
+        <div class="value" id="poHeaderTotal">RM —</div>
+        <div class="sub" id="poHeaderTotalSub">Σ Order Qty × Unit Price across all lines (supplier currency)</div>
+      </div>
+    </div>
+
+    <!-- ② LINE ITEMS -->
+    <div class="card">
+      <h2><span class="ic">②</span>Line Items<span class="badge">Order details</span></h2>
+      <div class="table-wrap">
+        <table id="poLinesTable">
+          <thead><tr>
+            <th style="width:34px;">No</th>
+            <th style="width:120px;">SKU</th>
+            <th>Product Name</th>
+            <th style="width:80px;">MOQ</th>
+            <th style="width:100px;">Order Qty</th>
+            <th style="width:100px;">Unit Price</th>
+            <th style="width:120px;">Ext Amt</th>
+            <th style="width:100px;">Sell Price</th>
+            <th style="width:80px;">Margin %</th>
+            <th>Remark</th>
+            <th style="width:42px;"></th>
+          </tr></thead>
+          <tbody id="poLinesBody"></tbody>
+          <tfoot>
+            <tr>
+              <td colspan="4" style="text-align:right;color:var(--coral-soft);font-weight:700;">TOTAL</td>
+              <td class="num" id="poLinesTotalQty">—</td>
+              <td></td>
+              <td class="num" id="poLinesTotalCost" style="color:var(--coral-soft);font-weight:700;">—</td>
+              <td></td>
+              <td class="num" id="poLinesAvgMargin">—</td>
+              <td colspan="2"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <div class="add-row" style="margin-top:10px;">
+        <button id="btnPoAddLine2">+ Add Line</button>
+      </div>
+    </div>
+
+    <!-- ③ PAYMENT TERMS -->
+    <div class="card">
+      <h2><span class="ic">③</span>Payment Terms<span class="badge">Cash out</span></h2>
+      <div class="grid-3">
+        <div class="input-group">
+          <label>Deposit % (on PO placement, T+0)</label>
+          <input type="number" id="poDepositPct" min="0" max="100" step="1" value="30"/>
+        </div>
+        <div class="input-group">
+          <label>Balance % (on delivery)</label>
+          <input type="number" id="poBalancePct" min="0" max="100" step="1" value="70"/>
+        </div>
+        <div class="input-group">
+          <label>Credit Days on Balance</label>
+          <input type="number" id="poCreditDays" min="0" max="365" step="1" value="30"/>
+          <div class="note" style="margin-top:6px;font-size:11px;">Net X days after delivery (0 = COD).</div>
+        </div>
+      </div>
+      <div class="grid-3">
+        <div class="input-group">
+          <label>Import Duty % (of PO total)</label>
+          <input type="number" id="poImportDutyPct" min="0" max="100" step="0.5" value="0"/>
+          <div class="note" style="margin-top:6px;font-size:11px;">Charged on delivery month.</div>
+        </div>
+        <div class="input-group">
+          <label>Forwarding / Customs (MYR)</label>
+          <input type="number" id="poForwardingFee" min="0" step="0.01" value="5000"/>
+          <div class="note" style="margin-top:6px;font-size:11px;">Lump sum on delivery month.</div>
+        </div>
+        <div class="input-group">
+          <label>FX Hedge Buffer %</label>
+          <input type="number" id="poFxBufferPct" min="0" max="50" step="0.5" value="0"/>
+          <div class="note" style="margin-top:6px;font-size:11px;">Adds X% to MYR cost as currency hedge. Set 0 if MYR-only.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ④ SALES CHANNELS -->
+    <div class="card">
+      <h2><span class="ic">④</span>Sales Channels<span class="badge">Cash in lag</span></h2>
+      <div class="note" style="margin-bottom:10px;">Each channel takes a share of revenue and receives payment after its Net days. Share % across channels should sum to 100.</div>
+      <div class="table-wrap">
+        <table id="poChannelsTable">
+          <thead><tr>
+            <th>Channel Name</th>
+            <th style="width:120px;">Share %</th>
+            <th style="width:140px;">Payment Days</th>
+            <th style="width:42px;"></th>
+          </tr></thead>
+          <tbody id="poChannelsBody"></tbody>
+          <tfoot>
+            <tr>
+              <td style="text-align:right;color:var(--coral-soft);font-weight:700;">TOTAL</td>
+              <td class="num" id="poChannelTotalPct">—</td>
+              <td colspan="2"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <div class="add-row" style="margin-top:10px;"><button id="btnPoAddChannel">+ Add Channel</button></div>
+    </div>
+
+    <!-- ⑤ SALES FORECAST -->
+    <div class="card">
+      <h2><span class="ic">⑤</span>Sales Forecast<span class="badge">Per-SKU monthly units</span></h2>
+      <div class="note" style="margin-bottom:10px;">Type units sold per month for each SKU. Months start from the PO Date. Quick-fill buttons populate common curves.</div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center;">
+        <label style="font-size:12px;color:var(--text-soft);">Forecast horizon:</label>
+        <input type="number" id="poForecastMonths" min="3" max="24" step="1" value="12" style="width:80px;padding:4px 8px;"/>
+        <span style="font-size:12px;color:var(--muted);">months</span>
+        <div style="flex:1"></div>
+        <button class="ghost" data-po-fill="zero"  style="padding:5px 10px;font-size:11px;">Zero all</button>
+        <button class="ghost" data-po-fill="linear" style="padding:5px 10px;font-size:11px;">Linear (Qty ÷ N)</button>
+        <button class="ghost" data-po-fill="front"  style="padding:5px 10px;font-size:11px;">Front-loaded</button>
+        <button class="ghost" data-po-fill="back"   style="padding:5px 10px;font-size:11px;">Back-loaded</button>
+      </div>
+
+      <div class="table-wrap">
+        <table id="poForecastTable">
+          <thead id="poForecastHead"></thead>
+          <tbody id="poForecastBody"></tbody>
+          <tfoot id="poForecastFoot"></tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- ⑥ CASH FLOW OUTPUT + KPIs -->
+    <div class="card" id="poCashFlowCard">
+      <h2><span class="ic">⑥</span>Monthly Cash Flow<span class="badge">The output</span></h2>
+      <div class="grid-4" style="margin-bottom:14px;">
+        <div class="kpi">
+          <div class="label"><span class="dot"></span>Total PO Cost</div>
+          <div class="value" id="poKpiCost">—</div>
+          <div class="sub" id="poKpiCostSub">After FX + buffer (MYR)</div>
+        </div>
+        <div class="kpi success">
+          <div class="label"><span class="dot"></span>Total Revenue</div>
+          <div class="value" id="poKpiRevenue">—</div>
+          <div class="sub">Σ Forecast units × Sell Price</div>
+        </div>
+        <div class="kpi warn">
+          <div class="label"><span class="dot"></span>Working Capital Need</div>
+          <div class="value" id="poKpiWC">—</div>
+          <div class="sub" id="poKpiPeak">Peak cash dip (most-negative cumulative)</div>
+        </div>
+        <div class="kpi danger">
+          <div class="label"><span class="dot"></span>Gross Profit / ROI</div>
+          <div class="value" id="poKpiProfit">—</div>
+          <div class="sub" id="poKpiRoi">Profit ÷ Working capital</div>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-bottom:14px;">
+        <div class="kpi"  ><div class="label"><span class="dot"></span>Break-Even Month</div><div class="value" id="poKpiBreakEven">—</div><div class="sub">First month cumulative goes positive</div></div>
+        <div class="kpi"  ><div class="label"><span class="dot"></span>Final Cash Position</div><div class="value" id="poKpiFinal">—</div><div class="sub">Cumulative at end of horizon</div></div>
+      </div>
+
+      <div class="table-wrap">
+        <table id="poCashFlowTable">
+          <thead id="poCashFlowHead"></thead>
+          <tbody id="poCashFlowBody"></tbody>
+        </table>
+      </div>
+      <p class="note" style="margin-top:10px;">📋 All amounts in MYR. Net = Revenue − Total Out. Cumulative carries forward.</p>
+    </div>
+
+    <!-- ⑦ CHARTS -->
+    <div class="card" id="poChartsCard">
+      <h2><span class="ic">⑦</span>Visualization<span class="badge">Cash flow charts</span></h2>
+      <div class="grid-2" style="margin-bottom:14px;">
+        <div class="chart-box" style="height:300px;">
+          <h3 style="font-size:13px;margin-bottom:8px;color:var(--sky-soft);">Monthly Cash Flow (in vs out)</h3>
+          <canvas id="poChartCash"></canvas>
+        </div>
+        <div class="chart-box" style="height:300px;">
+          <h3 style="font-size:13px;margin-bottom:8px;color:var(--sky-soft);">Cumulative Cash Position</h3>
+          <canvas id="poChartCum"></canvas>
+        </div>
+      </div>
+      <div class="chart-box" style="height:300px;">
+        <h3 style="font-size:13px;margin-bottom:8px;color:var(--sky-soft);">Inventory Burn-Down (units remaining)</h3>
+        <canvas id="poChartBurn"></canvas>
+      </div>
+    </div>
+
+    <!-- ⑧ PO SPLIT HELPER -->
+    <div class="card">
+      <h2><span class="ic">⑧</span>PO Split Helper<span class="badge">Smart suggestion</span></h2>
+      <div class="grid-2" style="margin-bottom:10px;align-items:end;">
+        <div class="input-group">
+          <label>Max Deposit per Batch (MYR)</label>
+          <input type="number" id="poSplitThreshold" min="0" step="100" value="50000"/>
+          <div class="note" style="margin-top:6px;font-size:11px;">Lines whose deposit exceeds this amount will be flagged for splitting.</div>
+        </div>
+        <div class="input-group">
+          <button class="accent" id="btnPoSuggestSplit" style="width:100%;">🔍 Suggest Splits</button>
+        </div>
+      </div>
+      <div id="poSplitResult"></div>
+    </div>
+
+    <!-- ⑨ SAVED SCENARIOS -->
+    <div class="card">
+      <h2><span class="ic">⑨</span>Saved Scenarios</h2>
+      <div id="poSavedList" style="display:flex;flex-direction:column;gap:8px;">
+        <p class="note">No saved scenarios yet. Click ⭐ Save Scenario above.</p>
+      </div>
+    </div>
+
   </div>
 
   <!-- ============================================================== -->
@@ -5580,6 +5843,9 @@ function activateTab(id, opts){
     } else {
       window._whtRefresh();
     }
+  }
+  if(id==='po' && typeof window._poRefresh === 'function'){
+    window._poRefresh();
   }
   // Scroll content back to top so the user starts at the page header
   if(!opts.skipScroll){
@@ -8366,6 +8632,608 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     try { renderAll(); refreshSavedList(); }
     catch(e){ console.error('wht initial render failed:', e); }
   }, 0);
+})();
+
+/* ============================================================
+   PO CASH FLOW ESTIMATOR — UI driver
+   Renders the 8-section tab and wires all events. Compute lives
+   in window.CTGPoEstimator (assets/js/po-estimator.js).
+   ============================================================ */
+(function(){
+'use strict';
+
+if(!window.CTGPoEstimator){ console.warn('[PO] CTGPoEstimator engine not loaded'); return; }
+const P = window.CTGPoEstimator;
+let poState = P.loadLocal() || P.defaultPoState();
+let _poCharts = { cash:null, cum:null, burn:null };
+
+function persist(){ P.saveLocal(poState); }
+function num(id){ const el = document.getElementById(id); return el ? Math.max(0, Number(el.value)||0) : 0; }
+function val(id){ const el = document.getElementById(id); return el ? el.value : ''; }
+
+// ─── Populate Buying Entity + Supplier dropdowns.
+// `_entitiesCache` and `_suppliersCache` are top-level `let`s, lexically
+// accessible from this nested IIFE. If they haven't been populated yet
+// (e.g. user offline / signed out), fall back to empty arrays.
+function _safeCache(name){
+  try {
+    if(name === '_entitiesCache')  return Array.isArray(_entitiesCache)  ? _entitiesCache  : [];
+    if(name === '_suppliersCache') return Array.isArray(_suppliersCache) ? _suppliersCache : [];
+  } catch(_e){}
+  return [];
+}
+function populateDropdowns(){
+  const ent = document.getElementById('poBuyingEntity');
+  if(ent){
+    const active = _safeCache('_entitiesCache').filter(e => e.is_active !== false);
+    ent.innerHTML = '<option value="">— Select entity —</option>' +
+      active.map(e => '<option value="'+e.id+'">'+escapeHtml(e.name)+'</option>').join('');
+    ent.value = poState.buyingEntityId || '';
+  }
+  const sup = document.getElementById('poSupplier');
+  if(sup){
+    const active = _safeCache('_suppliersCache').filter(s => s.is_active !== false);
+    sup.innerHTML = '<option value="">— Select supplier —</option>' +
+      active.map(s => '<option value="'+s.id+'">'+escapeHtml(s.name)+'</option>').join('');
+    sup.value = poState.supplierId || '';
+  }
+}
+
+// ─── Render the Line Items table
+function renderLines(){
+  const tbody = document.getElementById('poLinesBody');
+  if(!tbody) return;
+  const t = P.computeTotals(poState);
+  tbody.innerHTML = t.lines.map((line, i) => {
+    const moqWarn = !line.meetsMoq && line.qty > 0 ? ' style="background:rgba(232,93,60,.10);" title="Below MOQ"' : '';
+    return '<tr>'+
+      '<td>'+(i+1)+'</td>'+
+      '<td><input type="text" data-po-line="'+i+'" data-field="sku"        value="'+escapeHtml(line.sku||'')+'" style="font-family:Consolas,monospace;font-size:11.5px;"></td>'+
+      '<td><input type="text" data-po-line="'+i+'" data-field="name"       value="'+escapeHtml(line.name||'')+'"></td>'+
+      '<td><input type="number" min="0" step="1" data-po-line="'+i+'" data-field="moq" value="'+(Number(line.moq)||0)+'"'+moqWarn+'></td>'+
+      '<td><input type="number" min="0" step="1" data-po-line="'+i+'" data-field="qty" value="'+(Number(line.qty)||0)+'"'+moqWarn+'></td>'+
+      '<td><input type="number" min="0" step="0.01" data-po-line="'+i+'" data-field="unitPrice" value="'+(Number(line.unitPrice)||0)+'"></td>'+
+      '<td class="num" style="font-weight:700;color:var(--coral-soft);">'+P.fmt(line.extAmt)+'</td>'+
+      '<td><input type="number" min="0" step="0.01" data-po-line="'+i+'" data-field="sellPrice" value="'+(Number(line.sellPrice)||0)+'"></td>'+
+      '<td class="num">'+P.fmt(line.margin)+'%</td>'+
+      '<td><input type="text" data-po-line="'+i+'" data-field="remark" value="'+escapeHtml(line.remark||'')+'" placeholder="optional"></td>'+
+      '<td class="action"><button data-po-del-line="'+i+'" title="Delete line">✕</button></td>'+
+    '</tr>';
+  }).join('');
+
+  // Footer
+  document.getElementById('poLinesTotalQty').textContent = P.fmt0(t.totalUnits);
+  document.getElementById('poLinesTotalCost').textContent = P.fmt(t.totalCost);
+  const avgMargin = t.totalRevenue > 0 ? ((t.totalRevenue - t.totalCost) / t.totalRevenue * 100) : 0;
+  document.getElementById('poLinesAvgMargin').textContent = P.fmt(avgMargin) + '%';
+
+  // Header total + currency suffix
+  const ccy = poState.currency || 'MYR';
+  document.getElementById('poHeaderTotal').textContent = ccy + ' ' + P.fmt(t.totalCost);
+  document.getElementById('poHeaderTotalSub').textContent = 'Σ Order Qty × Unit Price across ' + t.lines.length + ' lines (' + ccy + ')';
+}
+
+// ─── Render the Channels table
+function renderChannels(){
+  const tbody = document.getElementById('poChannelsBody');
+  if(!tbody) return;
+  const channels = poState.channels || [];
+  tbody.innerHTML = channels.map((ch, i) =>
+    '<tr>'+
+      '<td><input type="text"   data-po-ch="'+i+'" data-field="name"        value="'+escapeHtml(ch.name||'')+'"></td>'+
+      '<td><input type="number" data-po-ch="'+i+'" data-field="sharePct"    value="'+(Number(ch.sharePct)||0)+'" min="0" max="100" step="1"></td>'+
+      '<td><input type="number" data-po-ch="'+i+'" data-field="paymentDays" value="'+(Number(ch.paymentDays)||0)+'" min="0" max="365" step="1"></td>'+
+      '<td class="action"><button data-po-del-ch="'+i+'" title="Delete">✕</button></td>'+
+    '</tr>'
+  ).join('');
+  const sum = channels.reduce((s,c) => s + (Number(c.sharePct)||0), 0);
+  const totEl = document.getElementById('poChannelTotalPct');
+  if(totEl){
+    totEl.textContent = sum.toFixed(0) + '%';
+    totEl.style.color = Math.abs(sum - 100) < 0.5 ? 'var(--success)' : 'var(--coral-soft)';
+  }
+}
+
+// ─── Render the per-SKU Sales Forecast grid
+function renderForecast(){
+  const head = document.getElementById('poForecastHead');
+  const body = document.getElementById('poForecastBody');
+  const foot = document.getElementById('poForecastFoot');
+  if(!head || !body || !foot) return;
+  const months = Math.max(3, Math.min(24, Number(poState.forecastMonths) || 12));
+  const t = P.computeTotals(poState);
+  const start = poState.poDate ? new Date(poState.poDate) : new Date();
+  const monthLabels = [];
+  for(let m = 0; m < months; m++){
+    const d = new Date(start.getFullYear(), start.getMonth() + m, 1);
+    monthLabels.push(d.toLocaleDateString('en-MY', { month:'short', year:'2-digit' }));
+  }
+  // Header
+  let h = '<tr><th style="min-width:120px;">SKU</th>';
+  monthLabels.forEach((l, m) => h += '<th style="min-width:70px;text-align:center;font-size:10.5px;">M'+(m+1)+'<br><span style="color:var(--muted);font-weight:400;">'+l+'</span></th>');
+  h += '<th style="min-width:80px;text-align:right;">Σ Units</th><th style="min-width:90px;text-align:right;">Order Qty</th></tr>';
+  head.innerHTML = h;
+
+  // Body
+  body.innerHTML = t.lines.map(line => {
+    const fc = (poState.forecast && poState.forecast[line.sku]) || [];
+    let totalForecast = 0;
+    let cells = '<tr><td><b style="color:var(--sky-soft);font-family:Consolas,monospace;font-size:11.5px;">'+escapeHtml(line.sku||'(no SKU)')+'</b><div style="font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;">'+escapeHtml((line.name||'').substring(0,40))+'</div></td>';
+    for(let m = 0; m < months; m++){
+      const u = Number(fc[m]) || 0;
+      totalForecast += u;
+      cells += '<td><input type="number" min="0" step="1" data-po-fc="'+escapeHtml(line.sku||'')+'" data-month="'+m+'" value="'+(u||'')+'" placeholder="0" style="width:60px;padding:4px 6px;text-align:right;font-size:11.5px;"></td>';
+    }
+    const qty = Number(line.qty) || 0;
+    const remaining = qty - totalForecast;
+    const remainColor = remaining > 0 ? 'var(--coral-soft)' : remaining < 0 ? 'var(--success)' : 'var(--text-soft)';
+    cells += '<td class="num" style="font-weight:700;">'+P.fmt0(totalForecast)+'</td>';
+    cells += '<td class="num" style="color:'+remainColor+';" title="'+(remaining > 0 ? remaining+' units unforecast' : remaining < 0 ? Math.abs(remaining)+' units overforecast' : 'Matches order qty')+'">'+P.fmt0(qty)+'</td>';
+    cells += '</tr>';
+    return cells;
+  }).join('');
+
+  // Foot — monthly totals across SKUs
+  let f = '<tr><td style="text-align:right;font-weight:700;color:var(--coral-soft);">TOTAL UNITS</td>';
+  for(let m = 0; m < months; m++){
+    let sum = 0;
+    t.lines.forEach(line => {
+      const fc = (poState.forecast && poState.forecast[line.sku]) || [];
+      sum += Number(fc[m]) || 0;
+    });
+    f += '<td class="num" style="font-weight:700;">'+P.fmt0(sum)+'</td>';
+  }
+  f += '<td colspan="2"></td></tr>';
+  foot.innerHTML = f;
+}
+
+// ─── Render the Cash Flow Output table + KPIs
+function renderCashFlow(){
+  const cf = P.computeCashFlow(poState);
+  const k = P.computeKpis(poState);
+
+  // KPIs
+  document.getElementById('poKpiCost').textContent     = 'RM ' + P.fmt(k.poCostMyr);
+  document.getElementById('poKpiCostSub').textContent  = poState.currency !== 'MYR'
+    ? 'Original: '+poState.currency+' '+P.fmt(k.poCostOriginalCcy)+' · FX '+cf.totals.fxRate+' · Buffer +'+(poState.fxBufferPct||0)+'%'
+    : 'After FX + buffer (MYR)';
+  document.getElementById('poKpiRevenue').textContent  = 'RM ' + P.fmt(k.totalRevenue);
+  document.getElementById('poKpiWC').textContent       = 'RM ' + P.fmt(k.workingCapital);
+  document.getElementById('poKpiPeak').textContent     = 'Peak: RM ' + P.fmt(k.peakOutflow);
+  document.getElementById('poKpiProfit').textContent   = 'RM ' + P.fmt(k.grossProfit);
+  document.getElementById('poKpiRoi').textContent      = 'ROI ' + P.fmt(k.roi) + '%';
+  document.getElementById('poKpiBreakEven').textContent = k.breakEvenMonth ? ('Month ' + k.breakEvenMonth) : 'Not within horizon';
+  document.getElementById('poKpiFinal').textContent     = 'RM ' + P.fmt(k.finalPosition);
+
+  // Cash flow table
+  const head = document.getElementById('poCashFlowHead');
+  const body = document.getElementById('poCashFlowBody');
+  if(!head || !body) return;
+  const channels = poState.channels || [];
+  let h = '<tr><th>Month</th><th>Deposit</th><th>Balance</th><th>Duty</th><th>Forwarding</th><th>Total Out</th>';
+  channels.forEach(ch => h += '<th>Rev: '+escapeHtml(ch.name)+'</th>');
+  h += '<th>Revenue</th><th>Net</th><th>Cumulative</th></tr>';
+  head.innerHTML = h;
+
+  body.innerHTML = cf.cashFlow.map(m => {
+    const cumColor = m.cumulative < 0 ? 'var(--coral)' : 'var(--success)';
+    const netColor = m.net < 0 ? 'var(--coral-soft)' : 'var(--success)';
+    let row = '<tr>'+
+      '<td><b>'+m.month+'</b> <span style="color:var(--muted);font-size:10.5px;">'+m.label+'</span></td>'+
+      '<td class="num">'+(m.deposit > 0 ? '<span style="color:var(--coral-soft);">-'+P.fmt(m.deposit)+'</span>' : '—')+'</td>'+
+      '<td class="num">'+(m.balance > 0 ? '<span style="color:var(--coral-soft);">-'+P.fmt(m.balance)+'</span>' : '—')+'</td>'+
+      '<td class="num">'+(m.duty > 0 ? '<span style="color:var(--coral-soft);">-'+P.fmt(m.duty)+'</span>' : '—')+'</td>'+
+      '<td class="num">'+(m.forwarding > 0 ? '<span style="color:var(--coral-soft);">-'+P.fmt(m.forwarding)+'</span>' : '—')+'</td>'+
+      '<td class="num" style="color:var(--coral-soft);font-weight:700;">'+(m.totalOut > 0 ? P.fmt(m.totalOut) : '—')+'</td>';
+    channels.forEach(ch => {
+      const v = m.byChannel[ch.name] || 0;
+      row += '<td class="num">'+(v > 0 ? '<span style="color:var(--success);">+'+P.fmt(v)+'</span>' : '—')+'</td>';
+    });
+    row += '<td class="num" style="color:var(--success);font-weight:700;">'+(m.revenue > 0 ? P.fmt(m.revenue) : '—')+'</td>';
+    row += '<td class="num" style="color:'+netColor+';font-weight:700;">'+(m.net !== 0 ? (m.net > 0 ? '+' : '') + P.fmt(m.net) : '—')+'</td>';
+    row += '<td class="num" style="color:'+cumColor+';font-weight:800;">'+(m.cumulative >= 0 ? '+' : '')+P.fmt(m.cumulative)+'</td>';
+    row += '</tr>';
+    return row;
+  }).join('');
+}
+
+// ─── Render Charts (Chunk F)
+function renderCharts(){
+  if(typeof Chart === 'undefined') return;
+  const cf = P.computeCashFlow(poState);
+  const t = P.computeTotals(poState);
+  const labels = cf.cashFlow.map(m => m.label);
+
+  // Chart 1: Monthly Cash In vs Out (grouped bars)
+  const canvas1 = document.getElementById('poChartCash');
+  if(canvas1){
+    if(_poCharts.cash) _poCharts.cash.destroy();
+    _poCharts.cash = new Chart(canvas1, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Revenue (in)', data: cf.cashFlow.map(m => m.revenue),  backgroundColor: 'rgba(16,185,129,.75)' },
+          { label: 'Outflows',     data: cf.cashFlow.map(m => -m.totalOut), backgroundColor: 'rgba(232,93,60,.75)' }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: { y: { ticks: { callback: v => 'RM ' + Number(v).toLocaleString('en-MY') } } },
+        plugins: { legend: { position: 'bottom' } }
+      }
+    });
+  }
+
+  // Chart 2: Cumulative Position (line)
+  const canvas2 = document.getElementById('poChartCum');
+  if(canvas2){
+    if(_poCharts.cum) _poCharts.cum.destroy();
+    _poCharts.cum = new Chart(canvas2, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Cumulative Cash Position (RM)',
+          data: cf.cashFlow.map(m => m.cumulative),
+          borderColor: 'rgba(91,155,213,1)',
+          backgroundColor: 'rgba(91,155,213,.20)',
+          fill: true, tension: 0.25, pointRadius: 3
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: { y: { ticks: { callback: v => 'RM ' + Number(v).toLocaleString('en-MY') } } },
+        plugins: {
+          legend: { position: 'bottom' },
+          annotation: undefined
+        }
+      }
+    });
+  }
+
+  // Chart 3: Inventory Burn-Down per SKU
+  const canvas3 = document.getElementById('poChartBurn');
+  if(canvas3){
+    if(_poCharts.burn) _poCharts.burn.destroy();
+    const months = cf.cashFlow.length;
+    const palette = ['#5b9bd5','#e85d3c','#10b981','#f59e0b','#8b5cf6','#ec4899','#06b6d4','#f97316'];
+    const datasets = t.lines.map((line, i) => {
+      const fc = (poState.forecast && poState.forecast[line.sku]) || [];
+      let remaining = Number(line.qty) || 0;
+      const series = [];
+      for(let m = 0; m < months; m++){
+        remaining -= Number(fc[m]) || 0;
+        series.push(Math.max(0, remaining));
+      }
+      const color = palette[i % palette.length];
+      return { label: line.sku || ('Line ' + (i+1)), data: series, borderColor: color, backgroundColor: color + '33', tension: 0.2, pointRadius: 2 };
+    });
+    _poCharts.burn = new Chart(canvas3, {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: { y: { beginAtZero: true, ticks: { callback: v => Number(v).toLocaleString('en-MY') } } },
+        plugins: { legend: { position: 'bottom' } }
+      }
+    });
+  }
+}
+
+// ─── Smart split suggestion (Chunk G)
+function renderSplitSuggestion(threshold){
+  const out = document.getElementById('poSplitResult');
+  if(!out) return;
+  const sug = P.suggestSplits(poState, threshold);
+  if(sug.length === 0){
+    out.innerHTML = '<div class="note" style="color:var(--success);">✓ No line exceeds the deposit threshold. Current PO structure is cash-flow friendly.</div>';
+    return;
+  }
+  out.innerHTML = '<div class="note" style="margin-bottom:8px;">⚠ '+sug.length+' line(s) exceed the deposit threshold. Suggested splits:</div>' +
+    '<div class="table-wrap"><table>'+
+      '<thead><tr><th>SKU</th><th>Product</th><th class="num">Current Qty</th><th class="num">Current Deposit (MYR)</th><th class="num">→ Suggested Batches</th><th class="num">Qty per Batch</th><th class="num">Deposit per Batch (MYR)</th></tr></thead>'+
+      '<tbody>'+ sug.map(s =>
+        '<tr>'+
+          '<td><b style="color:var(--sky-soft);font-family:Consolas,monospace;font-size:11.5px;">'+escapeHtml(s.sku)+'</b></td>'+
+          '<td style="font-size:11.5px;color:var(--text-soft);">'+escapeHtml((s.name||'').substring(0,50))+'</td>'+
+          '<td class="num">'+P.fmt0(s.currentQty)+'</td>'+
+          '<td class="num" style="color:var(--coral-soft);">'+P.fmt(s.currentDepositMyr)+'</td>'+
+          '<td class="num" style="color:var(--success);font-weight:700;">'+s.suggestedBatches+'</td>'+
+          '<td class="num">'+P.fmt0(s.qtyPerBatch)+'</td>'+
+          '<td class="num" style="color:var(--success);">'+P.fmt(s.depositPerBatchMyr)+'</td>'+
+        '</tr>'
+      ).join('') +'</tbody></table></div>';
+}
+
+// ─── Full re-render
+function renderAll(){
+  // Sync header inputs from state (don't fight active focus)
+  const setV = (id, v) => { const el = document.getElementById(id); if(el && document.activeElement !== el) el.value = v ?? ''; };
+  setV('poNumber',       poState.poNumber);
+  setV('poDate',         poState.poDate);
+  setV('poCurrency',     poState.currency || 'MYR');
+  setV('poFxRate',       poState.fxRate ?? 1);
+  setV('poLeadWeeks',    poState.leadTimeWeeks ?? 8);
+  setV('poNotes',        poState.notes);
+  setV('poDepositPct',   poState.depositPct ?? 30);
+  setV('poBalancePct',   poState.balancePct ?? 70);
+  setV('poCreditDays',   poState.creditDays ?? 30);
+  setV('poImportDutyPct',poState.importDutyPct ?? 0);
+  setV('poForwardingFee',poState.forwardingFee ?? 0);
+  setV('poFxBufferPct',  poState.fxBufferPct ?? 0);
+  setV('poForecastMonths', poState.forecastMonths ?? 12);
+  setV('poSplitThreshold', poState.splitThresholdMyr ?? 50000);
+
+  // FX field visibility
+  const fxGrp = document.getElementById('poFxGroup');
+  if(fxGrp) fxGrp.style.display = (poState.currency === 'MYR') ? 'none' : '';
+
+  populateDropdowns();
+  renderLines();
+  renderChannels();
+  renderForecast();
+  renderCashFlow();
+  renderCharts();
+  persist();
+}
+
+// ─── Surgical refresh: just numbers, keeps inputs intact
+function refreshNumbers(){
+  renderLines();   // line ext amts + margins
+  renderForecast();// monthly totals row
+  renderCashFlow();// KPIs + monthly table
+  renderCharts();  // chart redraw
+  persist();
+}
+
+// ─── Header input handlers
+['poNumber','poDate','poCurrency','poFxRate','poLeadWeeks','poNotes',
+ 'poDepositPct','poBalancePct','poCreditDays','poImportDutyPct','poForwardingFee','poFxBufferPct',
+ 'poForecastMonths','poSplitThreshold'].forEach(id => {
+  document.addEventListener('input', e => {
+    if(e.target.id !== id) return;
+    const v = e.target.value;
+    switch(id){
+      case 'poNumber':         poState.poNumber = v; persist(); break;
+      case 'poDate':           poState.poDate = v; refreshNumbers(); break;
+      case 'poCurrency':       poState.currency = v; document.getElementById('poFxGroup').style.display = (v==='MYR') ? 'none' : ''; refreshNumbers(); break;
+      case 'poFxRate':         poState.fxRate = Number(v) || 1; refreshNumbers(); break;
+      case 'poLeadWeeks':      poState.leadTimeWeeks = Number(v) || 0; refreshNumbers(); break;
+      case 'poNotes':          poState.notes = v; persist(); break;
+      case 'poDepositPct':     poState.depositPct = Number(v) || 0; refreshNumbers(); break;
+      case 'poBalancePct':     poState.balancePct = Number(v) || 0; refreshNumbers(); break;
+      case 'poCreditDays':     poState.creditDays = Number(v) || 0; refreshNumbers(); break;
+      case 'poImportDutyPct':  poState.importDutyPct = Number(v) || 0; refreshNumbers(); break;
+      case 'poForwardingFee':  poState.forwardingFee = Number(v) || 0; refreshNumbers(); break;
+      case 'poFxBufferPct':    poState.fxBufferPct = Number(v) || 0; refreshNumbers(); break;
+      case 'poForecastMonths': poState.forecastMonths = Math.max(3, Math.min(24, Number(v) || 12)); renderForecast(); refreshNumbers(); break;
+      case 'poSplitThreshold': poState.splitThresholdMyr = Number(v) || 50000; persist(); break;
+    }
+  });
+});
+
+// ─── Buying Entity / Supplier select handlers (auto-fill supplier defaults)
+document.addEventListener('change', e => {
+  if(e.target.id === 'poBuyingEntity'){
+    poState.buyingEntityId = e.target.value || '';
+    persist();
+    return;
+  }
+  if(e.target.id === 'poSupplier'){
+    poState.supplierId = e.target.value || '';
+    if(e.target.value){
+      const cache = _safeCache('_suppliersCache');
+      const sup = cache.find(s => String(s.id) === String(e.target.value));
+      if(sup){
+        poState.supplierName  = sup.name || '';
+        poState.currency      = sup.base_currency || 'MYR';
+        poState.leadTimeWeeks = Number(sup.default_lead_time_weeks) || 8;
+        poState.depositPct    = Number(sup.default_deposit_pct) || 30;
+        poState.balancePct    = Number(sup.default_balance_pct) || 70;
+        poState.creditDays    = Number(sup.default_credit_days) || 0;
+        poState.importDutyPct = Number(sup.default_import_duty_pct) || 0;
+        poState.forwardingFee = Number(sup.default_forwarding_fee) || 0;
+        renderAll();
+        showToast('Supplier defaults loaded: '+sup.name, 'success');
+        return;
+      }
+    }
+    persist();
+  }
+});
+
+// ─── Line / Channel / Forecast input handlers
+document.addEventListener('input', e => {
+  const t = e.target;
+  // Line item field
+  if(t.dataset.poLine !== undefined){
+    const i = +t.dataset.poLine;
+    const f = t.dataset.field;
+    const line = poState.lines[i];
+    if(!line) return;
+    if(f === 'sku' || f === 'name' || f === 'remark'){ line[f] = t.value; persist(); renderForecast(); /* SKU change affects forecast keys */ }
+    else { line[f] = Math.max(0, Number(t.value) || 0); refreshNumbers(); }
+    return;
+  }
+  // Channel field
+  if(t.dataset.poCh !== undefined){
+    const i = +t.dataset.poCh;
+    const f = t.dataset.field;
+    const ch = poState.channels[i];
+    if(!ch) return;
+    if(f === 'name'){ ch.name = t.value; refreshNumbers(); }
+    else { ch[f] = Math.max(0, Number(t.value) || 0); refreshNumbers(); }
+    return;
+  }
+  // Forecast cell
+  if(t.dataset.poFc !== undefined){
+    const sku = t.dataset.poFc;
+    const m = +t.dataset.month;
+    if(!poState.forecast[sku]) poState.forecast[sku] = [];
+    poState.forecast[sku][m] = Math.max(0, Number(t.value) || 0);
+    persist();
+    renderCashFlow();
+    renderCharts();
+    // Surgical foot total update
+    renderForecast();
+    return;
+  }
+});
+
+// ─── Buttons & clicks
+document.addEventListener('click', e => {
+  const t = e.target;
+  if(t.id === 'btnPoReset'){
+    if(!confirm('Reset to IPOCARE sample? Your current scenario will be lost (unless saved).')) return;
+    poState = P.defaultPoState(); renderAll();
+    return;
+  }
+  if(t.id === 'btnPoAddLine' || t.id === 'btnPoAddLine2'){
+    poState.lines.push({ sku:'NEW-SKU', name:'New Product', moq:0, qty:0, unitPrice:0, sellPrice:0, remark:'' });
+    poState.forecast['NEW-SKU'] = new Array(poState.forecastMonths || 12).fill(0);
+    renderAll();
+    return;
+  }
+  if(t.dataset.poDelLine !== undefined){
+    if(!confirm('Delete this line?')) return;
+    const i = +t.dataset.poDelLine;
+    const sku = poState.lines[i] && poState.lines[i].sku;
+    poState.lines.splice(i, 1);
+    if(sku && poState.forecast) delete poState.forecast[sku];
+    renderAll();
+    return;
+  }
+  if(t.id === 'btnPoAddChannel'){
+    poState.channels.push({ name:'New Channel', sharePct:0, paymentDays:0 });
+    renderAll();
+    return;
+  }
+  if(t.dataset.poDelCh !== undefined){
+    if(!confirm('Delete this channel?')) return;
+    poState.channels.splice(+t.dataset.poDelCh, 1);
+    renderAll();
+    return;
+  }
+  // Forecast quick-fill
+  if(t.dataset.poFill !== undefined){
+    const kind = t.dataset.poFill;
+    const months = poState.forecastMonths || 12;
+    poState.lines.forEach(line => {
+      const qty = Number(line.qty) || 0;
+      const arr = new Array(months).fill(0);
+      if(kind === 'linear' && months > 0){
+        const per = Math.round(qty / months);
+        for(let m = 0; m < months; m++) arr[m] = per;
+      } else if(kind === 'front' && months > 0){
+        // weight: more in early months — exponential decay
+        const weights = [];
+        for(let m = 0; m < months; m++) weights.push(Math.exp(-m / (months/3)));
+        const sumW = weights.reduce((s,w) => s+w, 0);
+        for(let m = 0; m < months; m++) arr[m] = Math.round(qty * weights[m] / sumW);
+      } else if(kind === 'back' && months > 0){
+        const weights = [];
+        for(let m = 0; m < months; m++) weights.push(Math.exp((m - months) / (months/3)));
+        const sumW = weights.reduce((s,w) => s+w, 0);
+        for(let m = 0; m < months; m++) arr[m] = Math.round(qty * weights[m] / sumW);
+      }
+      poState.forecast[line.sku] = arr;
+    });
+    renderAll();
+    showToast('Forecast filled: ' + kind, 'success');
+    return;
+  }
+  // Split suggestion
+  if(t.id === 'btnPoSuggestSplit'){
+    renderSplitSuggestion(poState.splitThresholdMyr || 50000);
+    return;
+  }
+  // Save scenario (localStorage by name)
+  if(t.id === 'btnPoSave'){
+    const name = prompt('Name this PO scenario:', 'PO '+(poState.poNumber || new Date().toLocaleDateString()));
+    if(!name) return;
+    try {
+      const key = 'ctg_po_scenarios_v1';
+      const list = JSON.parse(localStorage.getItem(key) || '[]');
+      list.unshift({ name: name.trim(), savedAt: Date.now(), data: JSON.parse(JSON.stringify(poState)) });
+      localStorage.setItem(key, JSON.stringify(list));
+      refreshSavedList();
+      showToast('PO scenario saved.', 'success');
+    } catch(err){ showToast('Save failed: '+(err.message||err), 'error'); }
+    return;
+  }
+  // Load / delete saved
+  if(t.dataset.poScnLoad !== undefined){
+    try {
+      const list = JSON.parse(localStorage.getItem('ctg_po_scenarios_v1') || '[]');
+      const item = list[+t.dataset.poScnLoad];
+      if(item && item.data){ poState = item.data; renderAll(); showToast('Loaded: '+item.name, 'success'); }
+    } catch(err){}
+    return;
+  }
+  if(t.dataset.poScnDel !== undefined){
+    if(!confirm('Delete this saved PO scenario?')) return;
+    try {
+      const list = JSON.parse(localStorage.getItem('ctg_po_scenarios_v1') || '[]');
+      list.splice(+t.dataset.poScnDel, 1);
+      localStorage.setItem('ctg_po_scenarios_v1', JSON.stringify(list));
+      refreshSavedList();
+    } catch(err){}
+    return;
+  }
+});
+
+// ─── Saved scenarios list
+function refreshSavedList(){
+  const wrap = document.getElementById('poSavedList');
+  if(!wrap) return;
+  let list = [];
+  try { list = JSON.parse(localStorage.getItem('ctg_po_scenarios_v1') || '[]'); } catch(e){}
+  if(!list.length){
+    wrap.innerHTML = '<p class="note">No saved scenarios yet. Click ⭐ Save Scenario above.</p>';
+    return;
+  }
+  wrap.innerHTML = list.map((s, i) =>
+    '<div style="display:flex;gap:10px;align-items:center;padding:8px 12px;background:rgba(7,13,23,.4);border:1px solid var(--border);border-radius:8px;">'+
+      '<div style="flex:1;"><b>'+escapeHtml(s.name)+'</b><div style="font-size:11px;color:var(--muted);">'+new Date(s.savedAt).toLocaleString('en-MY')+'</div></div>'+
+      '<button class="ghost" data-po-scn-load="'+i+'">↻ Load</button>'+
+      '<button class="danger" data-po-scn-del="'+i+'" style="padding:6px 10px;font-size:11.5px;">✕</button>'+
+    '</div>'
+  ).join('');
+}
+
+// ─── Excel export
+const btnExport = document.getElementById('btnPoExport');
+if(btnExport){
+  btnExport.onclick = () => {
+    if(typeof XLSX === 'undefined'){ showToast('Excel library not loaded.', 'error'); return; }
+    try {
+      const wb = P.buildWorkbook(poState);
+      const out = XLSX.write(wb, { bookType:'xlsx', type:'array' });
+      const blob = new Blob([out], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'PO_CashFlow_' + (poState.poNumber || 'Scenario').replace(/[^A-Za-z0-9]+/g,'_') + '_' + new Date().toISOString().slice(0,10) + '.xlsx';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+      showToast('Excel downloaded — 4 sheets (Summary / Lines / Cash Flow / Forecast)', 'success');
+    } catch (err) { console.error(err); showToast('Export failed: '+(err.message||err), 'error'); }
+  };
+}
+
+// ─── Expose refresh hook for activateTab
+window._poRefresh = () => {
+  // Refresh entity + supplier caches first, then render
+  const promises = [];
+  if(typeof refreshEntitiesCache === 'function') promises.push(refreshEntitiesCache());
+  if(typeof refreshSuppliersCache === 'function') promises.push(refreshSuppliersCache());
+  Promise.all(promises).then(() => { renderAll(); refreshSavedList(); }).catch(() => { renderAll(); refreshSavedList(); });
+};
+
+// Defer initial render until script-level lets initialize
+setTimeout(() => { try { renderAll(); refreshSavedList(); } catch(e){ console.error('[PO] initial render failed', e); } }, 0);
+
 })();
 
 /* ============ SETTINGS TAB ============ */
