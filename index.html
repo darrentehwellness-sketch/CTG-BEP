@@ -4081,6 +4081,14 @@
   <!-- ============================================================== -->
   <div class="tab-panel" id="tab-setup">
 
+    <!-- Toolbar: Import Excel button mirrors the Calculator tab so
+         users can bulk-load Products + Costs directly from this tab. -->
+    <div class="toolbar" style="margin-bottom:16px;">
+      <button class="ghost" id="btnBepImport2"><span data-i18n="imp_btn">📥 Import Excel</span></button>
+      <div style="flex:1"></div>
+      <span class="note" data-i18n="setup_imp_hint">Download the template to see required columns. Imports merge into Products + Costs below.</span>
+    </div>
+
     <!-- Product Costing -->
     <div class="card">
       <h2><span class="ic">①</span><span data-i18n="prod_title">Product Costing Control</span><span class="badge" data-i18n="prod_badge">Product Cost Structure</span></h2>
@@ -5854,6 +5862,7 @@ const I18N = {
     imp_cancel:"Cancel",
     imp_confirm:"✓ Confirm Import",
     imp_scn_btn:"📦 Import Past Scenarios",
+    setup_imp_hint:"Download the template to see required columns. Imports merge into Products + Costs below.",
     users_entity_label:"Assigned entity", users_entity_none:"— No entity —",
     users_entity_hint:"Normal users are locked to this entity when saving scenarios. Admins can pick any entity freely.",
     users_entities_label:"Assigned entities",
@@ -6095,6 +6104,7 @@ const I18N = {
     imp_cancel:"取消",
     imp_confirm:"✓ 确认导入",
     imp_scn_btn:"📦 导入历史方案",
+    setup_imp_hint:"下载模板查看必需的列。导入会合并到下方的产品与成本项目中。",
     users_entity_label:"所属公司", users_entity_none:"— 不选 —",
     users_entity_hint:"普通用户保存方案时会锁定为此公司。管理员可任意选择。",
     users_entities_label:"所属公司（可多选）",
@@ -7124,6 +7134,10 @@ if(window.CTGImport){
 }
 const _btnBepImport = document.getElementById('btnBepImport');
 if(_btnBepImport){ _btnBepImport.onclick = () => window.CTGImport && window.CTGImport.open('bep'); }
+// Same Import button also placed on the Cost Setup tab toolbar
+// so users editing products/costs there don't have to switch tabs.
+const _btnBepImport2 = document.getElementById('btnBepImport2');
+if(_btnBepImport2){ _btnBepImport2.onclick = () => window.CTGImport && window.CTGImport.open('bep'); }
 // btnAddInventoryRow removed — the Product type was retired (it duplicated
 // the Product Costing Control table).
 document.getElementById('btnReset').onclick = ()=>{
