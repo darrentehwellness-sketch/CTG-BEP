@@ -432,39 +432,51 @@
      Default styles are light/white. Override to match the CTG dark
      theme so the phone field blends with surrounding form inputs.
      ============================================================ */
-  /* ───── Phone input wrapper — sets up the positioning context ───── */
+  /* ═══════════════════════════════════════════════════════════════════
+     PHONE INPUT — polished, dark-theme styling
+     ─────────────────────────────────────────────────────────────────── */
   .iti{
     width:100% !important;
     display:block !important;
     position:relative !important;
   }
-  /* ───── The tel input itself.
-     Padding-left is set INLINE by JS (_phoneSyncPadding) to match the
-     measured chip width — see attachPhone(). This CSS is the safety
-     fallback if JS hasn't run yet. ───── */
+  /* The tel input. Padding-left set INLINE by JS to clear the chip. */
   .iti__tel-input,
   .iti input[type="tel"]{
     width:100% !important;
-    padding:10px 14px 10px 96px !important;
-    min-height:44px !important;
+    padding:11px 14px 11px 100px !important;
+    height:46px !important;
+    min-height:46px !important;
     background:rgba(7,13,23,.65) !important;
     border:1px solid var(--border-strong) !important;
-    border-radius:8px !important;
+    border-radius:9px !important;
     color:var(--text) !important;
     font:inherit !important;
-    font-size:13px !important;
+    font-size:13.5px !important;
+    font-variant-numeric:tabular-nums !important;
     line-height:1.4 !important;
     box-sizing:border-box !important;
+    letter-spacing:.3px !important;
+    transition:border-color .15s, box-shadow .15s, background .15s;
+  }
+  .iti__tel-input::placeholder,
+  .iti input[type="tel"]::placeholder{
+    color:var(--muted) !important;
+    font-weight:400 !important;
+    letter-spacing:.5px !important;
+  }
+  .iti__tel-input:hover,
+  .iti input[type="tel"]:hover{
+    border-color:rgba(91,155,213,.45) !important;
   }
   .iti__tel-input:focus,
   .iti input[type="tel"]:focus{
     outline:none !important;
     border-color:var(--sky) !important;
-    box-shadow:0 0 0 3px rgba(91,155,213,.20) !important;
+    background:rgba(7,13,23,.85) !important;
+    box-shadow:0 0 0 3px rgba(91,155,213,.22) !important;
   }
-  /* ───── Flag + dial-code chip — absolutely positioned so it sits on
-     top of the input's padding area. width:auto lets it size to its
-     own content; JS measures it and sets the matching padding. ───── */
+  /* Chip — flag + dial code. Absolute-positioned, polished look. */
   .iti__country-container,
   .iti__selected-country{
     position:absolute !important;
@@ -472,34 +484,71 @@
     left:1px !important;
     bottom:1px !important;
     z-index:2 !important;
-    background:rgba(91,155,213,.14) !important;
-    border-right:1px solid rgba(91,155,213,.30) !important;
+    background:linear-gradient(180deg, rgba(91,155,213,.18), rgba(91,155,213,.10)) !important;
+    border:none !important;
+    border-right:1px solid rgba(91,155,213,.35) !important;
     border-radius:8px 0 0 8px !important;
-    padding:0 10px !important;
+    padding:0 12px !important;
     display:flex !important;
     align-items:center !important;
-    gap:6px !important;
+    gap:8px !important;
     cursor:pointer !important;
+    transition:background .15s;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.03);
   }
   .iti__country-container:hover,
   .iti__selected-country:hover{
-    background:rgba(91,155,213,.22) !important;
+    background:linear-gradient(180deg, rgba(91,155,213,.28), rgba(91,155,213,.16)) !important;
   }
-  .iti__selected-dial-code{
-    color:var(--text) !important;
-    font-weight:700 !important;
-    font-size:13px !important;
-    font-variant-numeric:tabular-nums !important;
-    white-space:nowrap !important;
+  .iti__country-container:focus,
+  .iti__selected-country:focus{
+    outline:none !important;
+    background:linear-gradient(180deg, rgba(91,155,213,.32), rgba(91,155,213,.18)) !important;
   }
+  /* Bigger, cleaner flag */
+  .iti__flag-container,
   .iti__flag{
     flex-shrink:0 !important;
-    box-shadow:0 1px 3px rgba(0,0,0,.4);
   }
+  .iti__flag{
+    width:24px !important;
+    height:18px !important;
+    background-size:5616px 18px !important;   /* default sprite is taller; preserves clarity */
+    border-radius:2px !important;
+    box-shadow:0 1px 2px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.06);
+  }
+  /* Dial code — crisp, prominent */
+  .iti__selected-dial-code{
+    color:#fff !important;
+    font-weight:700 !important;
+    font-size:13.5px !important;
+    font-variant-numeric:tabular-nums !important;
+    letter-spacing:.3px !important;
+    white-space:nowrap !important;
+    text-shadow:0 1px 2px rgba(0,0,0,.4);
+  }
+  /* Dropdown arrow — subtle chevron */
   .iti__arrow{
-    border-top-color:var(--sky-soft) !important;
-    margin-left:2px !important;
-    flex-shrink:0;
+    border-top:5px solid var(--sky-soft) !important;
+    border-left:4px solid transparent !important;
+    border-right:4px solid transparent !important;
+    border-bottom:none !important;
+    margin-left:4px !important;
+    flex-shrink:0 !important;
+    opacity:.75;
+    transition:opacity .15s, transform .15s;
+  }
+  .iti__country-container:hover .iti__arrow,
+  .iti__selected-country:hover .iti__arrow{
+    opacity:1;
+    transform:translateY(1px);
+  }
+  /* When the dropdown is open, flip the arrow */
+  .iti--show-flags .iti__arrow,
+  .iti__country-container[aria-expanded="true"] .iti__arrow,
+  .iti__selected-country[aria-expanded="true"] .iti__arrow{
+    transform:rotate(180deg) !important;
+    opacity:1;
   }
   /* The dropdown panel listing all countries */
   .iti__dropdown-content,
