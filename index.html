@@ -2780,8 +2780,9 @@
       </button>
       <div class="tab-section-items">
         <button class="tab-btn"            data-tab="settings" title="Profile"><svg class="ic"><use href="#i-settings"/></svg><span data-i18n="tab_settings">Profile</span></button>
-        <button class="tab-btn admin-only" data-tab="entities" id="tabBtnEntities" title="Entities"><svg class="ic"><use href="#i-building"/></svg><span data-i18n="tab_entities">Entities</span></button>
-        <button class="tab-btn admin-only" data-tab="users"    id="tabBtnUsers"    title="User Management"><svg class="ic"><use href="#i-users"/></svg><span data-i18n="tab_users">User Management</span></button>
+        <button class="tab-btn admin-only" data-tab="entities"  id="tabBtnEntities"  title="Entities"><svg class="ic"><use href="#i-building"/></svg><span data-i18n="tab_entities">Entities</span></button>
+        <button class="tab-btn admin-only" data-tab="suppliers" id="tabBtnSuppliers" title="Suppliers"><svg class="ic"><use href="#i-cart"/></svg><span data-i18n="tab_suppliers">Suppliers</span></button>
+        <button class="tab-btn admin-only" data-tab="users"     id="tabBtnUsers"     title="User Management"><svg class="ic"><use href="#i-users"/></svg><span data-i18n="tab_users">User Management</span></button>
       </div>
     </div>
 
@@ -3322,7 +3323,7 @@
       <div style="display:inline-block;text-align:left;background:rgba(7,13,23,.4);border:1px solid var(--border);border-radius:8px;padding:14px 22px;font-size:12.5px;color:var(--text-soft);line-height:1.9;">
         <b style="color:var(--sky-soft);">Build progress</b><br>
         <span style="color:#16a34a;">✓ Chunk A — Sidebar + tab skeleton</span><br>
-        <span>☐ Chunk B — Suppliers admin tab + database</span><br>
+        <span style="color:#16a34a;">✓ Chunk B — Suppliers admin tab + database</span><br>
         <span>☐ Chunk C — PO Header + Line Items table</span><br>
         <span>☐ Chunk D — Payment Terms + Sales Forecast</span><br>
         <span>☐ Chunk E — Monthly Cash Flow Output</span><br>
@@ -3715,6 +3716,215 @@
   </div>
 
   <!-- ============================================================== -->
+  <!-- TAB: SUPPLIERS — admin only (mirrors Entities pattern) -->
+  <!-- Used by the PO Cash Flow Estimator's supplier dropdown.       -->
+  <!-- ============================================================== -->
+  <div class="tab-panel" id="tab-suppliers">
+    <div class="card">
+      <h2><span class="ic">🛒</span><span data-i18n="suppliers_title">Suppliers (Vendors)</span><span class="badge" data-i18n="users_badge">Admin only</span></h2>
+
+      <div id="suppliersDenied" style="display:none;">
+        <p class="note" data-i18n="users_denied">Access denied. This panel is admin-only.</p>
+      </div>
+
+      <div id="suppliersAdmin" style="display:none;">
+        <p class="note" data-i18n="suppliers_help">Maintain the list of suppliers / vendors. Each supplier has default PO terms (lead time, deposit %, balance %, credit days, import duty %) that auto-populate when you pick them in the PO Cash Flow Estimator.</p>
+
+        <div style="display:flex;gap:10px;margin:14px 0;flex-wrap:wrap;align-items:center;">
+          <button class="accent" id="btnNewSupplier">+ <span data-i18n="suppliers_new">New Supplier</span></button>
+          <button class="ghost" id="btnRefreshSuppliers">↻ <span data-i18n="users_refresh">Refresh</span></button>
+        </div>
+
+        <div class="table-wrap">
+          <table id="suppliersTable">
+            <thead><tr>
+              <th data-i18n="sup_th_name">Name</th>
+              <th data-i18n="sup_th_code">Code</th>
+              <th data-i18n="sup_th_country">Country</th>
+              <th data-i18n="sup_th_currency">Currency</th>
+              <th data-i18n="sup_th_lead">Lead Time</th>
+              <th data-i18n="sup_th_terms">Payment Terms</th>
+              <th data-i18n="sup_th_contact">Contact</th>
+              <th data-i18n="sup_th_active">Active</th>
+              <th style="width:120px;text-align:center;" data-i18n="sup_th_actions">Actions</th>
+            </tr></thead>
+            <tbody><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px;">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Supplier form (shown when adding or editing) -->
+    <div class="card" id="supplierFormCard" style="display:none;">
+      <h2><span class="ic">✎</span><span id="supplierFormTitle" data-i18n="suppliers_form_new">New Supplier</span></h2>
+      <form id="formSupplier" autocomplete="off">
+        <input type="hidden" id="supplierId"/>
+
+        <div class="grid-2">
+          <div class="input-group">
+            <label data-i18n="sup_f_name">Display Name *</label>
+            <input type="text" id="supName" required placeholder="IPOCARE Sdn Bhd"/>
+          </div>
+          <div class="input-group">
+            <label data-i18n="sup_f_code">Short Code</label>
+            <input type="text" id="supCode" placeholder="IPOCARE"/>
+            <div class="note" style="margin-top:4px;" data-i18n="sup_f_code_note">Short reference for SKU prefixes and PO lookups.</div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="input-group">
+            <label data-i18n="sup_f_legal">Legal Name</label>
+            <input type="text" id="supLegalName" placeholder="IPOCARE BIOTECH SDN BHD"/>
+          </div>
+          <div class="input-group">
+            <label data-i18n="sup_f_reg">SSM / Reg No</label>
+            <input type="text" id="supRegNo" placeholder="202301012345"/>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="input-group">
+            <label data-i18n="sup_f_tin">TIN (LHDN)</label>
+            <input type="text" id="supTin" placeholder="C 12345678901"/>
+          </div>
+          <div class="input-group">
+            <label data-i18n="sup_f_tax">SST Reg No</label>
+            <input type="text" id="supTaxNo" placeholder="W10-1234-56789012"/>
+          </div>
+        </div>
+
+        <!-- ====== PO DEFAULTS — the key new fields ====== -->
+        <h3 style="font-size:13px;color:var(--sky-soft);margin:18px 0 8px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;">📋 PO Defaults — auto-applied in Cash Flow Estimator</h3>
+
+        <div class="grid-3">
+          <div class="input-group">
+            <label data-i18n="sup_f_currency">Base Currency</label>
+            <select id="supCurrency" style="width:100%;padding:11px 14px;border:1px solid var(--border-strong);border-radius:8px;background:rgba(7,13,23,.6);color:var(--text);font:inherit;">
+              <option value="MYR">MYR — Malaysian Ringgit</option>
+              <option value="USD">USD — US Dollar</option>
+              <option value="CNY">CNY — Chinese Yuan</option>
+              <option value="SGD">SGD — Singapore Dollar</option>
+              <option value="EUR">EUR — Euro</option>
+              <option value="GBP">GBP — British Pound</option>
+              <option value="JPY">JPY — Japanese Yen</option>
+              <option value="HKD">HKD — Hong Kong Dollar</option>
+              <option value="THB">THB — Thai Baht</option>
+              <option value="IDR">IDR — Indonesian Rupiah</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label data-i18n="sup_f_lead">Lead Time (weeks)</label>
+            <input type="number" id="supLeadWeeks" min="0" max="52" step="0.5" value="8"/>
+            <div class="note" style="margin-top:4px;">Production + shipping until goods arrive.</div>
+          </div>
+          <div class="input-group">
+            <label data-i18n="sup_f_credit">Credit Days on Balance</label>
+            <input type="number" id="supCreditDays" min="0" max="365" step="1" value="0"/>
+            <div class="note" style="margin-top:4px;">Net X days after delivery (0 = COD).</div>
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <div class="input-group">
+            <label data-i18n="sup_f_deposit">Deposit %</label>
+            <input type="number" id="supDepositPct" min="0" max="100" step="1" value="30"/>
+            <div class="note" style="margin-top:4px;">Paid on PO placement (T+0).</div>
+          </div>
+          <div class="input-group">
+            <label data-i18n="sup_f_balance">Balance %</label>
+            <input type="number" id="supBalancePct" min="0" max="100" step="1" value="70"/>
+            <div class="note" style="margin-top:4px;">Paid on delivery or per credit days.</div>
+          </div>
+          <div class="input-group">
+            <label data-i18n="sup_f_duty">Import Duty %</label>
+            <input type="number" id="supImportDutyPct" min="0" max="100" step="0.5" value="0"/>
+            <div class="note" style="margin-top:4px;">0 for local; check tariff code for imports.</div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="input-group">
+            <label data-i18n="sup_f_forwarding">Forwarding / Customs Fee (MYR)</label>
+            <input type="number" id="supForwardingFee" min="0" step="0.01" value="0"/>
+            <div class="note" style="margin-top:4px;">Lump-sum estimate per shipment.</div>
+          </div>
+          <div class="input-group">
+            <label data-i18n="sup_f_terms_note">Payment Terms Note</label>
+            <input type="text" id="supTermsNote" placeholder="e.g. TT in advance, 30/70 split, Net 30"/>
+          </div>
+        </div>
+
+        <!-- ====== ADDRESS + CONTACT ====== -->
+        <h3 style="font-size:13px;color:var(--sky-soft);margin:18px 0 8px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;">📍 Address &amp; Contact</h3>
+
+        <div class="input-group">
+          <label data-i18n="sup_f_addr1">Address Line 1</label>
+          <input type="text" id="supAddr1"/>
+        </div>
+        <div class="input-group">
+          <label data-i18n="sup_f_addr2">Address Line 2</label>
+          <input type="text" id="supAddr2"/>
+        </div>
+
+        <div class="grid-3">
+          <div class="input-group">
+            <label data-i18n="sup_f_city">City</label>
+            <input type="text" id="supCity"/>
+          </div>
+          <div class="input-group">
+            <label data-i18n="sup_f_state">State</label>
+            <input type="text" id="supState"/>
+          </div>
+          <div class="input-group">
+            <label data-i18n="sup_f_postcode">Postcode</label>
+            <input type="text" id="supPostcode"/>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label data-i18n="sup_f_country">Country</label>
+          <input type="text" id="supCountry" value="Malaysia"/>
+        </div>
+
+        <div class="grid-3">
+          <div class="input-group">
+            <label data-i18n="sup_f_contact_person">Contact Person</label>
+            <input type="text" id="supContactPerson"/>
+          </div>
+          <div class="input-group">
+            <label data-i18n="sup_f_contact_email">Contact Email</label>
+            <input type="email" id="supContactEmail"/>
+          </div>
+          <div class="input-group">
+            <label data-i18n="sup_f_contact_phone">Contact Phone</label>
+            <input type="tel" id="supContactPhone" placeholder="+60 3-1234 5678"/>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label data-i18n="sup_f_notes">Notes</label>
+          <input type="text" id="supNotes" placeholder="Internal notes about this supplier"/>
+        </div>
+
+        <div class="input-group">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="supIsActive" checked style="width:auto;"/>
+            <span data-i18n="sup_f_active">Active (appears in PO Estimator dropdown)</span>
+          </label>
+        </div>
+
+        <div class="auth-error" data-supplier-error></div>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button type="submit" class="success" id="btnSaveSupplier"><span data-i18n="sup_save">Save Supplier</span></button>
+          <button type="button" class="ghost" id="btnCancelSupplier"><span data-i18n="sup_cancel">Cancel</span></button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
   <!-- TAB: USER MANAGEMENT — admin only -->
   <!-- ============================================================== -->
   <div class="tab-panel" id="tab-users">
@@ -4005,6 +4215,7 @@ const I18N = {
     page_sub_pcalc:"Landed cost build-up, benchmark margin & best selling price",
     page_sub_settings:"Profile, password, appearance",
     page_sub_entities:"Manage JV partner companies",
+    page_sub_suppliers:"Manage suppliers / vendors and their default PO terms",
     page_sub_users:"Add, edit, and assign users to entities",
     pc_note:"Auto-saved on this device · Sign in to keep scenarios in the cloud",
     // KPI strip
@@ -4104,6 +4315,29 @@ const I18N = {
     ent_confirm_del:"Delete this entity? Scenarios tagged with it will keep working but become unlinked.",
     ent_edit:"Edit", ent_del:"Delete",
     ent_none:"No entities yet. Click 'New Entity' to add your first company.",
+    tab_suppliers:"Suppliers",
+    suppliers_title:"Suppliers (Vendors)",
+    suppliers_help:"Maintain the list of suppliers / vendors. Each supplier has default PO terms (lead time, deposit %, balance %, credit days, import duty %) that auto-populate when you pick them in the PO Cash Flow Estimator.",
+    suppliers_new:"New Supplier", suppliers_form_new:"New Supplier", suppliers_form_edit:"Edit Supplier",
+    sup_th_name:"Name", sup_th_code:"Code", sup_th_country:"Country", sup_th_currency:"Ccy",
+    sup_th_lead:"Lead", sup_th_terms:"Terms", sup_th_contact:"Contact",
+    sup_th_active:"Active", sup_th_actions:"Actions",
+    sup_f_name:"Display Name *", sup_f_code:"Short Code",
+    sup_f_code_note:"Short reference for SKU prefixes and PO lookups.",
+    sup_f_legal:"Legal Name", sup_f_reg:"SSM / Reg No",
+    sup_f_tin:"TIN (LHDN)", sup_f_tax:"SST Reg No",
+    sup_f_currency:"Base Currency", sup_f_lead:"Lead Time (weeks)", sup_f_credit:"Credit Days on Balance",
+    sup_f_deposit:"Deposit %", sup_f_balance:"Balance %", sup_f_duty:"Import Duty %",
+    sup_f_forwarding:"Forwarding / Customs Fee (MYR)", sup_f_terms_note:"Payment Terms Note",
+    sup_f_addr1:"Address Line 1", sup_f_addr2:"Address Line 2",
+    sup_f_city:"City", sup_f_state:"State", sup_f_postcode:"Postcode", sup_f_country:"Country",
+    sup_f_contact_person:"Contact Person", sup_f_contact_email:"Contact Email", sup_f_contact_phone:"Contact Phone",
+    sup_f_notes:"Notes", sup_f_active:"Active (appears in PO Estimator dropdown)",
+    sup_save:"Save Supplier", sup_cancel:"Cancel",
+    sup_saved:"Supplier saved.", sup_deleted:"Supplier deleted.",
+    sup_confirm_del:"Delete this supplier? Existing PO scenarios tagged with it will keep working but become unlinked.",
+    sup_edit:"Edit", sup_del:"Delete",
+    sup_none:"No suppliers yet. Click 'New Supplier' to add your first vendor.",
     ent_name_required:"Display name is required.",
     scn_entity:"Entity (company)", scn_entity_none:"— No entity —",
     gate_title:"Sign in to CTG Finance Hub", gate_sub:"Break-even · Product costing · ROAS",
@@ -5300,7 +5534,8 @@ const PAGE_HEADER_MAP = {
   wht:         { title: 'tab_wht',      sub: 'page_sub_wht' },
   po:          { title: 'tab_po',       sub: 'page_sub_po' },
   settings:    { title: 'tab_settings', sub: 'page_sub_settings' },
-  entities:    { title: 'tab_entities', sub: 'page_sub_entities' },
+  entities:    { title: 'tab_entities',  sub: 'page_sub_entities' },
+  suppliers:   { title: 'tab_suppliers', sub: 'page_sub_suppliers' },
   users:       { title: 'tab_users',    sub: 'page_sub_users' }
 };
 function updatePageHeader(tabId){
@@ -5335,6 +5570,7 @@ function activateTab(id, opts){
   if(id==='sensitivity') renderSensitivity();
   if(id==='settings') renderSettingsTab();
   if(id==='entities') renderEntitiesTab();
+  if(id==='suppliers') renderSuppliersTab();
   if(id==='users') renderUsersTab();
   if(id==='pcalc') { pcEnsureChannels(); pcRender(); pcRefreshSaved(); }
   if(id==='wht' && typeof window._whtRefresh === 'function'){
@@ -8477,6 +8713,202 @@ document.addEventListener('click', async e=>{
   }
 });
 
+/* ============ SUPPLIERS TAB (admin only, mirrors entities) ============
+   Backs the Supplier dropdown in the PO Cash Flow Estimator. Same
+   admin-only pattern as Entities. Each supplier carries default PO
+   terms (lead time, deposit %, balance %, credit days, import duty %,
+   forwarding fee) that auto-populate when picked in the PO Estimator. */
+let _suppliersCache = [];
+
+async function refreshSuppliersCache(){
+  if(!CTG.isSignedIn()) { _suppliersCache = []; return; }
+  try {
+    _suppliersCache = await CTG.listSuppliers();
+  } catch (err) { console.error(err); _suppliersCache = []; }
+}
+
+async function renderSuppliersTab(){
+  const admin = await CTG.isAppAdmin();
+  document.getElementById('suppliersAdmin').style.display  = admin ? 'block' : 'none';
+  document.getElementById('suppliersDenied').style.display = admin ? 'none'  : 'block';
+  // Same lifecycle rule as Entities: NEVER auto-hide the form card here.
+  if(!admin) return;
+
+  await refreshSuppliersCache();
+  const tbody = document.querySelector('#suppliersTable tbody');
+  if(_suppliersCache.length === 0){
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px;">' + t('sup_none') + '</td></tr>';
+    return;
+  }
+  tbody.innerHTML = _suppliersCache.map(s => {
+    const contact = [s.contact_person, s.contact_email, s.contact_phone].filter(Boolean).join(' · ');
+    const lead = s.default_lead_time_weeks ? Number(s.default_lead_time_weeks) + 'w' : '—';
+    const terms = (Number(s.default_deposit_pct)||0) + '/' + (Number(s.default_balance_pct)||0) +
+                  (Number(s.default_credit_days) > 0 ? ' · N' + Number(s.default_credit_days) : '');
+    return '<tr>' +
+      '<td><b style="color:#fff;">' + escapeHtml(s.name) + '</b></td>' +
+      '<td style="color:var(--coral-soft);font-family:Consolas,Menlo,monospace;font-size:12px;font-weight:600;">' + escapeHtml(s.code || '—') + '</td>' +
+      '<td style="color:var(--text-soft);font-size:12px;">' + escapeHtml(s.country || '—') + '</td>' +
+      '<td style="color:var(--sky-soft);font-family:Consolas,Menlo,monospace;font-size:12px;font-weight:700;">' + escapeHtml(s.base_currency || 'MYR') + '</td>' +
+      '<td style="color:var(--text-soft);font-family:Consolas,Menlo,monospace;font-size:12px;">' + escapeHtml(lead) + '</td>' +
+      '<td style="color:var(--text-soft);font-family:Consolas,Menlo,monospace;font-size:12px;" title="Deposit % / Balance % · Net X days">' + escapeHtml(terms) + '</td>' +
+      '<td style="color:var(--text-soft);font-size:12px;">' + escapeHtml(contact) + '</td>' +
+      '<td>' + (s.is_active ? '<span class="pos">✓</span>' : '<span class="neg">✗</span>') + '</td>' +
+      '<td style="text-align:center;">' +
+        '<button class="ghost" data-sup-edit="' + s.id + '" style="padding:4px 10px;font-size:11px;margin-right:4px;">' + t('sup_edit') + '</button>' +
+        '<button class="danger" data-sup-del="' + s.id + '" style="padding:4px 10px;font-size:11px;">' + t('sup_del') + '</button>' +
+      '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+function openSupplierForm(supplier){
+  const form = document.getElementById('formSupplier');
+  form.reset();
+  document.querySelector('[data-supplier-error]').classList.remove('show');
+  if(supplier){
+    document.getElementById('supplierFormTitle').textContent = t('suppliers_form_edit');
+    document.getElementById('supplierId').value         = supplier.id;
+    document.getElementById('supName').value            = supplier.name || '';
+    document.getElementById('supCode').value            = supplier.code || '';
+    document.getElementById('supLegalName').value       = supplier.legal_name || '';
+    document.getElementById('supRegNo').value           = supplier.registration_number || '';
+    document.getElementById('supTaxNo').value           = supplier.tax_number || '';
+    document.getElementById('supTin').value             = supplier.tin_number || '';
+    document.getElementById('supCurrency').value        = supplier.base_currency || 'MYR';
+    document.getElementById('supLeadWeeks').value       = supplier.default_lead_time_weeks ?? 8;
+    document.getElementById('supDepositPct').value      = supplier.default_deposit_pct ?? 30;
+    document.getElementById('supBalancePct').value      = supplier.default_balance_pct ?? 70;
+    document.getElementById('supCreditDays').value      = supplier.default_credit_days ?? 0;
+    document.getElementById('supImportDutyPct').value   = supplier.default_import_duty_pct ?? 0;
+    document.getElementById('supForwardingFee').value   = supplier.default_forwarding_fee ?? 0;
+    document.getElementById('supTermsNote').value       = supplier.payment_terms_note || '';
+    document.getElementById('supAddr1').value           = supplier.address_line1 || '';
+    document.getElementById('supAddr2').value           = supplier.address_line2 || '';
+    document.getElementById('supCity').value            = supplier.city || '';
+    document.getElementById('supState').value           = supplier.state || '';
+    document.getElementById('supPostcode').value        = supplier.postcode || '';
+    document.getElementById('supCountry').value         = supplier.country || 'Malaysia';
+    document.getElementById('supContactPerson').value   = supplier.contact_person || '';
+    document.getElementById('supContactEmail').value    = supplier.contact_email || '';
+    document.getElementById('supContactPhone').value    = supplier.contact_phone || '';
+    document.getElementById('supNotes').value           = supplier.notes || '';
+    document.getElementById('supIsActive').checked      = supplier.is_active !== false;
+  } else {
+    document.getElementById('supplierFormTitle').textContent = t('suppliers_form_new');
+    document.getElementById('supplierId').value = '';
+    document.getElementById('supCurrency').value = 'MYR';
+    document.getElementById('supLeadWeeks').value = 8;
+    document.getElementById('supDepositPct').value = 30;
+    document.getElementById('supBalancePct').value = 70;
+    document.getElementById('supCreditDays').value = 0;
+    document.getElementById('supImportDutyPct').value = 0;
+    document.getElementById('supForwardingFee').value = 0;
+    document.getElementById('supCountry').value = 'Malaysia';
+    document.getElementById('supIsActive').checked = true;
+  }
+  document.getElementById('supplierFormCard').style.display = 'block';
+  document.getElementById('supplierFormCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+document.getElementById('btnNewSupplier').onclick     = () => openSupplierForm(null);
+document.getElementById('btnCancelSupplier').onclick  = () => {
+  const form = document.getElementById('formSupplier');
+  const dirty = Array.from(form.querySelectorAll('input')).some(inp =>
+    inp.type === 'checkbox' ? false : (inp.value && String(inp.value).trim() &&
+      !['supCountry','supCurrency','supLeadWeeks','supDepositPct','supBalancePct','supCreditDays','supImportDutyPct','supForwardingFee'].includes(inp.id))
+  );
+  if(dirty && !confirm('Discard changes?')) return;
+  document.getElementById('supplierFormCard').style.display = 'none';
+  form.reset();
+  document.getElementById('supplierId').value = '';
+};
+document.getElementById('btnRefreshSuppliers').onclick = renderSuppliersTab;
+
+document.getElementById('formSupplier').addEventListener('submit', async e => {
+  e.preventDefault();
+  const errEl = document.querySelector('[data-supplier-error]');
+  errEl.classList.remove('show');
+  const id = document.getElementById('supplierId').value;
+  const name = document.getElementById('supName').value.trim();
+  if(!name){ errEl.textContent = 'Supplier name is required.'; errEl.classList.add('show'); return; }
+
+  // Numeric helpers — clamp + sane defaults
+  const num = (id, def) => {
+    const v = parseFloat(document.getElementById(id).value);
+    return isFinite(v) && v >= 0 ? v : def;
+  };
+  const depositPct = num('supDepositPct', 30);
+  const balancePct = num('supBalancePct', 70);
+  // Soft validation: deposit + balance should sum to 100. Warn but don't block.
+  if(Math.abs(depositPct + balancePct - 100) > 0.01){
+    if(!confirm('Deposit % (' + depositPct + ') + Balance % (' + balancePct + ') ≠ 100. Save anyway?')) return;
+  }
+
+  const payload = {
+    name,
+    code:                    document.getElementById('supCode').value.trim() || null,
+    legal_name:              document.getElementById('supLegalName').value.trim() || null,
+    registration_number:     document.getElementById('supRegNo').value.trim() || null,
+    tax_number:              document.getElementById('supTaxNo').value.trim() || null,
+    tin_number:              document.getElementById('supTin').value.trim() || null,
+    base_currency:           document.getElementById('supCurrency').value || 'MYR',
+    default_lead_time_weeks: num('supLeadWeeks', 8),
+    default_deposit_pct:     depositPct,
+    default_balance_pct:     balancePct,
+    default_credit_days:     num('supCreditDays', 0),
+    default_import_duty_pct: num('supImportDutyPct', 0),
+    default_forwarding_fee:  num('supForwardingFee', 0),
+    payment_terms_note:      document.getElementById('supTermsNote').value.trim() || null,
+    address_line1:           document.getElementById('supAddr1').value.trim() || null,
+    address_line2:           document.getElementById('supAddr2').value.trim() || null,
+    city:                    document.getElementById('supCity').value.trim() || null,
+    state:                   document.getElementById('supState').value.trim() || null,
+    postcode:                document.getElementById('supPostcode').value.trim() || null,
+    country:                 document.getElementById('supCountry').value.trim() || null,
+    contact_person:          document.getElementById('supContactPerson').value.trim() || null,
+    contact_email:           document.getElementById('supContactEmail').value.trim() || null,
+    contact_phone:           document.getElementById('supContactPhone').value.trim() || null,
+    notes:                   document.getElementById('supNotes').value.trim() || null,
+    is_active:               document.getElementById('supIsActive').checked
+  };
+  const btn = document.getElementById('btnSaveSupplier');
+  btn.disabled = true;
+  try {
+    if(id) await CTG.updateSupplier(id, payload);
+    else   await CTG.createSupplier(payload);
+    showToast(t('sup_saved'), 'success');
+    document.getElementById('supplierFormCard').style.display = 'none';
+    await renderSuppliersTab();
+  } catch (err) {
+    console.error(err);
+    errEl.textContent = friendlyAuthError(err); errEl.classList.add('show');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.addEventListener('click', async e => {
+  const editId = e.target.dataset.supEdit;
+  if(editId){
+    const sup = _suppliersCache.find(x => x.id === editId);
+    if(sup) openSupplierForm(sup);
+    return;
+  }
+  const delId = e.target.dataset.supDel;
+  if(delId){
+    if(!confirm(t('sup_confirm_del'))) return;
+    try {
+      await CTG.deleteSupplier(delId);
+      showToast(t('sup_deleted'), 'success');
+      await renderSuppliersTab();
+    } catch (err) {
+      console.error(err);
+      showToast(friendlyAuthError(err), 'error');
+    }
+  }
+});
+
 /* ============ USER MANAGEMENT TAB ============ */
 let _isAdminCache = false;
 async function refreshAdminFlag(){
@@ -8886,8 +9318,9 @@ async function init(){
     await renderSidebarProfile();
     if(currentTab==='compare')  renderCompare();
     if(currentTab==='settings') renderSettingsTab();
-    if(currentTab==='entities') renderEntitiesTab();
-    if(currentTab==='users')    renderUsersTab();
+    if(currentTab==='entities')  renderEntitiesTab();
+    if(currentTab==='suppliers') renderSuppliersTab();
+    if(currentTab==='users')     renderUsersTab();
     maybeShowMigrate();
     // Now that admin-only tabs may be visible, retry tab restoration if the
     // user's saved tab is an admin tab that was hidden at first paint.

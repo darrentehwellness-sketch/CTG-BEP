@@ -251,6 +251,42 @@
     if (error) throw error;
   }
 
+  // ---------- Suppliers (admin-managed master list, mirrors entities) ----------
+  // Used by the PO Cash Flow Estimator's supplier dropdown. PO defaults
+  // (lead time, deposit%, balance%, credit days, duty%, forwarding fee)
+  // auto-populate when an admin picks a supplier. Read by all signed-in
+  // users so dropdowns work for non-admins too.
+  const SUPPLIER_FIELDS = 'id,name,code,legal_name,registration_number,tax_number,tin_number,address_line1,address_line2,city,state,postcode,country,contact_person,contact_email,contact_phone,base_currency,default_lead_time_weeks,default_deposit_pct,default_balance_pct,default_credit_days,default_import_duty_pct,default_forwarding_fee,payment_terms_note,notes,is_active,created_at,updated_at';
+
+  async function listSuppliers({ activeOnly = false } = {}) {
+    if (!sb || !currentUser) return [];
+    let q = sb.from('suppliers').select(SUPPLIER_FIELDS).order('name');
+    if (activeOnly) q = q.eq('is_active', true);
+    const { data, error } = await q;
+    if (error) { console.error(error); return []; }
+    return data || [];
+  }
+
+  async function createSupplier(payload) {
+    _ensureSb();
+    const { data, error } = await sb.from('suppliers').insert(payload).select(SUPPLIER_FIELDS).single();
+    if (error) throw error;
+    return data;
+  }
+
+  async function updateSupplier(id, payload) {
+    _ensureSb();
+    const { data, error } = await sb.from('suppliers').update(payload).eq('id', id).select(SUPPLIER_FIELDS).single();
+    if (error) throw error;
+    return data;
+  }
+
+  async function deleteSupplier(id) {
+    _ensureSb();
+    const { error } = await sb.from('suppliers').delete().eq('id', id);
+    if (error) throw error;
+  }
+
   // ---------- Product Costing scenarios (DB-backed) ----------
   async function pcListSavedScenarios() {
     if (!sb || !currentUser) return [];
@@ -383,6 +419,10 @@
     createEntity,
     updateEntity,
     deleteEntity,
+    listSuppliers,
+    createSupplier,
+    updateSupplier,
+    deleteSupplier,
     pcListSavedScenarios,
     pcSaveSavedScenario,
     pcDeleteSavedScenario,
