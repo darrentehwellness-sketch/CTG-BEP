@@ -35,7 +35,7 @@
 <script src="assets/js/supabase-client.js?v=26"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
 <script src="assets/js/wht-calculator.js?v=17"></script>
-<script src="assets/js/po-estimator.js?v=7"></script>
+<script src="assets/js/po-estimator.js?v=8"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -3678,8 +3678,9 @@
         </div>
         <div class="input-group">
           <label>Supplier Name *</label>
-          <input type="text" id="poSupplierName" placeholder="e.g. IPOCARE Sdn Bhd" autocomplete="off"/>
-          <div class="note" style="margin-top:6px;font-size:11px;">Type the supplier / vendor name for this PO.</div>
+          <input type="text" id="poSupplierName" list="poSuppliersList" placeholder="e.g. IPOCARE Sdn Bhd" autocomplete="off"/>
+          <datalist id="poSuppliersList"></datalist>
+          <div class="note" style="margin-top:6px;font-size:11px;">Start typing — pick from your Suppliers Management list (Admin → Suppliers) or type any custom name. Picking a managed supplier auto-fills currency, lead time and payment terms.</div>
         </div>
         <div class="input-group">
           <label>PO Number</label>
@@ -8953,12 +8954,13 @@ function persist(){ P.saveLocal(poState); }
 function num(id){ const el = document.getElementById(id); return el ? Math.max(0, Number(el.value)||0) : 0; }
 function val(id){ const el = document.getElementById(id); return el ? el.value : ''; }
 
-// ─── Populate the Buying Entity dropdown only.
-// `_entitiesCache` is a top-level `let`, lexically accessible from this
-// nested IIFE. Fall back to empty array if not populated yet.
+// ─── Populate the Buying Entity dropdown + Supplier name datalist.
+// `_entitiesCache` and `_suppliersCache` are top-level `let`s lexically
+// accessible from this nested IIFE.
 function _safeCache(name){
   try {
-    if(name === '_entitiesCache') return Array.isArray(_entitiesCache) ? _entitiesCache : [];
+    if(name === '_entitiesCache')  return Array.isArray(_entitiesCache)  ? _entitiesCache  : [];
+    if(name === '_suppliersCache') return Array.isArray(_suppliersCache) ? _suppliersCache : [];
   } catch(_e){}
   return [];
 }
@@ -8970,8 +8972,20 @@ function populateDropdowns(){
       active.map(e => '<option value="'+e.id+'">'+escapeHtml(e.name)+'</option>').join('');
     ent.value = poState.buyingEntityId || '';
   }
-  // Supplier is now a plain text input — its value is synced separately
-  // by the input handler. No dropdown to populate.
+  // Supplier: populate the <datalist> with managed supplier names so the
+  // text input shows them as autocomplete suggestions. User can still
+  // type any custom name not on the list.
+  const supList = document.getElementById('poSuppliersList');
+  if(supList){
+    const active = _safeCache('_suppliersCache').filter(s => s.is_active !== false);
+    supList.innerHTML = active.map(s => {
+      // Include the supplier's country / currency as a hint in the option
+      // (browsers show this as secondary text on the suggestion row)
+      const hint = [s.country, s.base_currency].filter(Boolean).join(' · ');
+      return '<option value="' + escapeHtml(s.name) + '"' +
+             (hint ? ' label="' + escapeHtml(hint) + '"' : '') + '></option>';
+    }).join('');
+  }
 }
 
 // ─── Render the Line Items table
@@ -9285,13 +9299,52 @@ document.addEventListener('change', e => {
   }
 });
 
-// ─── Supplier name input — plain text, user types directly
+// ─── Supplier name input — text input with <datalist> autocomplete.
+// User can type any name OR pick from the managed Suppliers list. When
+// the typed value matches a managed supplier EXACTLY, we auto-fill the
+// currency / lead time / payment terms from that supplier's defaults.
 document.addEventListener('input', e => {
   if(e.target.id !== 'poSupplierName') return;
-  poState.supplierName = e.target.value;
-  // Drop the legacy supplierId — no longer linked to managed list
-  poState.supplierId = '';
-  persist();
+  const typed = e.target.value;
+  poState.supplierName = typed;
+
+  // Look up an exact name match in the managed Suppliers cache.
+  // Case-insensitive on whitespace-trimmed strings, so "IPOCARE Sdn Bhd"
+  // and "ipocare sdn bhd" both match.
+  const cache = _safeCache('_suppliersCache');
+  const trimmed = typed.trim().toLowerCase();
+  const sup = cache.find(s => (s.name||'').trim().toLowerCase() === trimmed && s.is_active !== false);
+
+  if(sup){
+    // Bind to the managed supplier — copy all defaults
+    poState.supplierId    = sup.id;
+    poState.currency      = sup.base_currency || 'MYR';
+    poState.leadTimeWeeks = Number(sup.default_lead_time_weeks) || 8;
+    poState.depositPct    = Number(sup.default_deposit_pct) || 30;
+    poState.balancePct    = Number(sup.default_balance_pct) || 70;
+    poState.creditDays    = Number(sup.default_credit_days) || 0;
+    persist();
+    // Sync the now-changed inputs (currency, lead, deposit/balance, etc.)
+    // — only the dependent fields, NOT the supplier name (user is typing
+    // in it, would steal focus).
+    const setV = (id, v) => { const el = document.getElementById(id); if(el && document.activeElement !== el) el.value = v ?? ''; };
+    setV('poCurrency',   poState.currency);
+    setV('poLeadWeeks',  poState.leadTimeWeeks);
+    setV('poDepositPct', poState.depositPct);
+    setV('poBalancePct', poState.balancePct);
+    setV('poCreditDays', poState.creditDays);
+    // Show/hide FX rate group based on new currency
+    const fxGrp = document.getElementById('poFxGroup');
+    if(fxGrp) fxGrp.style.display = (poState.currency === 'MYR') ? 'none' : '';
+    // Recompute cash flow with new lead/payment terms
+    try { renderCashFlow(); renderCharts(); } catch(_e){}
+    // Subtle toast so user knows the auto-fill happened
+    try { showToast('Loaded defaults from "' + sup.name + '"', 'success'); } catch(_e){}
+  } else {
+    // Free-text supplier — clear the managed-supplier link
+    poState.supplierId = '';
+    persist();
+  }
 });
 
 // ─── Line / Channel / Forecast input handlers
