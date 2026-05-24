@@ -35,7 +35,7 @@
 <script src="assets/js/supabase-client.js?v=26"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
 <script src="assets/js/wht-calculator.js?v=17"></script>
-<script src="assets/js/po-estimator.js?v=1"></script>
+<script src="assets/js/po-estimator.js?v=2"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -1263,6 +1263,349 @@
   }
   input.wht-receipt-input.is-required-empty:focus{
     box-shadow:0 0 0 3px rgba(232,93,60,.32) !important;
+  }
+
+  /* ============================================================
+     PO CASH FLOW ESTIMATOR — beautification
+     Goal: clear visual hierarchy + ink-friendly colors + responsive
+     tables. Each major section gets a numbered chip + colored header
+     band. KPIs feel "alive" with subtle gradient borders.
+     ============================================================ */
+  #tab-po .card{
+    background:linear-gradient(180deg, rgba(19,28,45,.55), rgba(19,28,45,.30));
+    border:1px solid rgba(91,155,213,.15);
+  }
+  #tab-po .card h2{
+    border-bottom:none;
+    padding-bottom:0;
+    margin-bottom:18px;
+    align-items:center;
+  }
+  #tab-po .card h2 .ic{
+    background:linear-gradient(135deg, var(--coral), var(--coral-deep));
+    color:#fff; width:30px; height:30px;
+    border-radius:50%; font-size:14px; font-weight:800;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 12px rgba(232,93,60,.32);
+    margin-right:10px;
+    flex-shrink:0;
+  }
+  #tab-po .card h2 .badge{
+    background:rgba(91,155,213,.12) !important;
+    color:var(--sky-soft) !important;
+    border:1px solid rgba(91,155,213,.30);
+    font-size:10px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.8px;
+    padding:3px 9px; border-radius:10px;
+    margin-left:auto;
+  }
+
+  /* KPI tiles — subtle lift on hover, colored top accent bar */
+  #tab-po .kpi{
+    transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+    position:relative; overflow:hidden;
+  }
+  #tab-po .kpi::before{
+    content:''; position:absolute; top:0; left:0; right:0; height:2px;
+    background:var(--sky); opacity:.55;
+  }
+  #tab-po .kpi.success::before{ background:var(--success); }
+  #tab-po .kpi.warn::before{    background:#d97706; }
+  #tab-po .kpi.danger::before{  background:var(--coral); }
+  #tab-po .kpi:hover{
+    transform:translateY(-2px);
+    border-color:rgba(91,155,213,.40) !important;
+    box-shadow:0 8px 22px rgba(0,0,0,.32);
+  }
+
+  /* Input groups — uniform feel */
+  #tab-po .input-group label{
+    font-size:11px; color:var(--text-soft); font-weight:700;
+    letter-spacing:.5px; text-transform:uppercase;
+    margin-bottom:6px; display:block;
+  }
+  #tab-po .input-group input,
+  #tab-po .input-group select{
+    width:100%;
+    padding:10px 13px;
+    background:rgba(7,13,23,.65) !important;
+    border:1px solid var(--border-strong);
+    border-radius:7px;
+    color:var(--text);
+    font:inherit; font-size:13px;
+    transition:border-color .15s, box-shadow .15s, background .15s;
+  }
+  #tab-po .input-group input:hover,
+  #tab-po .input-group select:hover{
+    border-color:rgba(91,155,213,.40);
+  }
+  #tab-po .input-group input:focus,
+  #tab-po .input-group select:focus{
+    outline:none;
+    border-color:var(--sky);
+    background:rgba(7,13,23,.85) !important;
+    box-shadow:0 0 0 3px rgba(91,155,213,.20);
+  }
+  #tab-po .input-group .note{
+    font-size:10.5px !important;
+    color:var(--muted) !important;
+    line-height:1.4;
+    margin-top:5px !important;
+  }
+
+  /* Tables — compact, alternating rows, sticky thead on cash flow */
+  #tab-po table{
+    border-collapse:separate; border-spacing:0;
+    width:100%;
+    background:transparent;
+  }
+  #tab-po table thead th{
+    background:linear-gradient(180deg, rgba(91,155,213,.10), rgba(91,155,213,.05));
+    color:var(--sky-soft);
+    font-size:11px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.6px;
+    padding:11px 10px;
+    border-bottom:1px solid rgba(91,155,213,.20);
+    text-align:left;
+  }
+  #tab-po table tbody tr{
+    transition:background .12s;
+  }
+  #tab-po table tbody tr:nth-child(even){
+    background:rgba(7,13,23,.30);
+  }
+  #tab-po table tbody tr:hover{
+    background:rgba(91,155,213,.06);
+  }
+  #tab-po table tbody td{
+    padding:7px 10px;
+    font-size:12px;
+    border-bottom:1px solid rgba(91,155,213,.08);
+    vertical-align:middle;
+  }
+  #tab-po table tbody td.num,
+  #tab-po table tfoot td.num{
+    font-variant-numeric:tabular-nums;
+    font-family:Consolas, Menlo, monospace;
+    text-align:right;
+  }
+  #tab-po table tfoot td{
+    padding:11px 10px;
+    background:linear-gradient(180deg, rgba(232,93,60,.10), rgba(232,93,60,.04));
+    border-top:2px solid rgba(232,93,60,.35);
+    font-size:12.5px; font-weight:700;
+  }
+  #tab-po table tbody input{
+    width:100%;
+    padding:6px 8px;
+    background:rgba(7,13,23,.50);
+    border:1px solid transparent;
+    color:var(--text);
+    font:inherit; font-size:11.5px;
+    font-variant-numeric:tabular-nums;
+    border-radius:5px;
+    transition:border-color .12s, background .12s;
+  }
+  #tab-po table tbody input[type="number"]{ text-align:right; }
+  #tab-po table tbody input:hover{
+    background:rgba(7,13,23,.70);
+    border-color:rgba(91,155,213,.25);
+  }
+  #tab-po table tbody input:focus{
+    outline:none;
+    background:rgba(7,13,23,.90);
+    border-color:var(--sky);
+    box-shadow:0 0 0 2px rgba(91,155,213,.20);
+  }
+  #tab-po td.action button{
+    background:transparent !important;
+    border:1px solid rgba(232,93,60,.25) !important;
+    color:var(--coral-soft) !important;
+    width:26px; height:26px;
+    padding:0 !important;
+    border-radius:5px !important;
+    font-size:12px; font-weight:700;
+    cursor:pointer;
+    transition:background .12s, color .12s;
+    box-shadow:none !important;
+  }
+  #tab-po td.action button:hover{
+    background:var(--coral) !important;
+    color:#fff !important;
+    transform:none !important;
+  }
+
+  /* Line table: highlight Ext Amt + Margin columns */
+  #poLinesTable tbody td:nth-child(7){
+    color:var(--coral-soft); font-weight:700;
+    background:rgba(232,93,60,.04);
+  }
+  #poLinesTable tbody td:nth-child(9){
+    color:var(--success); font-weight:600;
+  }
+
+  /* Cash flow table: sticky thead + readable colored amounts.
+     Wrap in horizontal scroll for many channels. */
+  #poCashFlowCard .table-wrap{
+    max-height:600px; overflow:auto;
+    border:1px solid rgba(91,155,213,.15);
+    border-radius:8px;
+  }
+  #poCashFlowTable thead th{
+    position:sticky; top:0; z-index:5;
+    background:linear-gradient(180deg, #0E1A2D, #0c1626) !important;
+  }
+  #poCashFlowTable tbody td:first-child{
+    background:rgba(7,13,23,.7);
+    font-weight:600;
+  }
+  #poCashFlowTable tbody tr:nth-child(even) td:first-child{
+    background:rgba(7,13,23,.85);
+  }
+
+  /* Forecast grid: tighter cells, sticky SKU column */
+  #poForecastTable{
+    font-size:11.5px;
+  }
+  #poForecastTable thead th{
+    padding:6px 4px !important;
+    font-size:10px !important;
+  }
+  #poForecastTable tbody td{
+    padding:3px 4px !important;
+  }
+  #poForecastTable tbody td:first-child,
+  #poForecastTable thead th:first-child{
+    position:sticky; left:0; z-index:3;
+    background:#0C1421;
+    border-right:2px solid rgba(91,155,213,.20);
+  }
+  #poForecastTable tbody tr:nth-child(even) td:first-child{
+    background:#0E1828;
+  }
+
+  /* Channels table — center-align the Share % footer total */
+  #poChannelsTable tfoot td:nth-child(2){
+    text-align:right;
+    font-size:14px;
+    font-weight:800;
+  }
+
+  /* Charts grid: clean card wrapping */
+  #tab-po .chart-box{
+    background:rgba(7,13,23,.50);
+    border:1px solid rgba(91,155,213,.15);
+    border-radius:10px;
+    padding:14px;
+  }
+  #tab-po .chart-box h3{
+    margin:0 0 10px;
+    font-size:12.5px;
+    color:var(--sky-soft);
+    text-transform:uppercase; letter-spacing:.8px;
+    font-weight:700;
+  }
+
+  /* Toolbar buttons: clearer hierarchy */
+  #tab-po .toolbar{
+    background:linear-gradient(180deg, rgba(19,28,45,.60), rgba(19,28,45,.30));
+    border:1px solid rgba(91,155,213,.18);
+    border-radius:10px;
+    padding:12px 16px;
+    margin-bottom:14px;
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  }
+  #tab-po .toolbar .note{
+    color:var(--muted); font-size:11.5px;
+  }
+
+  /* Add Receipt / Add Line / Add Channel buttons */
+  #tab-po .add-row button{
+    background:rgba(91,155,213,.10) !important;
+    border:1px dashed rgba(91,155,213,.45) !important;
+    color:var(--sky-soft) !important;
+    padding:8px 16px !important;
+    font-size:12px; font-weight:600;
+    border-radius:7px !important;
+    cursor:pointer;
+    transition:background .15s, border-style .15s;
+    box-shadow:none !important;
+  }
+  #tab-po .add-row button:hover{
+    background:rgba(91,155,213,.18) !important;
+    border-style:solid !important;
+    color:#fff !important;
+    transform:none !important;
+  }
+
+  /* Forecast quick-fill toolbar */
+  #tab-po button[data-po-fill]{
+    background:rgba(7,13,23,.55) !important;
+    border:1px solid rgba(91,155,213,.25) !important;
+    color:var(--text-soft) !important;
+    font-weight:600;
+    transition:background .12s, color .12s;
+  }
+  #tab-po button[data-po-fill]:hover{
+    background:rgba(91,155,213,.18) !important;
+    color:#fff !important;
+    border-color:var(--sky) !important;
+    transform:none !important;
+  }
+
+  /* Split helper result table */
+  #poSplitResult{ margin-top:14px; }
+  #poSplitResult .note{
+    padding:10px 14px;
+    background:rgba(91,155,213,.08);
+    border-left:3px solid var(--sky);
+    border-radius:6px;
+    font-size:12px;
+  }
+  #poSplitResult .note[style*="success"]{
+    background:rgba(16,185,129,.08);
+    border-left-color:var(--success);
+  }
+
+  /* Saved scenarios list */
+  #poSavedList > div{
+    transition:background .12s, border-color .12s;
+  }
+  #poSavedList > div:hover{
+    background:rgba(91,155,213,.06) !important;
+    border-color:rgba(91,155,213,.30) !important;
+  }
+
+  /* Responsive: stack inputs on narrow screens */
+  @media (max-width:900px){
+    #tab-po .grid-3, #tab-po .grid-4, #tab-po .grid-2{
+      grid-template-columns:1fr !important;
+    }
+  }
+
+  /* Print: hide editing chrome, show clean report */
+  @media print{
+    #tab-po .toolbar,
+    #tab-po button[data-po-fill],
+    #tab-po .add-row,
+    #tab-po .action,
+    #tab-po #btnPoSuggestSplit,
+    #tab-po #poSplitThreshold{ display:none !important; }
+    #tab-po table tbody input{
+      background:transparent !important;
+      border:none !important;
+      color:#000 !important;
+      padding:1pt 0 !important;
+    }
+    #tab-po .card{
+      background:#fff !important;
+      border:.75pt solid #d6d9e0 !important;
+    }
+    #tab-po .kpi{
+      background:#fafbfd !important;
+      border:.5pt solid #d6d9e0 !important;
+      box-shadow:none !important;
+    }
   }
 
   /* Formula caption shown above each payee's receipts table */
@@ -9052,7 +9395,23 @@ document.addEventListener('input', e => {
     const f = t.dataset.field;
     const line = poState.lines[i];
     if(!line) return;
-    if(f === 'sku' || f === 'name' || f === 'remark'){ line[f] = t.value; persist(); renderForecast(); /* SKU change affects forecast keys */ }
+    if(f === 'sku'){
+      // BUGFIX: rename the forecast key when SKU changes so the
+      // monthly forecast doesn't get orphaned under the old key.
+      const oldSku = line.sku;
+      const newSku = t.value;
+      if(oldSku !== newSku && poState.forecast){
+        if(poState.forecast[oldSku] !== undefined){
+          poState.forecast[newSku] = poState.forecast[oldSku];
+          delete poState.forecast[oldSku];
+        }
+      }
+      line.sku = newSku;
+      persist();
+      renderForecast();   // re-render so new key is used in data-po-fc
+      renderCashFlow();   // forecast lookup uses sku
+    }
+    else if(f === 'name' || f === 'remark'){ line[f] = t.value; persist(); }
     else { line[f] = Math.max(0, Number(t.value) || 0); refreshNumbers(); }
     return;
   }
@@ -9090,9 +9449,21 @@ document.addEventListener('click', e => {
     return;
   }
   if(t.id === 'btnPoAddLine' || t.id === 'btnPoAddLine2'){
-    poState.lines.push({ sku:'NEW-SKU', name:'New Product', moq:0, qty:0, unitPrice:0, sellPrice:0, remark:'' });
-    poState.forecast['NEW-SKU'] = new Array(poState.forecastMonths || 12).fill(0);
+    // BUGFIX: generate a unique SKU so multiple adds don't collide on
+    // the same forecast key. Walks existing SKUs and finds the next
+    // free NEW-NNN suffix.
+    let n = 1;
+    const taken = new Set(poState.lines.map(l => l.sku || ''));
+    while(taken.has('NEW-' + String(n).padStart(3, '0'))) n++;
+    const newSku = 'NEW-' + String(n).padStart(3, '0');
+    poState.lines.push({ sku:newSku, name:'New Product', moq:0, qty:0, unitPrice:0, sellPrice:0, remark:'' });
+    poState.forecast[newSku] = new Array(poState.forecastMonths || 12).fill(0);
     renderAll();
+    // Auto-focus the new row's SKU input so user can edit immediately
+    setTimeout(() => {
+      const inp = document.querySelector('input[data-po-line="'+(poState.lines.length-1)+'"][data-field="sku"]');
+      if(inp){ inp.focus(); inp.select && inp.select(); }
+    }, 50);
     return;
   }
   if(t.dataset.poDelLine !== undefined){
@@ -9222,13 +9593,22 @@ if(btnExport){
   };
 }
 
-// ─── Expose refresh hook for activateTab
+// ─── Expose refresh hook for activateTab.
+// BUGFIX: Charts render at 0×0 if the tab is hidden during the initial
+// renderAll(). We always re-render charts on tab activation to ensure
+// the canvases have real dimensions.
 window._poRefresh = () => {
-  // Refresh entity + supplier caches first, then render
   const promises = [];
   if(typeof refreshEntitiesCache === 'function') promises.push(refreshEntitiesCache());
   if(typeof refreshSuppliersCache === 'function') promises.push(refreshSuppliersCache());
-  Promise.all(promises).then(() => { renderAll(); refreshSavedList(); }).catch(() => { renderAll(); refreshSavedList(); });
+  Promise.all(promises)
+    .then(() => { renderAll(); refreshSavedList(); })
+    .catch(() => { renderAll(); refreshSavedList(); })
+    .finally(() => {
+      // Force-redraw charts now that the tab panel is visible and
+      // canvases have measurable width/height.
+      setTimeout(() => { try { renderCharts(); } catch(_e){} }, 80);
+    });
 };
 
 // Defer initial render until script-level lets initialize
