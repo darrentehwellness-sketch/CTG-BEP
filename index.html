@@ -7458,6 +7458,11 @@ function activateTab(id, opts){
   const btn = document.querySelector('.tab-btn[data-tab="'+id+'"]');
   const panel = document.getElementById('tab-'+id);
   if(!btn || !panel) return false;
+  // Per-feature permissions: if applyFeatureVisibility() marked this
+  // panel as blocked for the current user, refuse the switch. This
+  // prevents the saved-tab restoration on first paint from landing
+  // the user on a calculator the admin disabled for them.
+  if(panel.dataset.featureBlocked === '1') return false;
   // If user is leaving the WHT tab while the date picker popup is open,
   // force-close it so its global mousedown/keydown listeners get
   // unregistered (otherwise they leak across tab switches).
