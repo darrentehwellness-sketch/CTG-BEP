@@ -322,6 +322,38 @@
     padding:1px 7px;border-radius:6px;font-weight:800;letter-spacing:.7px;
     border:1px solid rgba(91,155,213,.28);font-size:9px;text-transform:uppercase;
   }
+  .sidebar-profile .badge-viewer{
+    background:rgba(168,181,204,.18);color:#A8B5CC;
+    padding:1px 7px;border-radius:6px;font-weight:800;letter-spacing:.7px;
+    border:1px solid rgba(168,181,204,.30);font-size:9px;text-transform:uppercase;
+  }
+  /* ===== Viewer mode — read-only UI guard rail =====
+     RLS already denies viewer writes server-side; this just removes
+     write-action buttons / inputs so viewers don't see disabled UI
+     that would just produce error toasts when clicked. */
+  body.viewer-mode .write-action,
+  body.viewer-mode [data-write-action],
+  body.viewer-mode #btnSave,
+  body.viewer-mode #btnPcSave,
+  body.viewer-mode [id^="btnPo"][id$="Save"],
+  body.viewer-mode #whtBtnSave,
+  body.viewer-mode .danger,
+  body.viewer-mode .scn-actions,
+  body.viewer-mode [data-pc-saved-del],
+  body.viewer-mode [data-pcp-del],
+  body.viewer-mode [data-wht-del],
+  body.viewer-mode [data-po-del]{
+    display:none !important;
+  }
+  body.viewer-mode #viewerBanner{display:flex !important;}
+  #viewerBanner{
+    display:none;align-items:center;gap:10px;
+    padding:10px 16px;margin:0 0 14px 0;
+    background:linear-gradient(90deg,rgba(168,181,204,.10),rgba(168,181,204,.04));
+    border:1px solid rgba(168,181,204,.28);border-radius:10px;
+    color:#cbd5e1;font-size:13px;font-weight:600;
+  }
+  #viewerBanner .vi-ic{font-size:16px;line-height:1;}
   .sidebar-profile .ent{
     color:var(--text-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
     font-size:10px;
@@ -3438,6 +3470,14 @@
 <!-- Main content -->
 <div class="main-content">
 
+  <!-- Viewer mode banner — only shown when body has .viewer-mode class.
+       RLS denies writes server-side; this banner sets expectations so users
+       don't repeatedly try clicking Save and seeing errors. -->
+  <div id="viewerBanner">
+    <span class="vi-ic">👁</span>
+    <span data-i18n="viewer_banner">You are signed in as a Viewer — read-only access. Save, edit, and delete are disabled.</span>
+  </div>
+
   <!-- Page header (auto-populated from active tab) — Bitrix24-style page title bar -->
   <div class="page-header" id="pageHeader">
     <div class="page-header-left">
@@ -4875,8 +4915,9 @@
           <div class="auth-field">
             <label data-i18n="users_role_label">Role</label>
             <select id="userEditRole" style="width:100%;padding:11px 14px;border:1px solid var(--border-strong);border-radius:8px;background:rgba(7,13,23,.6);color:var(--text);font:inherit;">
-              <option value="user" data-i18n="users_role_user">Normal User</option>
-              <option value="admin" data-i18n="users_role_admin">Admin</option>
+              <option value="user"   data-i18n="users_role_user">Normal User</option>
+              <option value="viewer" data-i18n="users_role_viewer">Viewer (Read-only)</option>
+              <option value="admin"  data-i18n="users_role_admin">Admin</option>
             </select>
           </div>
 
@@ -5291,7 +5332,8 @@ const I18N = {
     users_th_email:"Email", users_th_confirmed:"Confirmed", users_th_created:"Created", users_th_last:"Last sign-in",
     users_th_role:"Role", users_th_entity:"Entity",
     users_edit:"Edit", users_edit_title:"Edit user",
-    users_role_label:"Role", users_role_user:"Normal User", users_role_admin:"Admin",
+    users_role_label:"Role", users_role_user:"Normal User", users_role_admin:"Admin", users_role_viewer:"Viewer (Read-only)",
+    viewer_banner:"You are signed in as a Viewer — read-only access. Save, edit, and delete are disabled.",
     users_entity_label:"Assigned entity", users_entity_none:"— No entity —",
     users_entity_hint:"Normal users are locked to this entity when saving scenarios. Admins can pick any entity freely.",
     users_entities_label:"Assigned entities",
@@ -5508,7 +5550,8 @@ const I18N = {
     users_th_email:"邮箱", users_th_confirmed:"已确认", users_th_created:"创建时间", users_th_last:"最近登录",
     users_th_role:"角色", users_th_entity:"所属公司",
     users_edit:"编辑", users_edit_title:"编辑用户",
-    users_role_label:"角色", users_role_user:"普通用户", users_role_admin:"管理员",
+    users_role_label:"角色", users_role_user:"普通用户", users_role_admin:"管理员", users_role_viewer:"查看者 (只读)",
+    viewer_banner:"您以「查看者」身份登录 — 只读权限。保存、编辑、删除均已禁用。",
     users_entity_label:"所属公司", users_entity_none:"— 不选 —",
     users_entity_hint:"普通用户保存方案时会锁定为此公司。管理员可任意选择。",
     users_entities_label:"所属公司（可多选）",
@@ -10496,7 +10539,10 @@ async function renderSettingsTab(){
   profile = profile || {};
 
   // Role + entity caption under the email
-  const roleLabel = profile.role === 'admin' ? t('users_role_admin') : t('users_role_user');
+  const roleLabel =
+        profile.role === 'admin'  ? t('users_role_admin')
+      : profile.role === 'viewer' ? t('users_role_viewer')
+      : t('users_role_user');
   const entityLabel = profile.entity_name ? (' · 🏢 ' + profile.entity_name) : '';
   document.getElementById('settingsRoleEntity').textContent = roleLabel + entityLabel;
 
@@ -11243,8 +11289,16 @@ async function renderSidebarProfile(){
   document.getElementById('sidebarName').textContent = name;
   document.getElementById('sidebarEmail').textContent = user.email || '';
   const badge = document.getElementById('sidebarRoleBadge');
-  badge.className = role === 'admin' ? 'badge-admin' : 'badge-user';
-  badge.textContent = role === 'admin' ? t('users_role_admin') : t('users_role_user');
+  badge.className =
+        role === 'admin'  ? 'badge-admin'
+      : role === 'viewer' ? 'badge-viewer'
+      : 'badge-user';
+  badge.textContent =
+        role === 'admin'  ? t('users_role_admin')
+      : role === 'viewer' ? t('users_role_viewer')
+      : t('users_role_user');
+  // Apply the viewer-mode body class so write buttons get hidden via CSS.
+  document.body.classList.toggle('viewer-mode', role === 'viewer');
   const entEl = document.getElementById('sidebarEntity');
   entEl.textContent = entityLabel ? '· 🏢 ' + entityLabel : '';
 }
