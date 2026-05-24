@@ -35,7 +35,7 @@
 <script src="assets/js/supabase-client.js?v=26"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
 <script src="assets/js/wht-calculator.js?v=17"></script>
-<script src="assets/js/po-estimator.js?v=4"></script>
+<script src="assets/js/po-estimator.js?v=5"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -3786,23 +3786,6 @@
           <label>Credit Days on Balance</label>
           <input type="number" id="poCreditDays" min="0" max="365" step="1" value="30"/>
           <div class="note" style="margin-top:6px;font-size:11px;">Net X days after delivery (0 = COD).</div>
-        </div>
-      </div>
-      <div class="grid-3">
-        <div class="input-group">
-          <label>Import Duty % (of PO total)</label>
-          <input type="number" id="poImportDutyPct" min="0" max="100" step="0.5" value="0"/>
-          <div class="note" style="margin-top:6px;font-size:11px;">Charged on delivery month.</div>
-        </div>
-        <div class="input-group">
-          <label>Forwarding / Customs (MYR)</label>
-          <input type="number" id="poForwardingFee" min="0" step="0.01" value="5000"/>
-          <div class="note" style="margin-top:6px;font-size:11px;">Lump sum on delivery month.</div>
-        </div>
-        <div class="input-group">
-          <label>FX Hedge Buffer %</label>
-          <input type="number" id="poFxBufferPct" min="0" max="50" step="0.5" value="0"/>
-          <div class="note" style="margin-top:6px;font-size:11px;">Adds X% to MYR cost as currency hedge. Set 0 if MYR-only.</div>
         </div>
       </div>
     </div>
@@ -9175,7 +9158,7 @@ function renderCashFlow(){
   const body = document.getElementById('poCashFlowBody');
   if(!head || !body) return;
   const channels = poState.channels || [];
-  let h = '<tr><th>Month</th><th>Deposit</th><th>Balance</th><th>Duty</th><th>Forwarding</th><th>Total Out</th>';
+  let h = '<tr><th>Month</th><th>Deposit</th><th>Balance</th><th>Total Out</th>';
   channels.forEach(ch => h += '<th>Rev: '+escapeHtml(ch.name)+'</th>');
   h += '<th>Revenue</th><th>Net</th><th>Cumulative</th></tr>';
   head.innerHTML = h;
@@ -9187,8 +9170,6 @@ function renderCashFlow(){
       '<td><b>'+m.month+'</b> <span style="color:var(--muted);font-size:10.5px;">'+m.label+'</span></td>'+
       '<td class="num">'+(m.deposit > 0 ? '<span style="color:var(--coral-soft);">-'+P.fmt(m.deposit)+'</span>' : '—')+'</td>'+
       '<td class="num">'+(m.balance > 0 ? '<span style="color:var(--coral-soft);">-'+P.fmt(m.balance)+'</span>' : '—')+'</td>'+
-      '<td class="num">'+(m.duty > 0 ? '<span style="color:var(--coral-soft);">-'+P.fmt(m.duty)+'</span>' : '—')+'</td>'+
-      '<td class="num">'+(m.forwarding > 0 ? '<span style="color:var(--coral-soft);">-'+P.fmt(m.forwarding)+'</span>' : '—')+'</td>'+
       '<td class="num" style="color:var(--coral-soft);font-weight:700;">'+(m.totalOut > 0 ? P.fmt(m.totalOut) : '—')+'</td>';
     channels.forEach(ch => {
       const v = m.byChannel[ch.name] || 0;
@@ -9324,9 +9305,11 @@ function renderAll(){
   setV('poDepositPct',   poState.depositPct ?? 30);
   setV('poBalancePct',   poState.balancePct ?? 70);
   setV('poCreditDays',   poState.creditDays ?? 30);
-  setV('poImportDutyPct',poState.importDutyPct ?? 0);
-  setV('poForwardingFee',poState.forwardingFee ?? 0);
-  setV('poFxBufferPct',  poState.fxBufferPct ?? 0);
+  // Import duty / forwarding / FX buffer removed from UI — force to 0
+  // so any legacy state values don't silently affect cash flow calcs.
+  poState.importDutyPct = 0;
+  poState.forwardingFee = 0;
+  poState.fxBufferPct   = 0;
   setV('poForecastMonths', poState.forecastMonths ?? 12);
   setV('poSplitThreshold', poState.splitThresholdMyr ?? 50000);
 
@@ -9354,7 +9337,7 @@ function refreshNumbers(){
 
 // ─── Header input handlers
 ['poNumber','poDate','poCurrency','poFxRate','poLeadWeeks','poNotes',
- 'poDepositPct','poBalancePct','poCreditDays','poImportDutyPct','poForwardingFee','poFxBufferPct',
+ 'poDepositPct','poBalancePct','poCreditDays',
  'poForecastMonths','poSplitThreshold'].forEach(id => {
   document.addEventListener('input', e => {
     if(e.target.id !== id) return;
@@ -9369,9 +9352,6 @@ function refreshNumbers(){
       case 'poDepositPct':     poState.depositPct = Number(v) || 0; refreshNumbers(); break;
       case 'poBalancePct':     poState.balancePct = Number(v) || 0; refreshNumbers(); break;
       case 'poCreditDays':     poState.creditDays = Number(v) || 0; refreshNumbers(); break;
-      case 'poImportDutyPct':  poState.importDutyPct = Number(v) || 0; refreshNumbers(); break;
-      case 'poForwardingFee':  poState.forwardingFee = Number(v) || 0; refreshNumbers(); break;
-      case 'poFxBufferPct':    poState.fxBufferPct = Number(v) || 0; refreshNumbers(); break;
       case 'poForecastMonths': poState.forecastMonths = Math.max(3, Math.min(24, Number(v) || 12)); renderForecast(); refreshNumbers(); break;
       case 'poSplitThreshold': poState.splitThresholdMyr = Number(v) || 50000; persist(); break;
     }
