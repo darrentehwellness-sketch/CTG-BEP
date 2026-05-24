@@ -494,15 +494,14 @@
     box-shadow:none !important;
   }
 
-  /* ── The chip button — single source of truth for visual styling ─ */
+  /* ── The chip button — single source of truth for visual styling.
+     NO divider line — the chip blends seamlessly into the input area
+     so the whole control reads as one cohesive component. ────────── */
   .iti__selected-country{
     position:relative !important;
     height:100% !important;
-    /* Soft uniform background — feels like a refined data chip,
-       not a heavy gradient block. Layered subtle highlight on top. */
     background:rgba(91,155,213,.12) !important;
     border:none !important;
-    border-right:1px solid rgba(91,155,213,.22) !important;
     border-radius:8px 0 0 8px !important;
     outline:none !important;
     padding:0 13px 0 12px !important;
@@ -511,7 +510,7 @@
     align-items:center !important;
     gap:9px !important;
     cursor:pointer !important;
-    transition:background .18s, border-color .18s !important;
+    transition:background .18s !important;
     -webkit-tap-highlight-color:transparent !important;
     -webkit-appearance:none !important;
     appearance:none !important;
@@ -522,7 +521,6 @@
   .iti__selected-country:focus-within,
   .iti__selected-country:active{
     outline:none !important;
-    border-right:1px solid rgba(91,155,213,.22) !important;
     box-shadow:inset 0 1px 0 rgba(255,255,255,.05) !important;
   }
   .iti__selected-country::-moz-focus-inner{
@@ -530,7 +528,6 @@
   }
   .iti__selected-country:hover{
     background:rgba(91,155,213,.18) !important;
-    border-right-color:rgba(91,155,213,.35) !important;
   }
 
   /* ── Flag (sprite-based — don't touch width/height/bg-size) ─────── */
