@@ -54,7 +54,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
 <script src="config.js?v=22"></script>
-<script src="assets/js/supabase-client.js?v=27"></script>
+<script src="assets/js/supabase-client.js?v=28"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
 <script src="assets/js/wht-calculator.js?v=17"></script>
 <script src="assets/js/po-estimator.js?v=12"></script>
@@ -3245,6 +3245,11 @@
       <circle cx="9" cy="7" r="4"/>
       <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
     </symbol>
+    <!-- Clock: Activity Log tab icon -->
+    <symbol id="i-clock" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <circle cx="12" cy="12" r="10"/>
+      <polyline points="12 6 12 12 16 14"/>
+    </symbol>
     <!-- Chevron-left: collapse toggle -->
     <symbol id="i-chevron-left" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
       <polyline points="15 18 9 12 15 6"/>
@@ -3423,6 +3428,7 @@
         <button class="tab-btn admin-only" data-tab="entities"  id="tabBtnEntities"  title="Entities"><svg class="ic"><use href="#i-building"/></svg><span data-i18n="tab_entities">Entities</span></button>
         <button class="tab-btn admin-only" data-tab="suppliers" id="tabBtnSuppliers" title="Suppliers"><svg class="ic"><use href="#i-cart"/></svg><span data-i18n="tab_suppliers">Suppliers</span></button>
         <button class="tab-btn admin-only" data-tab="users"     id="tabBtnUsers"     title="User Management"><svg class="ic"><use href="#i-users"/></svg><span data-i18n="tab_users">User Management</span></button>
+        <button class="tab-btn admin-only" data-tab="activity"  id="tabBtnActivity"  title="Activity Log"><svg class="ic"><use href="#i-clock"/></svg><span data-i18n="tab_activity">Activity Log</span></button>
       </div>
     </div>
 
@@ -4891,6 +4897,100 @@
     </div>
   </div>
 
+  <!-- ─────────── Activity Log (admin only) ──────────────────────────
+       Append-only audit trail of every login, INSERT/UPDATE/DELETE on
+       entity-scoped tables, role change, etc. Trigger-driven on the
+       DB side; this UI is the read interface for admins. -->
+  <div class="tab-panel" id="tab-activity">
+    <div class="card">
+      <h2><span class="ic">📋</span><span data-i18n="act_title">Activity Log</span><span class="badge" data-i18n="act_badge">Admin only</span></h2>
+      <p class="muted" data-i18n="act_sub" style="margin:-4px 0 14px;">Append-only history of authentications, data changes, and admin operations. Used for compliance audits and incident review.</p>
+
+      <!-- Filter bar -->
+      <div class="act-filters" style="display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin-bottom:14px;">
+        <div style="display:flex;flex-direction:column;gap:4px;min-width:160px;">
+          <label class="act-lbl" data-i18n="act_filter_when">Time window</label>
+          <select id="actFilterDays" class="auth-input" style="padding:8px 10px;">
+            <option value="1">Last 24 hours</option>
+            <option value="7" selected>Last 7 days</option>
+            <option value="30">Last 30 days</option>
+            <option value="90">Last 90 days</option>
+            <option value="0">All time</option>
+          </select>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;min-width:180px;">
+          <label class="act-lbl" data-i18n="act_filter_action">Action</label>
+          <select id="actFilterAction" class="auth-input" style="padding:8px 10px;">
+            <option value="">All actions</option>
+            <option value="app.login">Sign-in</option>
+            <option value="scenarios.insert">BEP — Create</option>
+            <option value="scenarios.update">BEP — Update</option>
+            <option value="scenarios.delete">BEP — Delete</option>
+            <option value="wht_scenarios.insert">WHT — Create</option>
+            <option value="wht_scenarios.update">WHT — Update</option>
+            <option value="wht_scenarios.delete">WHT — Delete</option>
+            <option value="po_scenarios.insert">PO — Create</option>
+            <option value="po_scenarios.update">PO — Update</option>
+            <option value="po_scenarios.delete">PO — Delete</option>
+            <option value="pc_scenarios.insert">PC — Create</option>
+            <option value="pc_scenarios.update">PC — Update</option>
+            <option value="pc_scenarios.delete">PC — Delete</option>
+            <option value="suppliers.insert">Supplier — Create</option>
+            <option value="suppliers.update">Supplier — Update</option>
+            <option value="suppliers.delete">Supplier — Delete</option>
+            <option value="entities.insert">Entity — Create</option>
+            <option value="entities.update">Entity — Update</option>
+            <option value="entities.delete">Entity — Delete</option>
+            <option value="user_profiles.update">User role/profile change</option>
+            <option value="user_entities.insert">User → Entity assigned</option>
+            <option value="user_entities.delete">User → Entity removed</option>
+          </select>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;min-width:180px;">
+          <label class="act-lbl" data-i18n="act_filter_entity">Entity</label>
+          <select id="actFilterEntity" class="auth-input" style="padding:8px 10px;">
+            <option value="">All entities</option>
+          </select>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:200px;">
+          <label class="act-lbl" data-i18n="act_filter_user">Search by email</label>
+          <input id="actFilterUser" type="text" class="auth-input" placeholder="e.g. darren@" style="padding:8px 10px;">
+        </div>
+        <button id="actRefreshBtn" class="ghost" style="padding:9px 16px;" type="button"><span data-i18n="act_refresh">↻ Refresh</span></button>
+        <button id="actExportBtn"  class="ghost" style="padding:9px 16px;" type="button"><span data-i18n="act_export">⬇ Export CSV</span></button>
+      </div>
+
+      <!-- KPI strip -->
+      <div class="act-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px;">
+        <div class="kpi-tile"><div class="kpi-label" data-i18n="act_kpi_events">Events</div><div class="kpi-value" id="actKpiTotal">—</div></div>
+        <div class="kpi-tile"><div class="kpi-label" data-i18n="act_kpi_users">Active users</div><div class="kpi-value" id="actKpiUsers">—</div></div>
+        <div class="kpi-tile"><div class="kpi-label" data-i18n="act_kpi_logins">Sign-ins</div><div class="kpi-value" id="actKpiLogins">—</div></div>
+        <div class="kpi-tile"><div class="kpi-label" data-i18n="act_kpi_writes">Data changes</div><div class="kpi-value" id="actKpiWrites">—</div></div>
+      </div>
+
+      <!-- Event table -->
+      <div class="table-wrap" style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;">
+        <table class="data-table" style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead style="background:rgba(7,13,23,.55);">
+            <tr style="text-align:left;">
+              <th style="padding:10px 12px;">When</th>
+              <th style="padding:10px 12px;">User</th>
+              <th style="padding:10px 12px;">Action</th>
+              <th style="padding:10px 12px;">Entity</th>
+              <th style="padding:10px 12px;">Details</th>
+            </tr>
+          </thead>
+          <tbody id="actTableBody">
+            <tr><td colspan="5" style="padding:24px;text-align:center;color:var(--muted);">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="muted" style="margin-top:12px;font-size:12px;">
+        <span data-i18n="act_footnote">Showing up to 500 most recent events in the selected window. History is append-only — no row can be edited or deleted via the UI.</span>
+      </p>
+    </div>
+  </div>
+
   <div class="footer-note">
     <div style="display:inline-flex;align-items:center;gap:12px;padding:10px 20px;background:rgba(19,28,45,.7);border-radius:30px;backdrop-filter:blur(12px);border:1px solid var(--border);">
       <img src="assets/img/ctg_logo.png" alt="CTG" style="width:30px;height:30px;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(232,93,60,.35));"/>
@@ -5017,7 +5117,14 @@ const I18N = {
     tagline:"Strong Finances. Sharper Decisions. Unstoppable Growth.",
     export:"Export CSV", print:"Print/PDF",
     tab_calc:"Calculator", tab_setup:"Cost Setup", tab_compare:"Compare Scenarios", tab_sens:"Sensitivity Analysis",
-    tab_settings:"Profile", tab_users:"User Management",
+    tab_settings:"Profile", tab_users:"User Management", tab_activity:"Activity Log",
+    act_title:"Activity Log", act_badge:"Admin only",
+    act_sub:"Append-only history of authentications, data changes, and admin operations. Used for compliance audits and incident review.",
+    act_filter_when:"Time window", act_filter_action:"Action", act_filter_entity:"Entity", act_filter_user:"Search by email",
+    act_refresh:"↻ Refresh", act_export:"⬇ Export CSV",
+    act_kpi_events:"Events", act_kpi_users:"Active users", act_kpi_logins:"Sign-ins", act_kpi_writes:"Data changes",
+    act_footnote:"Showing up to 500 most recent events in the selected window. History is append-only — no row can be edited or deleted via the UI.",
+    page_sub_activity:"Append-only audit trail — logins, data changes, role updates, entity assignments",
     nav_sec_bep:"Exhibition BEP", nav_sec_account:"Account", nav_sec_admin:"Settings",
     nav_sec_ecomm:"Product Calculator", tab_pcalc:"Product Costing Calculator",
     nav_sec_reporting:"Reporting", nav_sec_tax:"Tax Calculator", nav_sec_cashflow:"Cash Flow",
@@ -5325,7 +5432,14 @@ const I18N = {
     tagline:"稳健财务 · 精准决策 · 持续增长",
     export:"导出CSV", print:"打印/PDF",
     tab_calc:"计算器", tab_setup:"成本设置", tab_compare:"方案对比", tab_sens:"敏感度分析",
-    tab_settings:"个人资料", tab_users:"用户管理",
+    tab_settings:"个人资料", tab_users:"用户管理", tab_activity:"操作日志",
+    act_title:"操作日志", act_badge:"仅限管理员",
+    act_sub:"只读历史：登录、数据变更、管理员操作。用于合规审计与异常追溯。",
+    act_filter_when:"时间范围", act_filter_action:"操作", act_filter_entity:"公司", act_filter_user:"搜索邮箱",
+    act_refresh:"↻ 刷新", act_export:"⬇ 导出 CSV",
+    act_kpi_events:"事件数", act_kpi_users:"活跃用户", act_kpi_logins:"登录次数", act_kpi_writes:"数据变更",
+    act_footnote:"显示所选时间范围内最近 500 条事件。日志不可修改或删除。",
+    page_sub_activity:"只读审计日志 — 登录、数据变更、角色调整、公司分配",
     nav_sec_bep:"损益平衡计算器", nav_sec_account:"账户", nav_sec_admin:"设置",
     nav_sec_ecomm:"电商", tab_pcalc:"产品成本 & ROAS",
     page_sub_calc:"实时构建预算并计算损益平衡点",
@@ -6601,7 +6715,8 @@ const PAGE_HEADER_MAP = {
   settings:    { title: 'tab_settings', sub: 'page_sub_settings' },
   entities:    { title: 'tab_entities',  sub: 'page_sub_entities' },
   suppliers:   { title: 'tab_suppliers', sub: 'page_sub_suppliers' },
-  users:       { title: 'tab_users',    sub: 'page_sub_users' }
+  users:       { title: 'tab_users',    sub: 'page_sub_users' },
+  activity:    { title: 'tab_activity', sub: 'page_sub_activity' }
 };
 function updatePageHeader(tabId){
   const m = PAGE_HEADER_MAP[tabId];
@@ -6637,6 +6752,7 @@ function activateTab(id, opts){
   if(id==='entities') renderEntitiesTab();
   if(id==='suppliers') renderSuppliersTab();
   if(id==='users') renderUsersTab();
+  if(id==='activity') renderActivityTab();
   if(id==='pcalc') { pcEnsureChannels(); pcRender(); pcRefreshSaved(); }
   if(id==='wht' && typeof window._whtRefresh === 'function'){
     // Refresh entities first so the Payer dropdown is up to date, then render.
@@ -11496,6 +11612,180 @@ async function init(){
   render();
   if(currentTab==='compare') renderCompare();
   maybeShowMigrate();
+}
+
+/* ===================================================================
+   Activity Log tab — admin-only audit trail viewer
+   -------------------------------------------------------------------
+   Reads from the activity_log table (RLS: admin sees all). Renders a
+   filterable table + KPI strip + CSV export. Lazy-loads entities for
+   the entity-filter dropdown.
+   =================================================================== */
+let _actCache = [];
+let _actFiltersBound = false;
+
+async function renderActivityTab(){
+  const body = document.getElementById('actTableBody');
+  if(!body) return;
+  if(!CTG.HAS_SUPABASE || !CTG.isSignedIn()){
+    body.innerHTML = '<tr><td colspan="5" style="padding:24px;text-align:center;color:var(--muted);">'+escapeHtml(t('settings_signin_first'))+'</td></tr>';
+    return;
+  }
+  // Populate the entity filter once (admin sees all entities).
+  const entSel = document.getElementById('actFilterEntity');
+  if(entSel && entSel.options.length <= 1){
+    try {
+      const ents = await CTG.listEntities();
+      ents.forEach(e => {
+        const o = document.createElement('option');
+        o.value = e.id;
+        o.textContent = e.name;
+        entSel.appendChild(o);
+      });
+    } catch(_e){}
+  }
+  // Bind filter change handlers once
+  if(!_actFiltersBound){
+    ['actFilterDays','actFilterAction','actFilterEntity'].forEach(id => {
+      const el = document.getElementById(id);
+      if(el) el.addEventListener('change', _actReload);
+    });
+    const userInput = document.getElementById('actFilterUser');
+    if(userInput){
+      let _t;
+      userInput.addEventListener('input', () => { clearTimeout(_t); _t = setTimeout(_actReload, 350); });
+    }
+    const refreshBtn = document.getElementById('actRefreshBtn');
+    if(refreshBtn) refreshBtn.addEventListener('click', _actReload);
+    const exportBtn  = document.getElementById('actExportBtn');
+    if(exportBtn)  exportBtn.addEventListener('click', _actExportCsv);
+    _actFiltersBound = true;
+  }
+  await _actReload();
+}
+
+async function _actReload(){
+  const body = document.getElementById('actTableBody');
+  if(!body) return;
+  body.innerHTML = '<tr><td colspan="5" style="padding:24px;text-align:center;color:var(--muted);">Loading…</td></tr>';
+  const days   = parseInt(document.getElementById('actFilterDays').value, 10);
+  const action = document.getElementById('actFilterAction').value || null;
+  const entId  = document.getElementById('actFilterEntity').value || null;
+  const search = (document.getElementById('actFilterUser').value || '').trim() || null;
+  try {
+    _actCache = await CTG.listActivityLog({
+      limit:      500,
+      sinceDays:  days > 0 ? days : null,
+      action,
+      entityId:   entId,
+      search
+    });
+  } catch (err) {
+    console.error('[activity] list failed:', err);
+    body.innerHTML = '<tr><td colspan="5" style="padding:24px;text-align:center;color:#fda4af;">Failed to load activity log. Check console.</td></tr>';
+    return;
+  }
+  _actRenderTable();
+  _actRenderKpis();
+}
+
+function _actActionLabel(a){
+  if(!a) return '';
+  // Friendlier label: e.g. "scenarios.insert" → "BEP — Create"
+  const map = {
+    'app.login':'🔐 Sign-in',
+    'scenarios.insert':'➕ BEP — Create',  'scenarios.update':'✎ BEP — Update',  'scenarios.delete':'🗑 BEP — Delete',
+    'wht_scenarios.insert':'➕ WHT — Create','wht_scenarios.update':'✎ WHT — Update','wht_scenarios.delete':'🗑 WHT — Delete',
+    'po_scenarios.insert':'➕ PO — Create',  'po_scenarios.update':'✎ PO — Update',  'po_scenarios.delete':'🗑 PO — Delete',
+    'pc_scenarios.insert':'➕ PC — Create',  'pc_scenarios.update':'✎ PC — Update',  'pc_scenarios.delete':'🗑 PC — Delete',
+    'suppliers.insert':'➕ Supplier — Create','suppliers.update':'✎ Supplier — Update','suppliers.delete':'🗑 Supplier — Delete',
+    'entities.insert':'➕ Entity — Create',   'entities.update':'✎ Entity — Update',   'entities.delete':'🗑 Entity — Delete',
+    'user_profiles.update':'👤 User profile change',
+    'user_entities.insert':'🔗 Entity assigned to user',
+    'user_entities.delete':'🔗 Entity removed from user'
+  };
+  return map[a] || a;
+}
+
+function _actEntityName(entId){
+  if(!entId) return '—';
+  const cache = (typeof _entitiesCache !== 'undefined' && _entitiesCache) || [];
+  const hit = cache.find(e => e.id === entId);
+  return hit ? hit.name : '(unknown)';
+}
+
+function _actRenderTable(){
+  const body = document.getElementById('actTableBody');
+  if(!body) return;
+  if(_actCache.length === 0){
+    body.innerHTML = '<tr><td colspan="5" style="padding:24px;text-align:center;color:var(--muted);">No events in this window.</td></tr>';
+    return;
+  }
+  const fmtTime = ts => {
+    try { return new Date(ts).toLocaleString('en-MY', {dateStyle:'short', timeStyle:'medium'}); }
+    catch(_e){ return ts; }
+  };
+  body.innerHTML = _actCache.map(r => {
+    // Friendly details: for INSERT show name; for DELETE show old name; for UPDATE show field count
+    let detail = '';
+    const md = r.metadata || {};
+    if(r.action && r.action.endsWith('.insert') && md.new){
+      detail = escapeHtml(md.new.name || md.new.title || md.new.code || ('#' + (r.resource_id||'').slice(0,8)));
+    } else if(r.action && r.action.endsWith('.delete') && md.old){
+      detail = '🗑 ' + escapeHtml(md.old.name || md.old.title || md.old.code || ('#' + (r.resource_id||'').slice(0,8)));
+    } else if(r.action && r.action.endsWith('.update')){
+      const keys = Object.keys(md).filter(k => k !== 'new' && k !== 'old');
+      detail = keys.length ? escapeHtml(keys.join(', ')) + ' changed' : '—';
+    } else if(r.action === 'app.login'){
+      detail = '<span style="color:var(--muted);font-size:11.5px;">' + escapeHtml((md.ua || '').slice(0, 60)) + '</span>';
+    }
+    return '<tr style="border-top:1px solid var(--border);">'
+         + '<td style="padding:8px 12px;white-space:nowrap;color:var(--muted);font-size:12px;">'+escapeHtml(fmtTime(r.created_at))+'</td>'
+         + '<td style="padding:8px 12px;">'+escapeHtml(r.user_email || '(unknown)')+'</td>'
+         + '<td style="padding:8px 12px;white-space:nowrap;">'+escapeHtml(_actActionLabel(r.action))+'</td>'
+         + '<td style="padding:8px 12px;">'+escapeHtml(_actEntityName(r.entity_id))+'</td>'
+         + '<td style="padding:8px 12px;">'+detail+'</td>'
+         + '</tr>';
+  }).join('');
+}
+
+function _actRenderKpis(){
+  const total   = _actCache.length;
+  const users   = new Set(_actCache.map(r => r.user_id).filter(Boolean)).size;
+  const logins  = _actCache.filter(r => r.action === 'app.login').length;
+  const writes  = _actCache.filter(r => r.action && /\.(insert|update|delete)$/.test(r.action)).length;
+  const set = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = String(val); };
+  set('actKpiTotal',  total);
+  set('actKpiUsers',  users);
+  set('actKpiLogins', logins);
+  set('actKpiWrites', writes);
+}
+
+function _actExportCsv(){
+  if(_actCache.length === 0){ alert('Nothing to export.'); return; }
+  const csv = s => {
+    s = String(s == null ? '' : s);
+    return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+  };
+  const rows = [['When','User Email','Action','Entity','Resource ID','Metadata']];
+  _actCache.forEach(r => {
+    rows.push([
+      r.created_at,
+      r.user_email || '',
+      r.action || '',
+      _actEntityName(r.entity_id),
+      r.resource_id || '',
+      JSON.stringify(r.metadata || {})
+    ]);
+  });
+  const blob = new Blob([rows.map(row => row.map(csv).join(',')).join('\r\n')], { type:'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const stamp = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  a.href = url;
+  a.download = 'ctg-activity-log-' + stamp + '.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 init();

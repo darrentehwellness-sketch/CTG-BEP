@@ -65,6 +65,14 @@
       if (newUid && newUid !== prevUid) lsWrite(LS_LAST_UID, newUid);
       // Invalidate profile cache when the user identity changes (sign-in/out/switch)
       if (newUid !== prevUid) _profileCache = null;
+      // Audit-log the auth lifecycle so admins can see sign-in / sign-out events.
+      // Fire-and-forget — never block auth on logging.
+      if (event === 'SIGNED_IN' && currentUser && newUid !== prevUid) {
+        try { logActivity('login', { metadata: { ua: navigator.userAgent.slice(0, 200) } }); } catch (_e) {}
+      } else if (event === 'SIGNED_OUT' && prevUid) {
+        // SIGNED_OUT fires after currentUser is cleared — there's no JWT to authorize
+        // the RPC anymore, so we don't try to log here (the sign-in event covers session bracketing).
+      }
       const payload = { event, user: currentUser, mode: currentUser ? 'cloud' : 'anonymous', prevUid, newUid };
       if (listeners.size === 0) _bufferedEvents.push(payload);
       else emit(payload);
@@ -448,6 +456,54 @@
     return { migrated: locals.length };
   }
 
+  // ---------- Activity audit log ----------
+  // Most writes (scenarios, entities, suppliers, user_profiles, user_entities)
+  // are captured automatically by the public.tg_audit_row() Postgres trigger
+  // — no client code needed. Client-side events (login, scope switch, export)
+  // call CTG.logActivity() which writes via the log_activity RPC.
+  // RLS: admins see all rows; normal users see only their own.
+  async function logActivity(action, opts = {}) {
+    if (!sb || !currentUser) return null;
+    try {
+      const { data, error } = await sb.rpc('log_activity', {
+        p_action:        String(action || ''),
+        p_resource_type: opts.resourceType || null,
+        p_resource_id:   opts.resourceId   || null,
+        p_entity_id:     opts.entityId     || null,
+        p_metadata:      opts.metadata     || {}
+      });
+      if (error) { console.warn('[logActivity] failed:', error.message); return null; }
+      return data;
+    } catch (e) { console.warn('[logActivity] threw:', e); return null; }
+  }
+
+  async function listActivityLog({ limit = 200, sinceDays = null, action = null, entityId = null, userId = null, search = null } = {}) {
+    if (!sb || !currentUser) return [];
+    let q = sb.from('activity_log')
+      .select('id,user_id,user_email,entity_id,action,resource_type,resource_id,metadata,created_at')
+      .order('created_at', { ascending: false })
+      .limit(Math.min(Math.max(limit | 0, 1), 1000));
+    if (sinceDays && sinceDays > 0) {
+      const since = new Date(Date.now() - sinceDays * 86400000).toISOString();
+      q = q.gte('created_at', since);
+    }
+    if (action)   q = q.eq('action', action);
+    if (entityId) q = q.eq('entity_id', entityId);
+    if (userId)   q = q.eq('user_id', userId);
+    if (search)   q = q.ilike('user_email', '%' + search + '%');
+    const { data, error } = await q;
+    if (error) { console.error('[listActivityLog]', error); return []; }
+    return data || [];
+  }
+
+  async function adminPurgeActivityLog(olderThanDays) {
+    _ensureSb();
+    const cutoff = new Date(Date.now() - (olderThanDays | 0) * 86400000).toISOString();
+    const { data, error } = await sb.rpc('admin_purge_activity_log', { p_older_than: cutoff });
+    if (error) throw error;
+    return data;
+  }
+
   // ---------- working state (calculator inputs) ----------
   // Always local — too noisy to sync on every keystroke.
   function loadWorkingState() { return lsRead(LS_STATE, null); }
@@ -490,6 +546,9 @@
     pcListSavedScenarios,
     pcSaveSavedScenario,
     pcDeleteSavedScenario,
+    logActivity,
+    listActivityLog,
+    adminPurgeActivityLog,
     signOut,
     listScenarios,
     saveScenario,
