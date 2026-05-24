@@ -20,7 +20,7 @@
           info) to third-party origins.
      Permissions-Policy: deny camera/mic/geo/payment — we don't use them.
      X-Content-Type-Options: stop MIME-sniff attacks on user uploads. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://browser.sentry-cdn.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net https://*.ingest.sentry.io https://*.ingest.us.sentry.io; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta http-equiv="X-Content-Type-Options" content="nosniff" />
 <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=()" />
@@ -53,7 +53,63 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
-<script src="config.js?v=22"></script>
+<script src="config.js?v=23"></script>
+<!-- ────────────────────────────────────────────────────────────────
+     Sentry SDK — loads only when a DSN is configured in config.js.
+     ────────────────────────────────────────────────────────────────
+     Errors, unhandled promise rejections, and a 10% sample of slow
+     requests get sent to Sentry. PII (email / scenario contents) is
+     stripped via beforeSend hook. Free tier handles 5k errors/month
+     which is way more than this site will ever emit. -->
+<script>
+(function(){
+  var cfg = (window.CTG_CONFIG || {});
+  if (!cfg.SENTRY_DSN) return;  // inert when DSN is blank
+  // Load the SDK from Sentry's CDN.
+  // Note: if you want stricter security, generate the SRI hash via
+  // `curl -s https://browser.sentry-cdn.com/8.42.0/bundle.tracing.min.js | openssl dgst -sha384 -binary | openssl base64 -A`
+  // then add  s.integrity = 'sha384-...';  s.crossOrigin = 'anonymous';
+  var s = document.createElement('script');
+  s.src = 'https://browser.sentry-cdn.com/8.42.0/bundle.tracing.min.js';
+  s.crossOrigin = 'anonymous';
+  s.onload = function(){
+    if (!window.Sentry) return;
+    Sentry.init({
+      dsn: cfg.SENTRY_DSN,
+      environment: cfg.SENTRY_ENVIRONMENT || 'production',
+      tracesSampleRate: typeof cfg.SENTRY_TRACES_RATE === 'number' ? cfg.SENTRY_TRACES_RATE : 0.1,
+      // PII scrubbing — never send user emails / payload contents.
+      sendDefaultPii: false,
+      beforeSend: function(event){
+        try {
+          // Scrub any user_email field that might leak through
+          if (event.user) { delete event.user.email; delete event.user.username; }
+          // Drop request body — could contain scenario JSON
+          if (event.request) { delete event.request.data; delete event.request.cookies; }
+          // Drop breadcrumb data fields that may carry payloads
+          if (event.breadcrumbs) {
+            event.breadcrumbs = event.breadcrumbs.map(function(b){
+              if (b.data) {
+                delete b.data.body;
+                delete b.data.response;
+              }
+              return b;
+            });
+          }
+        } catch(_e){}
+        return event;
+      },
+      integrations: [
+        Sentry.browserTracingIntegration ? Sentry.browserTracingIntegration() : null
+      ].filter(Boolean)
+    });
+    // Tag the release so admin can see which deploy a bug came from.
+    Sentry.setTag('app', 'ctg-finance-hub');
+  };
+  s.onerror = function(){ /* fail silently — Sentry should never block the app */ };
+  document.head.appendChild(s);
+})();
+</script>
 <!-- ────────────────────────────────────────────────────────────────
      Factory-reset trigger (CTG admin tool).
      ────────────────────────────────────────────────────────────────
