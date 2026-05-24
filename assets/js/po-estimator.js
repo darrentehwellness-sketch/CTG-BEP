@@ -310,55 +310,45 @@ function suggestSplits(state, maxOutflowPerBatch){
    letter the user shared (RM 646,400 across 6 SKUs).
    ───────────────────────────────────────────────────────────── */
 function defaultPoState(){
+  // Clean blank slate — no sample SKUs, no fake supplier, no fake forecast.
+  // Every user starts from zero and types in their own real PO.
+  // Industry-norm payment terms (30/70/30 days) are kept as a starting
+  // point because they're commercial defaults, not user-specific data.
   return {
-    poNumber:        'PO-2026-001',
+    poNumber:        '',
     poDate:          new Date().toISOString().slice(0,10),
     buyingEntityId:  '',
     supplierId:      '',
-    supplierName:    'IPOCARE Sdn Bhd',
+    supplierName:    '',
     currency:        'MYR',
     fxRate:          1,
     leadTimeWeeks:   8,
-    notes:           'Sample seed from IPOCARE acknowledgement letter. Edit any cell to recompute.',
+    notes:           '',
 
+    // One empty line so the table is editable from the first click.
+    // User can hit "Add Line" to add more.
     lines: [
-      { sku:'IPILESE30',  name:'I-ProCare, iLady Nutri-Energy Scalp Essence, 30ml',   moq:1660, qty:5000,  unitPrice:5.00,  sellPrice:15.00, remark:'' },
-      { sku:'IPILESE120', name:'I-ProCare, iLady Nutri-Energy Scalp Essence, 120ml',  moq:410,  qty:20000, unitPrice:13.00, sellPrice:38.00, remark:'Split into 5 POs, 4000 pcs each' },
-      { sku:'IPILBSE30',  name:'I-ProCare, iLady Nutri-Booster Scalp Essence, 30ml',  moq:1660, qty:5000,  unitPrice:5.20,  sellPrice:15.50, remark:'' },
-      { sku:'IPILBE120',  name:'I-ProCare, iLady Nutri-Booster Scalp Essence, 120ml', moq:410,  qty:20000, unitPrice:15.00, sellPrice:42.00, remark:'Split into 5 POs, 4000 pcs each' },
-      { sku:'IPILHL300',  name:'I-ProCare, iLady Hair Loss Expert Care Shampoo, 300ml', moq:530, qty:3000, unitPrice:8.20, sellPrice:25.00, remark:'' },
-      { sku:'IPILPM200',  name:'I-ProCare, iLady Protein Mask, 200ml',                  moq:1200, qty:1200, unitPrice:9.00, sellPrice:28.00, remark:'' }
+      { sku:'', name:'', moq:0, qty:0, unitPrice:0, sellPrice:0, remark:'' }
     ],
 
     depositPct:       30,
     balancePct:       70,
     creditDays:       30,
     importDutyPct:    0,
-    forwardingFee:    5000,
+    forwardingFee:    0,
     fxBufferPct:      0,
 
-    channels: [
-      { name:'D2C',         sharePct:60, paymentDays:0 },
-      { name:'Reseller',    sharePct:30, paymentDays:60 },
-      { name:'Marketplace', sharePct:10, paymentDays:14 }
-    ],
+    // Channels structure preserved for engine compatibility, but blanked.
+    // The UI doesn't show this section anymore — kept for backward compat
+    // with older saved scenarios.
+    channels: [],
 
-    // Front-loaded sell-through across 12 months (rough plausibility curve
-    // — user edits per-SKU after picking real cadence)
-    forecast: {
-      'IPILESE30':  [0,0,200,500,800,800,700,600,500,400,300,200],
-      'IPILESE120': [0,0,500,1500,2500,3000,3000,2500,2000,1500,1000,500],
-      'IPILBSE30':  [0,0,200,500,800,800,700,600,500,400,300,200],
-      'IPILBE120':  [0,0,500,1500,2500,3000,3000,2500,2000,1500,1000,500],
-      'IPILHL300':  [0,0,100,300,400,500,400,400,300,300,200,100],
-      'IPILPM200':  [0,0,50,100,150,200,200,150,100,100,80,70]
-    },
+    // Empty forecast — user fills in real sell-through per SKU.
+    forecast: {},
     forecastMonths: 12,
 
-    splitThresholdMyr: 50000,     // for the Split Helper
-    // Starting bank balance (MYR) — the cash you have NOW, before
-    // committing to this PO. Drives the before/after cash position
-    // calculation. Default 0 = user enters their actual balance.
+    splitThresholdMyr: 50000,
+    // Starting bank balance (MYR) — user enters their actual balance.
     startingBankBalance: 0
   };
 }
