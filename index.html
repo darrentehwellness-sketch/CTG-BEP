@@ -354,6 +354,34 @@
     color:#cbd5e1;font-size:13px;font-weight:600;
   }
   #viewerBanner .vi-ic{font-size:16px;line-height:1;}
+  /* ===== Idle Session Warning Toast =====
+     Floats fixed at bottom-right when the user is approaching idle
+     timeout. Has a "Stay signed in" button that resets the timer. */
+  #idleWarning{
+    position:fixed;bottom:24px;right:24px;z-index:9999;
+    display:flex;align-items:center;gap:14px;
+    padding:14px 18px;max-width:380px;
+    background:linear-gradient(135deg,rgba(232,93,60,.15),rgba(7,13,23,.92));
+    border:1px solid rgba(232,93,60,.45);border-radius:14px;
+    box-shadow:0 14px 40px rgba(0,0,0,.55), 0 0 0 1px rgba(232,93,60,.20);
+    backdrop-filter:blur(12px);
+    animation:idleSlideIn .35s ease-out;
+  }
+  @keyframes idleSlideIn{
+    from{opacity:0;transform:translateX(40px);}
+    to  {opacity:1;transform:translateX(0);}
+  }
+  #idleWarning .iw-ic{font-size:22px;line-height:1;flex-shrink:0;}
+  #idleWarning .iw-body{flex:1;min-width:0;}
+  #idleWarning .iw-title{color:#fff;font-weight:700;font-size:13px;margin-bottom:2px;}
+  #idleWarning .iw-sub{color:var(--text-soft);font-size:11.5px;line-height:1.4;}
+  #idleWarning .iw-cta{
+    padding:8px 14px;border:none;border-radius:8px;
+    background:var(--coral);color:#fff;font-weight:700;font-size:12px;
+    cursor:pointer;white-space:nowrap;flex-shrink:0;
+    transition:filter .15s;
+  }
+  #idleWarning .iw-cta:hover{filter:brightness(1.1);}
   .sidebar-profile .ent{
     color:var(--text-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
     font-size:10px;
@@ -5360,6 +5388,10 @@ const I18N = {
     account_deactivated:"Your account has been deactivated. Please contact your admin.",
     force_pw_blocked:"You must set a new password before continuing.",
     force_pw_banner:"Your administrator requires you to set a new password before continuing.",
+    idle_warn_title:"Session expiring soon",
+    idle_warn_sub:"You'll be signed out in 5 minutes due to inactivity.",
+    idle_warn_cta:"Stay signed in",
+    idle_signed_out:"You were signed out after 30 minutes of inactivity. Please sign in again.",
     users_entity_label:"Assigned entity", users_entity_none:"— No entity —",
     users_entity_hint:"Normal users are locked to this entity when saving scenarios. Admins can pick any entity freely.",
     users_entities_label:"Assigned entities",
@@ -5587,6 +5619,10 @@ const I18N = {
     account_deactivated:"您的账号已被停用。请联系管理员。",
     force_pw_blocked:"必须设置新密码后才能继续。",
     force_pw_banner:"管理员要求您先设置新密码才能继续使用。",
+    idle_warn_title:"会话即将过期",
+    idle_warn_sub:"由于闲置, 您将在 5 分钟后被自动登出。",
+    idle_warn_cta:"继续使用",
+    idle_signed_out:"由于 30 分钟无操作, 您已被自动登出。请重新登录。",
     users_entity_label:"所属公司", users_entity_none:"— 不选 —",
     users_entity_hint:"普通用户保存方案时会锁定为此公司。管理员可任意选择。",
     users_entities_label:"所属公司（可多选）",
@@ -11929,6 +11965,110 @@ function _actExportCsv(){
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+/* ===================================================================
+   Idle Session Timeout
+   -------------------------------------------------------------------
+   30 minutes idle → auto sign-out.
+   25 minutes idle → toast warning with "Stay signed in" button.
+   Cross-tab synced via BroadcastChannel so any tab's activity counts.
+   Audit-logs `app.session_timeout` before signing out.
+   Only runs while the user is signed in.
+   =================================================================== */
+(function(){
+  const IDLE_MS         = 30 * 60 * 1000;   // 30 min → sign out
+  const WARN_MS         = 25 * 60 * 1000;   // 25 min → show warning
+  const CHECK_EVERY_MS  = 30 * 1000;        // poll every 30 sec
+  const ACTIVITY_THROTTLE_MS = 1000;        // coalesce activity events
+
+  let lastActivity = Date.now();
+  let warned = false;
+  let throttleUntil = 0;
+  let bc = null;
+
+  // Cross-tab sync — when ANY tab sees activity, all tabs reset.
+  try {
+    bc = new BroadcastChannel('ctg-idle-v1');
+    bc.onmessage = (e) => {
+      if(!e.data || typeof e.data.ts !== 'number') return;
+      if(e.data.ts > lastActivity){
+        lastActivity = e.data.ts;
+        if(warned) hideWarning();
+      }
+    };
+  } catch(_e){ /* BroadcastChannel unsupported — degrade gracefully */ }
+
+  function recordActivity(){
+    const now = Date.now();
+    if(now < throttleUntil) return;
+    throttleUntil = now + ACTIVITY_THROTTLE_MS;
+    lastActivity = now;
+    if(warned) hideWarning();
+    if(bc){ try { bc.postMessage({ ts: now }); } catch(_e){} }
+  }
+
+  function hideWarning(){
+    const el = document.getElementById('idleWarning');
+    if(el) el.remove();
+    warned = false;
+  }
+
+  function showWarning(){
+    if(warned) return;
+    if(document.getElementById('idleWarning')) return;
+    warned = true;
+    const el = document.createElement('div');
+    el.id = 'idleWarning';
+    el.setAttribute('role', 'alert');
+    el.innerHTML =
+      '<span class="iw-ic">⏰</span>'
+    + '<div class="iw-body">'
+    +   '<div class="iw-title">' + escapeHtml(t('idle_warn_title')) + '</div>'
+    +   '<div class="iw-sub">'   + escapeHtml(t('idle_warn_sub'))   + '</div>'
+    + '</div>'
+    + '<button type="button" class="iw-cta" id="idleStayBtn">' + escapeHtml(t('idle_warn_cta')) + '</button>';
+    document.body.appendChild(el);
+    document.getElementById('idleStayBtn').onclick = (e) => {
+      e.stopPropagation();
+      recordActivity();
+    };
+  }
+
+  async function timeoutSignOut(){
+    if(!CTG.HAS_SUPABASE || !CTG.isSignedIn()) return;
+    // Log first (we still have the JWT), then sign out.
+    try { await CTG.logActivity('session_timeout', { metadata: { idle_minutes: Math.round((Date.now() - lastActivity)/60000) } }); } catch(_e){}
+    try { await CTG.signOut(); } catch(_e){}
+    hideWarning();
+    try { showToast(t('idle_signed_out'), 'warn'); } catch(_e){}
+  }
+
+  function tick(){
+    // Only enforce when actually signed in.
+    if(!CTG.HAS_SUPABASE || !CTG.isSignedIn()){
+      if(warned) hideWarning();
+      return;
+    }
+    const idle = Date.now() - lastActivity;
+    if(idle >= IDLE_MS)        { timeoutSignOut(); }
+    else if(idle >= WARN_MS)   { showWarning(); }
+  }
+
+  // Activity events — listen passively, throttled inside recordActivity().
+  // Use capture phase so we count clicks even if a child element stops
+  // propagation (e.g. closing a modal).
+  ['mousedown','keydown','click','touchstart','scroll','wheel'].forEach(ev => {
+    document.addEventListener(ev, recordActivity, { passive: true, capture: true });
+  });
+  // Also count input — covers paste, autocomplete, etc. that don't fire keydown.
+  document.addEventListener('input', recordActivity, { passive: true, capture: true });
+
+  // Tab focus re-baselines activity (mouse enter from another window doesn't fire here).
+  window.addEventListener('focus', recordActivity);
+
+  // Periodic check.
+  setInterval(tick, CHECK_EVERY_MS);
+})();
 
 init();
 </script>
