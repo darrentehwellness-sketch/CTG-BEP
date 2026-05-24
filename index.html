@@ -35,7 +35,7 @@
 <script src="assets/js/supabase-client.js?v=26"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
 <script src="assets/js/wht-calculator.js?v=17"></script>
-<script src="assets/js/po-estimator.js?v=8"></script>
+<script src="assets/js/po-estimator.js?v=9"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -9259,12 +9259,98 @@ function renderAll(){
   persist();
 }
 
+// ─── Surgical refresh: update only computed cells + footers, NEVER
+// rebuild input elements. Critical for preserving focus while the user
+// is typing — calling renderLines() rebuilds tbody.innerHTML which
+// destroys the input the user is currently in (kills focus mid-keystroke,
+// causing "cannot type continuously" bug).
+function refreshLineComputed(){
+  const tbody = document.getElementById('poLinesBody');
+  if(!tbody) return;
+  const t = P.computeTotals(poState);
+  // Update Ext Amt (col 7) + Margin (col 9) cells in each row without
+  // touching the input cells. Indexing: TD positions in renderLines are
+  //   0:No 1:SKU 2:Name 3:MOQ 4:Qty 5:UnitPrice 6:ExtAmt 7:SellPrice 8:Margin 9:Delete
+  const rows = tbody.querySelectorAll('tr');
+  rows.forEach((tr, i) => {
+    const line = t.lines[i]; if(!line) return;
+    const tds = tr.querySelectorAll('td');
+    if(tds[6]) tds[6].textContent = P.fmt(line.extAmt);
+    if(tds[8]) tds[8].textContent = P.fmt(line.margin) + '%';
+    // MOQ warning tint: paint the qty + moq inputs if order qty is
+    // below MOQ. Don't touch their values — user might be mid-typing.
+    const warn = !line.meetsMoq && line.qty > 0;
+    [tds[3], tds[4]].forEach(td => {
+      if(!td) return;
+      const inp = td.querySelector('input');
+      if(inp){
+        inp.style.background = warn ? 'rgba(232,93,60,.10)' : '';
+        inp.title = warn ? 'Below MOQ' : '';
+      }
+    });
+  });
+  // Footer totals
+  const fQty = document.getElementById('poLinesTotalQty');     if(fQty) fQty.textContent = P.fmt0(t.totalUnits);
+  const fCost = document.getElementById('poLinesTotalCost');   if(fCost) fCost.textContent = P.fmt(t.totalCost);
+  const fMargin = document.getElementById('poLinesAvgMargin');
+  if(fMargin){
+    const avg = t.totalRevenue > 0 ? ((t.totalRevenue - t.totalCost) / t.totalRevenue * 100) : 0;
+    fMargin.textContent = P.fmt(avg) + '%';
+  }
+  // Header total
+  const ccy = poState.currency || 'MYR';
+  const hTot = document.getElementById('poHeaderTotal');
+  if(hTot) hTot.textContent = ccy + ' ' + P.fmt(t.totalCost);
+  const hSub = document.getElementById('poHeaderTotalSub');
+  if(hSub) hSub.textContent = 'Σ Order Qty × Unit Price across ' + t.lines.length + ' lines (' + ccy + ')';
+}
+
+// ─── Surgical refresh: update only the Σ Units column + monthly footer
+// totals in the forecast grid. Doesn't touch the per-cell month inputs
+// the user might be typing in.
+function refreshForecastTotals(){
+  const body = document.getElementById('poForecastBody');
+  const foot = document.getElementById('poForecastFoot');
+  if(!body || !foot) return;
+  const t = P.computeTotals(poState);
+  const months = Math.max(3, Math.min(24, Number(poState.forecastMonths) || 12));
+  const rows = body.querySelectorAll('tr');
+  rows.forEach((tr, ri) => {
+    const line = t.lines[ri]; if(!line) return;
+    const fc = (poState.forecast && poState.forecast[line.sku]) || [];
+    let total = 0;
+    for(let m = 0; m < months; m++) total += Number(fc[m]) || 0;
+    const tds = tr.querySelectorAll('td');
+    // Σ Units is the 2nd-to-last cell; Order Qty is the last cell
+    const sumTd = tds[tds.length - 2];
+    const qtyTd = tds[tds.length - 1];
+    if(sumTd) sumTd.textContent = P.fmt0(total);
+    if(qtyTd){
+      const qty = Number(line.qty) || 0;
+      const remaining = qty - total;
+      qtyTd.style.color = remaining > 0 ? 'var(--coral-soft)' : remaining < 0 ? 'var(--success)' : 'var(--text-soft)';
+      qtyTd.title = remaining > 0 ? remaining+' units unforecast' : remaining < 0 ? Math.abs(remaining)+' units overforecast' : 'Matches order qty';
+      qtyTd.textContent = P.fmt0(qty);
+    }
+  });
+  // Footer: monthly column totals across SKUs
+  const fTds = foot.querySelectorAll('tr td.num');
+  fTds.forEach((td, m) => {
+    let sum = 0;
+    t.lines.forEach(line => {
+      const fc = (poState.forecast && poState.forecast[line.sku]) || [];
+      sum += Number(fc[m]) || 0;
+    });
+    td.textContent = P.fmt0(sum);
+  });
+}
+
 // ─── Surgical refresh: just numbers, keeps inputs intact
 function refreshNumbers(){
-  renderLines();   // line ext amts + margins
-  renderForecast();// monthly totals row
-  renderCashFlow();// KPIs + monthly table
-  renderCharts();  // chart redraw
+  refreshLineComputed();   // line ext amts + margins (no input rebuild)
+  refreshForecastTotals(); // forecast Σ Units + monthly totals (no input rebuild)
+  renderCashFlow();        // KPIs + monthly table (no inputs in this section)
+  renderCharts();          // chart redraw
   persist();
 }
 
@@ -9386,8 +9472,10 @@ document.addEventListener('input', e => {
     persist();
     renderCashFlow();
     renderCharts();
-    // Surgical foot total update
-    renderForecast();
+    // Surgical refresh only — DO NOT call renderForecast() here, that
+    // rebuilds the entire forecast grid and destroys the input cell the
+    // user is typing in (causes "cannot continuously type" bug).
+    refreshForecastTotals();
     return;
   }
 });
