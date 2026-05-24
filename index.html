@@ -35,7 +35,7 @@
 <script src="assets/js/supabase-client.js?v=26"></script>
 <script src="assets/js/pnl-converter.js?v=14"></script>
 <script src="assets/js/wht-calculator.js?v=17"></script>
-<script src="assets/js/po-estimator.js?v=6"></script>
+<script src="assets/js/po-estimator.js?v=7"></script>
 <script>
   // Dark theme defaults for Chart.js
   window.addEventListener('DOMContentLoaded',()=>{
@@ -3677,13 +3677,9 @@
           <div class="note" style="margin-top:6px;font-size:11px;">Your CTG company placing the order. Manage list under Admin → Entities.</div>
         </div>
         <div class="input-group">
-          <label>Supplier</label>
-          <select id="poSupplier" style="width:100%;padding:11px 14px;border:1px solid var(--border-strong);border-radius:8px;background:rgba(7,13,23,.6);color:var(--text);font:inherit;">
-            <option value="">— Select supplier —</option>
-            <option value="__custom__">— Type custom name —</option>
-          </select>
-          <input type="text" id="poSupplierCustom" placeholder="e.g. IPOCARE Sdn Bhd" style="margin-top:8px;display:none;"/>
-          <div class="note" style="margin-top:6px;font-size:11px;">Pick a managed supplier to auto-fill currency/lead time/payment terms, OR type any custom name for a one-off PO. Manage saved list under Admin → Suppliers.</div>
+          <label>Supplier Name *</label>
+          <input type="text" id="poSupplierName" placeholder="e.g. IPOCARE Sdn Bhd" autocomplete="off"/>
+          <div class="note" style="margin-top:6px;font-size:11px;">Type the supplier / vendor name for this PO.</div>
         </div>
         <div class="input-group">
           <label>PO Number</label>
@@ -8937,14 +8933,12 @@ function persist(){ P.saveLocal(poState); }
 function num(id){ const el = document.getElementById(id); return el ? Math.max(0, Number(el.value)||0) : 0; }
 function val(id){ const el = document.getElementById(id); return el ? el.value : ''; }
 
-// ─── Populate Buying Entity + Supplier dropdowns.
-// `_entitiesCache` and `_suppliersCache` are top-level `let`s, lexically
-// accessible from this nested IIFE. If they haven't been populated yet
-// (e.g. user offline / signed out), fall back to empty arrays.
+// ─── Populate the Buying Entity dropdown only.
+// `_entitiesCache` is a top-level `let`, lexically accessible from this
+// nested IIFE. Fall back to empty array if not populated yet.
 function _safeCache(name){
   try {
-    if(name === '_entitiesCache')  return Array.isArray(_entitiesCache)  ? _entitiesCache  : [];
-    if(name === '_suppliersCache') return Array.isArray(_suppliersCache) ? _suppliersCache : [];
+    if(name === '_entitiesCache') return Array.isArray(_entitiesCache) ? _entitiesCache : [];
   } catch(_e){}
   return [];
 }
@@ -8956,35 +8950,8 @@ function populateDropdowns(){
       active.map(e => '<option value="'+e.id+'">'+escapeHtml(e.name)+'</option>').join('');
     ent.value = poState.buyingEntityId || '';
   }
-  const sup = document.getElementById('poSupplier');
-  const customInp = document.getElementById('poSupplierCustom');
-  if(sup){
-    const active = _safeCache('_suppliersCache').filter(s => s.is_active !== false);
-    sup.innerHTML = '<option value="">— Select supplier —</option>' +
-      active.map(s => '<option value="'+s.id+'">'+escapeHtml(s.name)+'</option>').join('') +
-      '<option value="__custom__">— Type custom name —</option>';
-
-    // Decide what to select based on current state:
-    //   - supplierId set + matches a cached supplier → pick that option
-    //   - supplierName set but no ID match → custom mode, show input
-    //   - both blank → no selection
-    const matched = poState.supplierId
-      ? active.find(s => String(s.id) === String(poState.supplierId))
-      : null;
-    if(matched){
-      sup.value = poState.supplierId;
-      if(customInp){ customInp.style.display = 'none'; }
-    } else if(poState.supplierName){
-      sup.value = '__custom__';
-      if(customInp){
-        customInp.style.display = '';
-        if(document.activeElement !== customInp) customInp.value = poState.supplierName;
-      }
-    } else {
-      sup.value = '';
-      if(customInp){ customInp.style.display = 'none'; }
-    }
-  }
+  // Supplier is now a plain text input — its value is synced separately
+  // by the input handler. No dropdown to populate.
 }
 
 // ─── Render the Line Items table
@@ -9225,6 +9192,7 @@ function renderAll(){
   // Sync header inputs from state (don't fight active focus)
   const setV = (id, v) => { const el = document.getElementById(id); if(el && document.activeElement !== el) el.value = v ?? ''; };
   setV('poNumber',       poState.poNumber);
+  setV('poSupplierName', poState.supplierName);
   setV('poDate',         poState.poDate);
   setV('poCurrency',     poState.currency || 'MYR');
   setV('poFxRate',       poState.fxRate ?? 1);
@@ -9288,63 +9256,21 @@ function refreshNumbers(){
   });
 });
 
-// ─── Buying Entity / Supplier select handlers (auto-fill supplier defaults)
+// ─── Buying Entity select handler
 document.addEventListener('change', e => {
   if(e.target.id === 'poBuyingEntity'){
     poState.buyingEntityId = e.target.value || '';
     persist();
     return;
   }
-  if(e.target.id === 'poSupplier'){
-    const v = e.target.value;
-    const customInp = document.getElementById('poSupplierCustom');
-    if(v === '__custom__'){
-      // Custom mode — reveal text input, clear supplier ID,
-      // keep any previously typed/picked name as a starting point
-      poState.supplierId = '';
-      if(customInp){
-        customInp.style.display = '';
-        // Focus the input so user can start typing immediately
-        setTimeout(() => { customInp.focus(); customInp.select && customInp.select(); }, 0);
-      }
-      persist();
-      return;
-    }
-    if(v === ''){
-      // Cleared
-      poState.supplierId = '';
-      poState.supplierName = '';
-      if(customInp){ customInp.style.display = 'none'; customInp.value = ''; }
-      persist();
-      renderAll();
-      return;
-    }
-    // Picked a managed supplier by ID — copy all defaults
-    poState.supplierId = v;
-    const cache = _safeCache('_suppliersCache');
-    const sup = cache.find(s => String(s.id) === String(v));
-    if(sup){
-      poState.supplierName  = sup.name || '';
-      poState.currency      = sup.base_currency || 'MYR';
-      poState.leadTimeWeeks = Number(sup.default_lead_time_weeks) || 8;
-      poState.depositPct    = Number(sup.default_deposit_pct) || 30;
-      poState.balancePct    = Number(sup.default_balance_pct) || 70;
-      poState.creditDays    = Number(sup.default_credit_days) || 0;
-      poState.importDutyPct = Number(sup.default_import_duty_pct) || 0;
-      poState.forwardingFee = Number(sup.default_forwarding_fee) || 0;
-      if(customInp){ customInp.style.display = 'none'; }
-      renderAll();
-      showToast('Supplier defaults loaded: '+sup.name, 'success');
-      return;
-    }
-    persist();
-  }
 });
 
-// Custom supplier name input handler
+// ─── Supplier name input — plain text, user types directly
 document.addEventListener('input', e => {
-  if(e.target.id !== 'poSupplierCustom') return;
+  if(e.target.id !== 'poSupplierName') return;
   poState.supplierName = e.target.value;
+  // Drop the legacy supplierId — no longer linked to managed list
+  poState.supplierId = '';
   persist();
 });
 
