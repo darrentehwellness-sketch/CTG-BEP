@@ -5499,6 +5499,7 @@
             <option value="app.session_timeout">Session timeout</option>
             <option value="app.activity_log_migrate">Activity log migration</option>
             <option value="app.scenarios_migrate">Scenarios migration</option>
+            <option value="app.retention_purge">🗑 Retention auto-purge</option>
           </select>
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;min-width:180px;">
@@ -5714,7 +5715,7 @@ const I18N = {
     act_filter_when:"Time window", act_filter_action:"Action", act_filter_entity:"Entity", act_filter_user:"Search by email",
     act_refresh:"↻ Refresh", act_export:"⬇ Export CSV",
     act_kpi_events:"Events", act_kpi_users:"Active users", act_kpi_logins:"Sign-ins", act_kpi_writes:"Data changes",
-    act_footnote:"Showing up to 500 most recent events in the selected window. History is append-only — no row can be edited or deleted via the UI.",
+    act_footnote:"Showing up to 500 most recent events in the selected window. History is append-only — no row can be edited or deleted via the UI. Events older than 90 days are auto-purged daily for compliance.",
     page_sub_activity:"Append-only audit trail — logins, data changes, role updates, entity assignments",
     nav_sec_bep:"Exhibition BEP", nav_sec_account:"Account", nav_sec_admin:"Settings",
     nav_sec_ecomm:"Product Calculator", tab_pcalc:"Product Costing Calculator",
@@ -6056,7 +6057,7 @@ const I18N = {
     act_filter_when:"时间范围", act_filter_action:"操作", act_filter_entity:"公司", act_filter_user:"搜索邮箱",
     act_refresh:"↻ 刷新", act_export:"⬇ 导出 CSV",
     act_kpi_events:"事件数", act_kpi_users:"活跃用户", act_kpi_logins:"登录次数", act_kpi_writes:"数据变更",
-    act_footnote:"显示所选时间范围内最近 500 条事件。日志不可修改或删除。",
+    act_footnote:"显示所选时间范围内最近 500 条事件。日志不可修改或删除。超过 90 天的事件每日自动清理 (合规要求)。",
     page_sub_activity:"只读审计日志 — 登录、数据变更、角色调整、公司分配",
     nav_sec_bep:"损益平衡计算器", nav_sec_account:"账户", nav_sec_admin:"设置",
     nav_sec_ecomm:"电商", tab_pcalc:"产品成本 & ROAS",
@@ -12995,7 +12996,8 @@ function _actActionLabel(a){
     'app.js_unhandled_rejection':'⚠ Unhandled promise rejection',
     'app.session_timeout':'⏰ Session timeout',
     'app.activity_log_migrate':'📦 Activity log migration',
-    'app.scenarios_migrate':'📦 Scenarios migration'
+    'app.scenarios_migrate':'📦 Scenarios migration',
+    'app.retention_purge':'🗑 Retention auto-purge'
   };
   return map[a] || a;
 }
