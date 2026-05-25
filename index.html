@@ -3840,6 +3840,26 @@
   @media (prefers-reduced-motion: reduce){
     button:hover, button:active{ transform:none; }
   }
+  /* ── 12. Exemptions — small accessory controls kept at their
+     designed sizes. The 44px floor exists for primary actions; tiny
+     icon-only utility buttons read as "ovals" if force-stretched.
+     Each of these has been audited to be a small fixed-dimension
+     control that should NOT inflate. */
+  .accent-swatch,            /* Settings → color picker chips */
+  .auth-close,               /* Auth modal close X */
+  .pc-sku-btn,               /* Product Costing → SKU icon button */
+  .wht-dp-nav,               /* WHT date picker month/year nav */
+  .wht-dp-del{               /* WHT payee delete icon */
+    min-height:unset !important;
+    min-width:unset !important;
+    padding:0 !important;
+  }
+  /* Restore each one's intended size since the resets above lose them */
+  .accent-swatch{ width:30px !important; height:30px !important; }
+  .auth-close   { width:30px !important; height:30px !important; }
+  .pc-sku-btn   { width:24px !important; height:24px !important; }
+  .wht-dp-nav   { width:30px !important; height:30px !important; }
+  .wht-dp-del   { width:26px !important; height:26px !important; }
   /* ════════════════════ END ERGONOMIC PASS v4 ═════════════════════ */
 
   /* ════════════════════════════════════════════════════════════════
