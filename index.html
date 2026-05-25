@@ -10341,6 +10341,10 @@ function pcEnsureChannels(){ /* no-op in v2 */ }
     }
     // 4 total tiles at the bottom of the card.
     // Tile 0 = Subtotal Net (WHT base per LHDN PR 11/2018).
+    // BUGFIX: `tiles` was previously referenced without being declared,
+    // throwing ReferenceError on every refresh. Captured by the in-app
+    // error tracker (activity_log → app.js_error) — see commit log.
+    const tiles = card.querySelectorAll('.wht-totals .box');
     if(tiles[0]){
       const v = tiles[0].querySelector('.value'); if(v) v.textContent = W.fmt(c.subtotal.net);
     }
