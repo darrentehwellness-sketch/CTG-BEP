@@ -358,43 +358,61 @@
     transition:width .25s ease;
   }
 
-  /* ----- Collapse toggle ----- */
+  /* ----- Collapse toggle — premium glass-morphism handle ----- */
   .sidebar-toggle{
-    position:absolute;top:18px;right:-16px;
-    /* Override ergonomic button min-height so this stays perfectly
-       circular — it's a small accessory control, not a primary action. */
-    width:32px !important;height:32px !important;
-    min-width:32px !important;min-height:32px !important;
+    position:absolute;top:20px;right:-17px;
+    /* Override ergonomic button min-height — this is an accessory
+       control, not a primary CTA. Square 34px = perfect circle. */
+    width:34px !important;height:34px !important;
+    min-width:34px !important;min-height:34px !important;
     padding:0 !important;
     border-radius:50%;
-    background:linear-gradient(135deg,#1F3A5F 0%,#0C1421 100%);
-    color:var(--text-soft);
-    border:1px solid rgba(232,93,60,.30);
+    /* Glass morphism: dark translucent + heavy blur to pick up
+       whatever's behind it. Looks luxurious on dark dashboards. */
+    background:
+      radial-gradient(circle at 30% 30%, rgba(232,93,60,.18) 0%, transparent 60%),
+      linear-gradient(135deg, rgba(20,30,46,.92) 0%, rgba(7,13,23,.92) 100%);
+    backdrop-filter:blur(14px) saturate(160%);
+    -webkit-backdrop-filter:blur(14px) saturate(160%);
+    color:#fff;
+    /* Hairline border — barely visible white edge for definition */
+    border:1px solid rgba(255,255,255,.10);
     cursor:pointer;display:flex;align-items:center;justify-content:center;
+    /* Multi-layer shadow: floating drop, ambient coral halo, dark
+       ring to isolate from sidebar edge, inset gloss highlight */
     box-shadow:
-      0 4px 14px rgba(0,0,0,.55),
-      0 0 0 3px rgba(7,13,23,.85),       /* dark ring isolates from sidebar edge */
-      inset 0 1px 0 rgba(255,255,255,.06);
-    transition:transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s, border-color .2s;
+      0 8px 24px -4px rgba(0,0,0,.70),
+      0 0 22px -6px rgba(232,93,60,.30),     /* soft coral aura always on */
+      0 0 0 3px rgba(7,13,23,.80),
+      inset 0 1px 0 rgba(255,255,255,.14),
+      inset 0 -1px 0 rgba(232,93,60,.06);
+    transition:
+      transform .35s cubic-bezier(.34,1.56,.64,1),
+      box-shadow .25s ease-out,
+      border-color .25s;
     z-index:5;
   }
   .sidebar-toggle:hover{
-    color:#fff;
-    border-color:var(--coral);
-    background:linear-gradient(135deg,#2A4F7C 0%,#1F3A5F 100%);
+    transform:scale(1.08);
+    border-color:rgba(232,93,60,.55);
     box-shadow:
-      0 6px 18px rgba(232,93,60,.35),
+      0 12px 32px -4px rgba(0,0,0,.75),
+      0 0 32px -2px rgba(232,93,60,.55),     /* halo intensifies */
       0 0 0 3px rgba(7,13,23,.85),
-      inset 0 1px 0 rgba(255,255,255,.10);
+      inset 0 1px 0 rgba(255,255,255,.22),
+      inset 0 -1px 0 rgba(232,93,60,.12);
   }
-  .sidebar-toggle:active{ transform:scale(.92); }
+  .sidebar-toggle:active{ transform:scale(.94); transition-duration:.08s; }
   .sidebar-toggle .ic-toggle{
-    width:13px;height:13px;
-    transition:transform .25s ease-out;
+    width:14px;height:14px;
+    /* Chevron stroke gets a subtle drop shadow so it pops on the
+       gradient background regardless of underlying content */
+    filter:drop-shadow(0 1px 2px rgba(0,0,0,.6));
+    transition:transform .35s cubic-bezier(.34,1.56,.64,1);
   }
   .tabs.collapsed .sidebar-toggle .ic-toggle{transform:rotate(180deg);}
-  .sidebar-toggle:hover .ic-toggle{transform:translateX(-1px);}
-  .tabs.collapsed .sidebar-toggle:hover .ic-toggle{transform:rotate(180deg) translateX(-1px);}
+  .sidebar-toggle:hover .ic-toggle{transform:translateX(-2px) scale(1.05);}
+  .tabs.collapsed .sidebar-toggle:hover .ic-toggle{transform:rotate(180deg) translateX(-2px) scale(1.05);}
 
   /* ----- User profile card ----- */
   .sidebar-profile{
