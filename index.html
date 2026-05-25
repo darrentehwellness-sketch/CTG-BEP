@@ -3863,6 +3863,257 @@
   /* ════════════════════ END ERGONOMIC PASS v4 ═════════════════════ */
 
   /* ════════════════════════════════════════════════════════════════
+     ════════════ POLISH v5 — PROFESSIONAL SAAS REFINEMENT ═════════
+     Reference: Linear, Notion, Stripe Dashboard, Vercel.
+     Goal: refine the visual language without changing layout or
+     brand colors. Add the "small details that look expensive."
+     ════════════════════════════════════════════════════════════════ */
+
+  /* ── 1. Refined card — softer borders, subtler depth ──────────── */
+  .card{
+    border:1px solid rgba(255,255,255,.04);    /* near-invisible edge */
+    background:
+      linear-gradient(180deg, rgba(20,30,46,.50), rgba(7,13,23,.30));
+    box-shadow:
+      0 1px 0 rgba(255,255,255,.02) inset,
+      0 12px 32px -10px rgba(0,0,0,.50);
+  }
+  .card:hover{
+    border-color:rgba(232,93,60,.16);          /* subtle warm hint */
+    box-shadow:
+      0 1px 0 rgba(255,255,255,.04) inset,
+      0 18px 40px -10px rgba(0,0,0,.55),
+      0 0 0 1px rgba(232,93,60,.10);
+  }
+  .card h2{
+    font-size:14px;letter-spacing:.2px;
+    padding-bottom:12px;
+    border-bottom:1px solid rgba(255,255,255,.04);
+    color:rgba(255,255,255,.92);
+  }
+  .card h2 .ic{
+    width:28px;height:28px;border-radius:8px;
+    font-size:13px;
+    box-shadow:0 2px 8px rgba(232,93,60,.30);
+  }
+
+  /* ── 2. "Admin only" / category badges — refined pill design ─── */
+  .badge{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:3px 10px;
+    font-size:10.5px;font-weight:600;
+    letter-spacing:.4px;text-transform:uppercase;
+    border-radius:999px;
+    background:rgba(91,155,213,.10);
+    color:var(--sky-soft);
+    border:1px solid rgba(91,155,213,.18);
+  }
+  .badge::before{
+    content:'';width:6px;height:6px;border-radius:50%;
+    background:var(--sky);
+    box-shadow:0 0 8px rgba(91,155,213,.6);
+  }
+
+  /* ── 3. Role pills — dot indicator + tighter typography ───────── */
+  .pill{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:4px 11px;
+    font-size:11px;font-weight:600;
+    letter-spacing:.3px;
+    border-radius:999px;
+    line-height:1;
+  }
+  .pill::before{
+    content:'';width:6px;height:6px;border-radius:50%;
+    background:currentColor;
+    box-shadow:0 0 6px currentColor;
+    opacity:.85;
+  }
+
+  /* ── 4. Table polish — refined header + subtle row dividers ──── */
+  .table-wrap{
+    border-radius:12px;overflow:hidden;
+    border:1px solid rgba(255,255,255,.04);
+    background:rgba(7,13,23,.30);
+  }
+  .table-wrap table{
+    margin:0;border-collapse:separate;border-spacing:0;
+  }
+  .table-wrap table thead th,
+  .data-table thead th{
+    background:rgba(14,25,40,.60);
+    color:rgba(168,181,204,.85);
+    font-size:10.5px;font-weight:700;
+    letter-spacing:.8px;text-transform:uppercase;
+    padding:10px 14px;
+    border-bottom:1px solid rgba(255,255,255,.06);
+  }
+  .table-wrap table tbody td,
+  .data-table tbody td{
+    padding:11px 14px;
+    border-bottom:1px solid rgba(255,255,255,.025);
+    font-size:13px;
+  }
+  .table-wrap table tbody tr:last-child td,
+  .data-table tbody tr:last-child td{ border-bottom:none; }
+
+  /* ── 5. Empty state placeholder — replace dull "—" with soft visual ── */
+  .table-wrap td:empty::after,
+  .table-wrap td:only-child:not(:has(*))::after{
+    /* This is a no-op for cells that already have content */
+    content:none;
+  }
+  /* The "—" placeholder text gets a softer treatment */
+  .empty-row td{
+    text-align:center;color:rgba(168,181,204,.50);
+    font-style:normal;letter-spacing:.3px;
+    padding:36px 16px !important;
+  }
+
+  /* ── 6. Page header — typography hierarchy refinement ─────────── */
+  .page-header{
+    padding-bottom:18px;
+    margin-bottom:18px;
+    border-bottom:1px solid rgba(255,255,255,.04);
+  }
+  #pageHeader #pageHeaderTitle{
+    font-size:22px;
+    letter-spacing:-.4px;
+    margin:0 0 4px 0;
+  }
+  #pageHeader #pageHeaderSubtitle{
+    font-size:12.5px;
+    color:rgba(168,181,204,.65);
+    letter-spacing:.1px;
+    margin:0;
+  }
+
+  /* ── 7. Working Entity selector — premium chip ────────────────── */
+  .working-entity-pick{
+    padding:8px 14px;
+    background:linear-gradient(180deg, rgba(91,155,213,.06), rgba(91,155,213,.02));
+    border:1px solid rgba(91,155,213,.20);
+    border-radius:10px;
+    box-shadow:0 1px 0 rgba(255,255,255,.03) inset;
+    transition:all .2s ease-out;
+  }
+  .working-entity-pick:hover{
+    border-color:rgba(91,155,213,.40);
+    background:linear-gradient(180deg, rgba(91,155,213,.10), rgba(91,155,213,.04));
+    box-shadow:
+      0 1px 0 rgba(255,255,255,.06) inset,
+      0 4px 16px -4px rgba(91,155,213,.20);
+  }
+  .working-entity-label{
+    color:rgba(168,181,204,.85);
+    font-size:9.5px;
+    letter-spacing:.9px;
+  }
+
+  /* ── 8. Toolbar — softer container, less ostentatious ─────────── */
+  .toolbar{
+    padding:10px 12px;
+    background:linear-gradient(180deg, rgba(14,25,40,.50), rgba(7,13,23,.30));
+    border:1px solid rgba(255,255,255,.03);
+    border-radius:10px;
+    backdrop-filter:blur(6px);
+  }
+
+  /* ── 9. Notes / hints — typographic refinement ────────────────── */
+  .note, .ent-empty{
+    color:rgba(168,181,204,.55);
+    font-size:12px;line-height:1.5;
+    letter-spacing:.1px;
+  }
+
+  /* ── 10. Stat KPI tiles — Linear-style soft cards ─────────────── */
+  .kpi-tile, .kpi{
+    background:
+      linear-gradient(180deg, rgba(20,30,46,.55), rgba(7,13,23,.35));
+    border:1px solid rgba(255,255,255,.04);
+    border-radius:10px;
+    padding:14px 16px;
+    transition:border-color .2s ease-out;
+  }
+  .kpi-tile:hover, .kpi:hover{
+    border-color:rgba(232,93,60,.20);
+  }
+  .kpi-label, .kpi .label{
+    font-size:10.5px;
+    letter-spacing:.7px;
+    text-transform:uppercase;
+    color:rgba(168,181,204,.65);
+    margin-bottom:6px;
+    font-weight:600;
+  }
+
+  /* ── 11. Section dividers — subtle inset shadows ──────────────── */
+  hr{
+    border:none;
+    height:1px;
+    background:linear-gradient(90deg,
+      transparent,
+      rgba(255,255,255,.06) 20%,
+      rgba(255,255,255,.06) 80%,
+      transparent);
+    margin:20px 0;
+  }
+
+  /* ── 12. Auth modal & login gate — refined card edges ────────── */
+  .auth-card, .login-card{
+    border:1px solid rgba(255,255,255,.06) !important;
+    box-shadow:
+      0 1px 0 rgba(255,255,255,.04) inset,
+      0 24px 60px -12px rgba(0,0,0,.65),
+      0 0 60px -10px rgba(232,93,60,.12);
+  }
+
+  /* ── 13. Filter / search inputs — uniform field styling ────────── */
+  select, input[type="text"], input[type="email"], input[type="number"], input[type="date"], input[type="password"], textarea{
+    transition:border-color .15s ease-out, box-shadow .15s ease-out;
+  }
+
+  /* ── 14. Sidebar nav — slightly tighter, more refined ─────────── */
+  .tab-btn{
+    font-size:12.5px;
+    letter-spacing:.1px;
+  }
+  .tab-btn .ic{
+    opacity:.78;
+    transition:opacity .15s;
+  }
+  .tab-btn:hover .ic, .tab-btn.active .ic{ opacity:1; }
+
+  /* ── 15. Tab section toggles (sidebar groups) — refined caps ──── */
+  .tab-section-toggle{
+    font-size:10px;
+    letter-spacing:1.2px;
+    text-transform:uppercase;
+    color:rgba(168,181,204,.45);
+    font-weight:700;
+    padding:8px 14px 6px;
+  }
+  .tab-section-toggle:hover{ color:rgba(168,181,204,.75); }
+
+  /* ── 16. Form fields — premium feel ───────────────────────────── */
+  .auth-input, .auth-field input, .auth-field select, .auth-field textarea{
+    background:rgba(7,13,23,.55) !important;
+    border:1px solid rgba(255,255,255,.06) !important;
+    transition:border-color .15s, box-shadow .15s, background-color .15s;
+  }
+  .auth-input:hover, .auth-field input:hover, .auth-field select:hover{
+    border-color:rgba(255,255,255,.12) !important;
+  }
+  .auth-input:focus, .auth-field input:focus, .auth-field select:focus,
+  .auth-input:focus-visible, .auth-field input:focus-visible{
+    border-color:rgba(232,93,60,.50) !important;
+    background:rgba(7,13,23,.75) !important;
+    box-shadow:0 0 0 3px rgba(232,93,60,.12) !important;
+  }
+
+  /* ════════════════════ END POLISH PASS v5 ═════════════════════════ */
+
+  /* ════════════════════════════════════════════════════════════════
      Number input spinner — move arrows to the right edge so they
      don't overlap with the digits. Default WebKit behavior overlays
      the spinner ON TOP of the value when the input is narrow, which
