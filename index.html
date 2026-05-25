@@ -3674,6 +3674,131 @@
     .tab-btn.active{animation:none;}
   }
   /* ════════════════════ END POLISH PASS v3 ════════════════════════ */
+
+  /* ════════════════════════════════════════════════════════════════
+     ════════════ ERGONOMIC BUTTONS — POLISH v4 ════════════════════
+     Target spec:
+       • WCAG 2.5.5 (Level AAA) — minimum 44×44 CSS px tap target
+       • Apple Human Interface Guidelines — 44pt
+       • Material Design — 48dp on touch, 40px on desktop
+       • ISO 9241-410 — minimum 9.5mm pointing-device targets
+     ════════════════════════════════════════════════════════════════ */
+
+  /* ── 1. Base button — meet 44px tap target by default ─────────── */
+  button{
+    min-height:44px;                     /* WCAG 2.5.5 AAA */
+    padding:11px 20px;                   /* comfortable internal space */
+    font-size:13px;
+    line-height:1.2;
+    border-radius:10px;                  /* slightly rounder for friendlier feel */
+    cursor:pointer;
+    /* Prevent text selection on rapid double-click for clearer click intent */
+    user-select:none;-webkit-user-select:none;
+    /* iOS / Android tap-highlight removed (we have our own :active) */
+    -webkit-tap-highlight-color:transparent;
+    /* Better stacking + transition (smoother than the .2s default) */
+    transition:transform .12s ease-out, filter .15s, box-shadow .18s, background-color .15s;
+  }
+  button:hover{ transform:translateY(-1px); }
+  button:active{ transform:translateY(0) scale(.98); filter:brightness(.95); transition-duration:.06s; }
+
+  /* ── 2. Adjacent button spacing — never closer than 8px ───────── */
+  .toolbar, .add-row, .imp-actions, .imp-footer, .auth-actions{
+    gap:12px;                            /* up from 10px → fat-finger safe */
+  }
+  button + button{ margin-left:0; }      /* gap handles it; reset legacy margins */
+
+  /* ── 3. Icon-only buttons — preserve square 40×40 minimum ─────── */
+  /* Pattern: a button with <= 2 visible glyphs (✕, +, ↺, ↻) ends up tiny.
+     We don't have a class for these, so we target common ones in-context. */
+  .table-wrap td button,                 /* row action buttons */
+  .add-row button.ghost,
+  .scn-actions button,
+  button.icon-only{
+    min-width:40px;
+    min-height:40px;
+    padding:8px 12px;                    /* slightly less than .toolbar buttons */
+  }
+
+  /* ── 4. Tiny inline action chips inside data tables —
+     these are intentionally small (Edit / ✕). Keep them small but
+     still meet a 32px tap region via padding generosity. */
+  table button[style*="font-size:11"],
+  table button[style*="font-size:11px"],
+  td button.ghost[data-pcp-del],
+  td button.danger,
+  td button.ghost{
+    min-height:32px;                     /* row density vs ergonomics balance */
+    min-width:32px;
+  }
+
+  /* ── 5. Mobile / touch → bump to 48px per Material Design ─────── */
+  @media (pointer:coarse), (max-width:680px){
+    button{ min-height:48px; padding:13px 22px; font-size:14px; }
+    .toolbar, .add-row, .imp-actions, .imp-footer{ gap:14px; }
+    .table-wrap td button,
+    .add-row button.ghost,
+    .scn-actions button,
+    button.icon-only{ min-width:44px; min-height:44px; padding:10px 14px; }
+  }
+
+  /* ── 6. Visible focus ring — keyboard accessibility ───────────── */
+  button:focus-visible{
+    outline:3px solid rgba(232,93,60,.45);
+    outline-offset:2px;
+  }
+
+  /* ── 7. Disabled — distinctly inert but still readable ────────── */
+  button:disabled{
+    opacity:.50;
+    cursor:not-allowed;
+    transform:none !important;
+    filter:grayscale(.4);
+  }
+  button:disabled:hover{ transform:none; }
+
+  /* ── 8. Primary action emphasis — Save / Confirm buttons get a
+         slight outline glow so they're clearly the call-to-action. */
+  button.accent,
+  button.success,
+  button.navy{
+    font-weight:700;
+    letter-spacing:.2px;
+  }
+  button.accent:focus-visible,
+  button.success:focus-visible{
+    box-shadow:0 0 0 4px rgba(232,93,60,.25), 0 8px 20px rgba(0,0,0,.35);
+    outline:none;
+  }
+
+  /* ── 9. Ghost button hierarchy — clearer than before ──────────── */
+  button.ghost{
+    background:rgba(168,181,204,.06);
+    border:1px solid var(--border-strong);
+    color:var(--text);
+    font-weight:600;
+  }
+  button.ghost:hover{
+    background:rgba(232,93,60,.10);
+    border-color:rgba(232,93,60,.40);
+    color:#fff;
+  }
+
+  /* ── 10. Form submit buttons (auth) — extra height for trust ──── */
+  .auth-submit,
+  button.auth-submit{
+    min-height:50px;
+    font-size:14px;
+    padding:14px 24px;
+    font-weight:700;
+    letter-spacing:.3px;
+  }
+
+  /* ── 11. Reduce-motion — disable the slight transforms ────────── */
+  @media (prefers-reduced-motion: reduce){
+    button:hover, button:active{ transform:none; }
+  }
+  /* ════════════════════ END ERGONOMIC PASS v4 ═════════════════════ */
 </style>
 </head>
 <body>
