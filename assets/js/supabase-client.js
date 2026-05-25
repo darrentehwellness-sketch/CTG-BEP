@@ -522,6 +522,14 @@
     return data;
   }
 
+  // ─── Admin cross-entity dashboard — aggregate KPIs in one RPC
+  async function adminDashboardOverview() {
+    _ensureSb();
+    const { data, error } = await sb.rpc('admin_dashboard_overview');
+    if (error) throw error;
+    return data || {};
+  }
+
   // ─── Admin migration: bulk-restore historical activity_log rows
   async function adminImportActivityLog(rows) {
     _ensureSb();
@@ -587,6 +595,7 @@
     logActivity,
     listActivityLog,
     adminPurgeActivityLog,
+    adminDashboardOverview,
     adminImportActivityLog,
     adminImportScenarios,
     signOut,
