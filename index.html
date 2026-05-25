@@ -3799,6 +3799,40 @@
     button:hover, button:active{ transform:none; }
   }
   /* ════════════════════ END ERGONOMIC PASS v4 ═════════════════════ */
+
+  /* ════════════════════════════════════════════════════════════════
+     Number input spinner — move arrows to the right edge so they
+     don't overlap with the digits. Default WebKit behavior overlays
+     the spinner ON TOP of the value when the input is narrow, which
+     looks like "6500▴▾" with the arrows obscuring the number.
+     ════════════════════════════════════════════════════════════════ */
+  input[type="number"]{
+    /* Reserve room on the right for the spinner so digits stay readable. */
+    padding-right:26px !important;
+  }
+  /* Right-aligned numeric cells need the spinner pushed away from text */
+  td input[type="number"],
+  input[type="number"].num{
+    padding-right:24px !important;
+  }
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button{
+    -webkit-appearance:inner-spin-button;
+    opacity:1;
+    margin:0 -2px 0 6px;       /* push to far-right, leave gap from text */
+    height:100%;
+    cursor:pointer;
+    /* Subtle separator so spinner is visually distinct from digits */
+    border-left:1px solid rgba(168,181,204,.18);
+    background:linear-gradient(180deg, rgba(168,181,204,.06), rgba(7,13,23,.20));
+  }
+  input[type="number"]::-webkit-inner-spin-button:hover{
+    background:linear-gradient(180deg, rgba(232,93,60,.18), rgba(232,93,60,.08));
+  }
+  /* Firefox uses different arrows; reserve same padding but no spinner styling needed */
+  @-moz-document url-prefix(){
+    input[type="number"]{ padding-right:18px !important; }
+  }
 </style>
 </head>
 <body>
