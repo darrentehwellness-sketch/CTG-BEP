@@ -12736,7 +12736,7 @@ async function renderUsersTab(){
         <td>${entityLabel}</td>
         <td>${u.email_confirmed ? '<span class="pos">✓</span>' : '<span class="neg">✗</span>'}</td>
         <td style="color:var(--text-soft);font-size:12px;">${fmtDate(u.last_sign_in_at)}</td>
-        <td style="text-align:center;"><button class="ghost" data-user-edit="${u.id}" style="padding:4px 10px;font-size:11px;">${t('users_edit')}</button></td>
+        <td style="text-align:center;"><button class="ghost" data-user-edit="${u.user_id}" style="padding:4px 10px;font-size:11px;">${t('users_edit')}</button></td>
       </tr>`;
     }).join('');
   } catch (err) {
@@ -12748,7 +12748,7 @@ document.getElementById('btnRefreshUsers').addEventListener('click', renderUsers
 
 /* ===== Edit User modal ===== */
 function openUserEditModal(user){
-  document.getElementById('userEditId').value    = user.id;
+  document.getElementById('userEditId').value    = user.user_id;
   document.getElementById('userEditEmail').textContent = user.email || '';
   document.getElementById('userEditRole').value  = user.role || 'user';
   // New security flags (default-safe for missing fields)
@@ -12847,7 +12847,7 @@ document.addEventListener('click', e=>{
   if(e.target.closest('[data-user-edit-close]')) closeUserEditModal();
   const editId = e.target.dataset.userEdit;
   if(editId){
-    const user = _usersCache.find(x=>x.id===editId);
+    const user = _usersCache.find(x=>x.user_id===editId);
     if(user) openUserEditModal(user);
   }
 });
