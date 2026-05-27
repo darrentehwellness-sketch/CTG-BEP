@@ -7787,7 +7787,32 @@ document.getElementById('btnClear').onclick = ()=>{
 document.getElementById('btnSaveScenario').onclick = async ()=>{
   const name = document.getElementById('scenarioName').value.trim();
   if(!name){ alert(t('scn_need_name')); return; }
-  const entity_id = document.getElementById('scenarioEntity').value || null;
+  let entity_id = document.getElementById('scenarioEntity').value || null;
+  // entity_id is NOT NULL on the scenarios table — refuse to submit
+  // without one (admin viewing "All entities" might leave it blank).
+  // Try a few fallbacks before asking the user to pick:
+  //   1. Working Entity selector (header) if it points to a real entity
+  //   2. First entity in the cache (graceful default)
+  //   3. Show an actionable toast asking them to pick one
+  if(!entity_id){
+    const we = (typeof window.currentWorkingEntityId !== 'undefined') ? window.currentWorkingEntityId : null;
+    if(we && we !== 'all') entity_id = we;
+    else if(_entitiesCache && _entitiesCache.length){
+      const first = _entitiesCache.find(e => e.is_active !== false);
+      if(first){
+        entity_id = first.id;
+        // Reflect the auto-pick in the dropdown so user sees what we did
+        const sel = document.getElementById('scenarioEntity');
+        if(sel) sel.value = first.id;
+      }
+    }
+  }
+  if(!entity_id){
+    showToast((LANG === 'zh'
+      ? '请先在「方案归属公司」下拉框中选择一家公司，再保存。'
+      : 'Please pick an entity in the "Scenario entity" dropdown before saving.'), 'warn');
+    return;
+  }
   const btn = document.getElementById('btnSaveScenario');
   const color = SCENARIO_COLORS[scenarios.length % SCENARIO_COLORS.length];
   btn.disabled = true;
@@ -7798,8 +7823,12 @@ document.getElementById('btnSaveScenario').onclick = async ()=>{
     showToast(t('scn_saved'), 'success');
     renderCompare();
   } catch (err) {
-    console.error(err);
-    showToast(t('err_save'), 'error');
+    console.error('[saveScenario]', err);
+    // Surface the real reason instead of a generic "Try again." Empty
+    // entity_id (NOT NULL violation), RLS reject (user can't write
+    // here), and unique-name conflict are the three common cases.
+    const detail = (err && (err.message || err.error_description || err.error)) || '';
+    showToast(t('err_save') + (detail ? ' — ' + detail : ''), 'error');
   } finally {
     btn.disabled = false;
   }
