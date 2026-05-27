@@ -13532,7 +13532,28 @@ async function renderDashboardTab(){
       card.addEventListener('mouseleave', () => { card.style.borderColor = 'rgba(255,255,255,.04)'; card.style.transform = ''; });
       card.addEventListener('click', () => {
         const eid = card.dataset.entityId;
+        // Guard: confirm the entity still exists in the live cache.
+        // Between card render and click, admin could have deleted/deactivated
+        // the entity in another tab — using a dead id would create orphan state.
+        const entity = (typeof _entitiesCache !== 'undefined' && Array.isArray(_entitiesCache))
+          ? _entitiesCache.find(e => e.id === eid)
+          : null;
+        if(!entity){
+          if(typeof showToast === 'function'){
+            showToast((LANG === 'zh'
+              ? '该公司已不存在，正在刷新…'
+              : 'That entity no longer exists. Refreshing…'), 'warn');
+          }
+          renderDashboardTab();   // re-pull data, the stale card disappears
+          return;
+        }
         try { localStorage.setItem('ctg_working_entity_v1', eid); } catch(_e){}
+        // Sync the header's Working Entity selector visually so the rest of
+        // the app's state matches what the user just clicked. The dispatched
+        // event still wires up data refreshes via existing listeners.
+        const headerSel = document.getElementById('workingEntitySelect');
+        if(headerSel) headerSel.value = eid;
+        if(typeof window !== 'undefined') window.currentWorkingEntityId = eid;
         document.dispatchEvent(new CustomEvent('ctg-working-entity-changed', { detail:{ entityId: eid } }));
         if(typeof activateTab === 'function') activateTab('calc');
       });
