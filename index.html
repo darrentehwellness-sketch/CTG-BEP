@@ -4114,37 +4114,55 @@
   /* ════════════════════ END POLISH PASS v5 ═════════════════════════ */
 
   /* ════════════════════════════════════════════════════════════════
-     Number input spinner — move arrows to the right edge so they
-     don't overlap with the digits. Default WebKit behavior overlays
-     the spinner ON TOP of the value when the input is narrow, which
-     looks like "6500▴▾" with the arrows obscuring the number.
+     Number input spinner — for STANDALONE inputs (Working Entity
+     selector, PO Lead Time, Sales Target, etc.) we want the spinner
+     visible and styled. For TABLE-CELL inputs (Qty, MOQ, Unit Price)
+     the column is too narrow — the spinner eats the digit. So we
+     hide the spinner inside tables, keep it elsewhere.
      ════════════════════════════════════════════════════════════════ */
-  input[type="number"]{
-    /* Reserve room on the right for the spinner so digits stay readable. */
+
+  /* ── Standalone number inputs (outside tables) — styled spinner ── */
+  input[type="number"]:not(td input):not(.no-spinner){
     padding-right:26px !important;
   }
-  /* Right-aligned numeric cells need the spinner pushed away from text */
-  td input[type="number"],
-  input[type="number"].num{
-    padding-right:24px !important;
-  }
-  input[type="number"]::-webkit-inner-spin-button,
-  input[type="number"]::-webkit-outer-spin-button{
+  input[type="number"]:not(td input):not(.no-spinner)::-webkit-inner-spin-button,
+  input[type="number"]:not(td input):not(.no-spinner)::-webkit-outer-spin-button{
     -webkit-appearance:inner-spin-button;
     opacity:1;
-    margin:0 -2px 0 6px;       /* push to far-right, leave gap from text */
+    margin:0 -2px 0 6px;
     height:100%;
     cursor:pointer;
-    /* Subtle separator so spinner is visually distinct from digits */
     border-left:1px solid rgba(168,181,204,.18);
     background:linear-gradient(180deg, rgba(168,181,204,.06), rgba(7,13,23,.20));
   }
-  input[type="number"]::-webkit-inner-spin-button:hover{
+  input[type="number"]:not(td input):not(.no-spinner)::-webkit-inner-spin-button:hover{
     background:linear-gradient(180deg, rgba(232,93,60,.18), rgba(232,93,60,.08));
   }
-  /* Firefox uses different arrows; reserve same padding but no spinner styling needed */
+
+  /* ── Table-cell number inputs — hide spinner, give digits full width ── */
+  td input[type="number"],
+  input[type="number"].no-spinner{
+    /* No right padding needed — the spinner is gone. */
+    padding-right:8px !important;
+    -moz-appearance:textfield;           /* Firefox: hide spinner */
+  }
+  td input[type="number"]::-webkit-inner-spin-button,
+  td input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"].no-spinner::-webkit-inner-spin-button,
+  input[type="number"].no-spinner::-webkit-outer-spin-button{
+    /* Chrome / Safari / Edge: hide spinner */
+    -webkit-appearance:none;
+    appearance:none;
+    margin:0;
+    display:none;
+  }
+
+  /* Firefox standalone fallback (different padding since no spinner) */
   @-moz-document url-prefix(){
-    input[type="number"]{ padding-right:18px !important; }
+    input[type="number"]:not(td input):not(.no-spinner){
+      padding-right:18px !important;
+      -moz-appearance:textfield;
+    }
   }
 </style>
 </head>
