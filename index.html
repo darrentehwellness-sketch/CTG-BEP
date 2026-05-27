@@ -4654,7 +4654,8 @@
           <th style="width:70px;" data-i18n="th_qty">Qty</th>
           <th style="width:120px;" data-i18n="th_unit">Unit Price</th>
           <th style="width:120px;" data-i18n="th_amt">Amount (MYR)</th>
-          <th style="width:80px;" data-i18n="th_pct">% of Total</th>
+          <th style="width:80px;"  data-i18n="th_pct">% of Total</th>
+          <th style="width:90px;"  data-i18n="th_pct_sales">% of Sales</th>
           <th style="width:42px;"></th>
         </tr></thead>
         <tbody></tbody>
@@ -4662,15 +4663,18 @@
           <tr><td colspan="6" style="text-align:right;" data-i18n="tf_fix">Total Fixed Cost:</td>
               <td class="num" id="totFixed">—</td>
               <td class="num pct" id="totFixedPct">—</td>
+              <td class="num pct" id="totFixedPctSales">—</td>
               <td></td></tr>
           <tr><td colspan="6" style="text-align:right;" data-i18n="tf_var">Total Variable Cost:</td>
               <td class="num" id="totVar">—</td>
               <td class="num pct" id="totVarPct">—</td>
+              <td class="num pct" id="totVarPctSales">—</td>
               <td></td></tr>
           <tr style="border-top:1px solid var(--coral);">
               <td colspan="6" style="text-align:right;color:var(--coral-soft);font-weight:700;" data-i18n="tf_grand">Grand Total:</td>
               <td class="num" id="totGrand" style="color:#fff;font-weight:800;">—</td>
               <td class="num pct" style="color:var(--coral-soft);font-weight:800;">100.00%</td>
+              <td class="num pct" id="totGrandPctSales" style="color:var(--coral-soft);font-weight:800;">—</td>
               <td></td></tr>
         </tfoot>
       </table>
@@ -6540,7 +6544,7 @@ const I18N = {
     add_prod:"Add Product",
     cost_title:"Cost Structure", cost_badge:"Fixed / Variable / Product",
     cost_l_f:"incurred regardless of sales", cost_l_v:"scales with sales", cost_l_p:"inventory items",
-    th_cost_item:"Cost Item", th_cat:"Category", th_type:"Type", th_unit:"Unit Price", th_amt:"Amount (MYR)", th_pct:"% of Total", tf_grand:"Grand Total:",
+    th_cost_item:"Cost Item", th_cat:"Category", th_type:"Type", th_unit:"Unit Price", th_amt:"Amount (MYR)", th_pct:"% of Total", th_pct_sales:"% of Sales", tf_grand:"Grand Total:",
     tf_fix:"Total Fixed Cost:", tf_var:"Total Variable Cost:", tf_prod:"Total Product Cost (Inventory):",
     add_cost:"Add Cost Item", add_inv:"Add Inventory Row",
     be_calc_title:"Break-Even Point Calculation",
@@ -6766,7 +6770,7 @@ const I18N = {
     add_prod:"新增产品",
     cost_title:"成本结构", cost_badge:"固定/变动/产品",
     cost_l_f:"无论销售多少都会产生", cost_l_v:"随销售而变动", cost_l_p:"库存项目",
-    th_cost_item:"成本项目", th_cat:"类别", th_type:"类型", th_unit:"单价", th_amt:"金额 (MYR)", th_pct:"占比 %", tf_grand:"总计:",
+    th_cost_item:"成本项目", th_cat:"类别", th_type:"类型", th_unit:"单价", th_amt:"金额 (MYR)", th_pct:"占总成本 %", th_pct_sales:"占销售 %", tf_grand:"总计:",
     tf_fix:"总固定成本:", tf_var:"总变动成本:", tf_prod:"总产品成本（库存）:",
     add_cost:"新增成本项目", add_inv:"新增库存行",
     be_calc_title:"损益平衡点计算",
@@ -7238,22 +7242,28 @@ function renderProducts(){
 }
 function renderCosts(){
   const tbody = document.querySelector('#costTable tbody');
-  // Compute grand total first so each row can express itself as a % of it.
-  // We deliberately use Fixed+Variable combined (not per-type) so users
-  // can see "rent is 35% of ALL my costs" — the most intuitive read.
-  const grandTotal = state.costs.reduce((sum, c) =>
+  // Two denominators — % of total cost AND % of sales target:
+  //   • Grand Total = sum of all (qty × unit) → shows internal cost mix
+  //   • Sales Target = the revenue figure → shows cost-to-revenue ratio
+  //     (margin analysis — what % of revenue this expense eats)
+  const grandTotal  = state.costs.reduce((sum, c) =>
     sum + (Number(c.qty) || 0) * (Number(c.unit) || 0), 0);
+  const salesTarget = Number(state.salesTarget) || 0;
   tbody.innerHTML = state.costs.map((c,i)=>{
     const amt = (Number(c.qty)||0)*(Number(c.unit)||0);
     const pct = grandTotal > 0 ? (amt / grandTotal * 100) : 0;
+    const pctSales = salesTarget > 0 ? (amt / salesTarget * 100) : 0;
     // Type pill class: default to 'variable' for any unknown/legacy type so
     // the pill keeps a sensible color (was 'product' which is no longer
     // a selectable type and would mislead).
     const tc = c.type==='Fixed' ? 'fixed' : 'variable';
-    // Highlight large cost items so they jump out at a glance.
-    // ≥ 25% → coral (heavy), ≥ 10% → amber (notable), else neutral.
+    // Severity colour for "% of Total" — internal cost mix.
     const pctClass = pct >= 25 ? 'pct-heavy' : pct >= 10 ? 'pct-notable' : '';
-    const pctDisp  = grandTotal > 0 ? pct.toFixed(2) + '%' : '—';
+    // Severity colour for "% of Sales" — revenue-eaten signal. Stricter
+    // thresholds because anything > 10% of revenue per line is meaningful.
+    const pctSalesClass = pctSales >= 15 ? 'pct-heavy' : pctSales >= 5 ? 'pct-notable' : '';
+    const pctDisp      = grandTotal  > 0 ? pct.toFixed(2)      + '%' : '—';
+    const pctSalesDisp = salesTarget > 0 ? pctSales.toFixed(2) + '%' : '—';
     return `<tr>
       <td>${i+1}</td>
       <td><input type="text" value="${escapeHtml(c.item)}" data-ci="${i}" data-field="item"></td>
@@ -7264,6 +7274,7 @@ function renderCosts(){
       <td><input type="number" min="0" step="0.01" value="${c.unit}" data-ci="${i}" data-field="unit"></td>
       <td class="num">${fmt(amt)}</td>
       <td class="num pct ${pctClass}">${pctDisp}</td>
+      <td class="num pct ${pctSalesClass}">${pctSalesDisp}</td>
       <td class="action"><button data-del-cost="${i}">✕</button></td>
     </tr>`;
   }).join('');
@@ -7282,6 +7293,11 @@ function renderSummary(){
   setIfExists('totGrand',    fmt(grand));
   setIfExists('totFixedPct', grand > 0 ? (r.totalFixed    / grand * 100).toFixed(2) + '%' : '—');
   setIfExists('totVarPct',   grand > 0 ? (r.totalVariable / grand * 100).toFixed(2) + '%' : '—');
+  // Cost vs Sales Target — answers "what % of revenue do these costs eat?"
+  const sales = Number(state.salesTarget) || 0;
+  setIfExists('totFixedPctSales', sales > 0 ? (r.totalFixed    / sales * 100).toFixed(2) + '%' : '—');
+  setIfExists('totVarPctSales',   sales > 0 ? (r.totalVariable / sales * 100).toFixed(2) + '%' : '—');
+  setIfExists('totGrandPctSales', sales > 0 ? (grand            / sales * 100).toFixed(2) + '%' : '—');
   setIfExists('totProd',  fmt(r.totalProduct));   // legacy DOM no longer present — harmless
   setIfExists('kFixed',   fmt(r.totalFixed));
   setIfExists('kVar',     fmt(r.totalVariable));
@@ -7640,7 +7656,29 @@ function patchCostRowAmount(i){
 
 document.addEventListener('input', e=>{
   const tgt=e.target;
-  if(tgt.id==='salesTarget'){state.salesTarget=Number(tgt.value)||0; renderSummary(); return;}
+  if(tgt.id==='salesTarget'){
+    state.salesTarget=Number(tgt.value)||0;
+    // Refresh the cost-table % of Sales cells in-place — focus stays
+    // on the Sales Target input the user is currently typing in.
+    document.querySelectorAll('#costTable tbody tr').forEach((tr, i) => {
+      const c = state.costs[i]; if(!c) return;
+      const amt   = (Number(c.qty)||0)*(Number(c.unit)||0);
+      const cell  = tr.querySelectorAll('td.pct')[1];   // 2nd .pct cell = % of Sales
+      if(!cell) return;
+      if(state.salesTarget > 0){
+        const p = amt / state.salesTarget * 100;
+        cell.textContent = p.toFixed(2) + '%';
+        cell.classList.remove('pct-heavy','pct-notable');
+        if(p >= 15) cell.classList.add('pct-heavy');
+        else if(p >= 5) cell.classList.add('pct-notable');
+      } else {
+        cell.textContent = '—';
+        cell.classList.remove('pct-heavy','pct-notable');
+      }
+    });
+    renderSummary();
+    return;
+  }
   if(tgt.id==='actualSales'){state.actualSales=Number(tgt.value)||0; renderSummary(); return;}
 
   // ===== Product table =====
